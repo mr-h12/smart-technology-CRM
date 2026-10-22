@@ -6,6 +6,7 @@ namespace App\Modules\Notifications\Infrastructure;
 
 use App\Modules\Notifications\Domain\Contracts\AlertLedgerInterface;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Str;
 
 /** Module 16 (`D-153`) — the `alerts` table, written by the jobs that raise and clear alerts. */
@@ -64,5 +65,50 @@ final class DatabaseAlertLedger implements AlertLedgerInterface
 
             return ['raised' => $raised, 'cleared' => count($stale)];
         });
+    }
+
+    public function occurred(string $kind, string $subjectId, array $userIds, array $details): void
+    {
+        $this->connection->transaction(function () use ($kind, $subjectId, $userIds, $details): void {
+            $now = now();
+            $json = json_encode($details, JSON_THROW_ON_ERROR);
+
+            foreach (array_values(array_unique($userIds)) as $userId) {
+                $updated = $this->connection->table('alerts')
+                    ->where('user_id', $userId)->where('kind', $kind)->where('subject_id', $subjectId)->whereNull('cleared_at')
+                    ->update([
+                        'occurrences' => $this->connection->raw('occurrences + 1'),
+                        'details' => $json,
+                        'last_raised_at' => $now,
+                        'read_at' => null,
+                        'updated_at' => $now,
+                    ]);
+
+                if ($updated === 0) {
+                    $this->connection->table('alerts')->insert([
+                        'id' => (string) Str::uuid7(),
+                        'user_id' => $userId,
+                        'kind' => $kind,
+                        'subject_id' => $subjectId,
+                        'details' => $json,
+                        'occurrences' => 1,
+                        'first_raised_at' => $now,
+                        'last_raised_at' => $now,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+        });
+    }
+
+    public function clearAllBut(string $kind, array $stillTrue): int
+    {
+        $query = $this->connection->table('alerts')->where('kind', $kind)->whereNull('cleared_at');
+        if ($stillTrue !== []) {
+            $query->where(static fn (Builder $q): Builder => $q->whereNull('subject_id')->orWhereNotIn('subject_id', $stillTrue));
+        }
+
+        return $query->update(['cleared_at' => now(), 'updated_at' => now()]);
     }
 }

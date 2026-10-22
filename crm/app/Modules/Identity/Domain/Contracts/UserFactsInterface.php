@@ -78,4 +78,20 @@ interface UserFactsInterface
      * @return array<string, string> user id → leader id
      */
     public function teamLeadersOf(array $userIds): array;
+
+    /**
+     * Module 16 · 3 (`D-153`, `SEC-03`) — every active Super Admin, hidden included
+     * (§3.12 rule 6: hidden is not absent), never a deleted one.
+     *
+     * @return list<string>
+     */
+    public function superAdminIds(): array;
+
+    /**
+     * Module 16 · 3 (`D-153`) — the accounts whose lock is still in force now
+     * (`LockoutPolicy::isLocked`: an expired `locked_until` is no lock).
+     *
+     * @return list<string>
+     */
+    public function lockedUserIds(): array;
 }

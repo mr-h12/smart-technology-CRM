@@ -831,6 +831,16 @@ final class DealListEndpointTest extends TestCase
             {
                 return [];
             }
+
+            public function superAdminIds(): array
+            {
+                return [];
+            }
+
+            public function lockedUserIds(): array
+            {
+                return [];
+            }
         };
         $this->app->instance(UserFactsInterface::class, $fake);
 

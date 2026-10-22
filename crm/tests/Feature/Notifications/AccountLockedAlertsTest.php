@@ -11,7 +11,6 @@ use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Notifications\Application\ClearResolvedAlerts;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -47,16 +46,12 @@ final class AccountLockedAlertsTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
         Config::set('identity.lockout_minutes', 30);
         Notification::fake();
-        Carbon::setTestNow('2026-10-22 09:00:00');
+        // No `Carbon::setTestNow`: `AuthenticateUser` reads the real clock (a native
+        // `DateTimeImmutable`), so a lock "ends" here the way time ends it — its
+        // `locked_until` moved into the past.
 
         $this->superAdmin = $this->user(RoleName::SuperAdmin, 'super.admin@example.test');
         $this->target = $this->user(RoleName::IndoorSales, 'person@example.test');
-    }
-
-    protected function tearDown(): void
-    {
-        Carbon::setTestNow();
-        parent::tearDown();
     }
 
     public function test_that_a_lockout_alerts_every_active_super_admin_and_nobody_else(): void
@@ -90,7 +85,7 @@ final class AccountLockedAlertsTest extends TestCase
         DB::table('alerts')->update(['read_at' => now()]);
 
         // The lock ends; the counter is still at five (it resets on a success), so the next wrong password locks again.
-        Carbon::setTestNow('2026-10-22 09:40:00');
+        $this->endTheLock();
         $this->postJson('/api/v1/auth/login', ['email' => $this->target->email, 'password' => self::WRONG])->assertStatus(423);
 
         /** @var object{occurrences: int, read_at: string|null} $row */
@@ -106,7 +101,7 @@ final class AccountLockedAlertsTest extends TestCase
         $this->sweep();
         self::assertSame(1, DB::table('alerts')->where('kind', 'account_locked')->whereNull('cleared_at')->count());
 
-        Carbon::setTestNow('2026-10-22 09:31:00'); // past the 30-minute lock
+        $this->endTheLock();
         $this->sweep();
 
         self::assertSame(1, DB::table('alerts')->where('kind', 'account_locked')->count(), 'A cleared alert stays; nothing is deleted.');
@@ -134,6 +129,11 @@ final class AccountLockedAlertsTest extends TestCase
             $this->postJson('/api/v1/auth/login', ['email' => $this->target->email, 'password' => self::WRONG])->assertStatus(401);
         }
         $this->postJson('/api/v1/auth/login', ['email' => $this->target->email, 'password' => self::WRONG])->assertStatus(423);
+    }
+
+    private function endTheLock(): void
+    {
+        DB::table('users')->where('id', $this->target->id)->update(['locked_until' => now()->subMinute()]);
     }
 
     private function sweep(): void

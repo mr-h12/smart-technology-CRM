@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Infrastructure;
 
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\Role;
+use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use Illuminate\Database\ConnectionInterface;
 
 /**
@@ -100,6 +101,36 @@ final readonly class EloquentUserFacts implements UserFactsInterface
         }
 
         return $leaders;
+    }
+
+    public function superAdminIds(): array
+    {
+        /** @var list<string> $ids */
+        $ids = $this->connection->table('users')
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->whereNull('users.deleted_at')
+            ->where('users.is_active', true)
+            ->where('roles.slug', RoleName::SuperAdmin->value)
+            ->orderBy('users.id')
+            ->pluck('users.id')
+            ->map(static fn (mixed $id): string => is_string($id) ? $id : '')
+            ->all();
+
+        return $ids;
+    }
+
+    public function lockedUserIds(): array
+    {
+        /** @var list<string> $ids */
+        $ids = $this->connection->table('users')
+            ->whereNull('deleted_at')
+            ->where('locked_until', '>', now())
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn (mixed $id): string => is_string($id) ? $id : '')
+            ->all();
+
+        return $ids;
     }
 
     public function holdersOf(string $resource, string $action): array

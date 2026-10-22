@@ -1197,6 +1197,7 @@ The single reference list. All appear in **Queue Monitor** and **Scheduler**, wi
 | J-14 | `storage_threshold_check` | Daily | Alert when storage exceeds the limit | ❌ |
 | J-15 | `ensure_audit_partitions` | Daily | Create the coming months' `audit_log` partitions (`D-72`), arm each one's `TRUNCATE` guard, and fail loudly if the default partition holds a row | ❌ idempotent |
 | J-16 | `quotation_expiry_alerts` | Daily, at `J-01`'s time | Raise and clear the "quotation expiring soon" alerts (`D-153`) | ✅ |
+| J-17 | `clear_resolved_alerts` | Hourly | Clear the "account locked" alerts whose lock has ended and the "job failed" alerts whose job has no failure left (`D-153`; approved by the owner 2026-10-22, Module 16 · 3) | ❌ the next hour's run |
 
 ### 15.1 Queues by Priority
 

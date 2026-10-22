@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Dashboard\Presentation\RefreshDashboardAggregatesJob;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
+use App\Modules\Notifications\Presentation\ClearResolvedAlertsJob;
 use App\Modules\Notifications\Presentation\RaiseQuotationExpiryAlertsJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
 use App\Modules\Reports\Presentation\ArchiveOldReportsJob;
@@ -102,6 +103,12 @@ Schedule::job(new ArchiveOldReportsJob, QueueName::Maintenance->value)->daily();
 // onto `maintenance`, with its catch-up (`schedule:catch-up`), last on start so
 // J-01 has already expired what it should. The window is a setting, read inside the job.
 Schedule::job(new RaiseQuotationExpiryAlertsJob, QueueName::Maintenance->value)->daily();
+
+// J-17 clear_resolved_alerts (§15, D-153, Module 16 · 3; approved by the owner 2026-10-22).
+// Hourly onto `maintenance`: clears the account-locked alerts whose lock has ended and the
+// job-failed alerts whose class has no row left in failed_jobs. No catch-up entry — the next
+// hour's run is the catch-up.
+Schedule::job(new ClearResolvedAlertsJob, QueueName::Maintenance->value)->hourly();
 
 // J-09 refresh_dashboard_aggregates (§15, D-146, Module 14 · 2.1b), onto `maintenance`
 // (§15.1: aggregates): hourly over the days that changed, and in full nightly at

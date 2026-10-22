@@ -143,7 +143,14 @@ interface ExistingLine {
     product_name: string | null;
     quantity: string;
     margin: string;
-    unit_cost: string | null;
+    /** D-148: the cost converted into the quotation's currency, and that currency as loaded. */
+    unit_cost_base: string | null;
+    currency: string;
+}
+
+/** D-148: the offer's currency code from `GET /currencies`; undefined when the list or the offer's currency is absent. */
+function offerCurrency(block: Block): string | undefined {
+    return currencies.value.find((currency) => currency.id === block.detail?.currency_id)?.code;
 }
 
 /** Module 8 · 3.2: the approver's route — the same form, saved through 1.3. */
@@ -346,16 +353,18 @@ function applyDetail(quotation: QuotationDetail): void {
     };
     taxes.value = quotation.tax_percents.length > 0 ? quotation.tax_percents.map((rate) => displayPercent(rate) ?? rate) : [''];
     terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
+    // U-5: a stored quantity or amount is offered without its trailing zeros — trimmed, never rounded.
     existing.value = quotation.items.map((line) => ({
         supplier_quotation_item_id: line.supplier_quotation_item_id,
         line_no: line.line_no,
         product_name: line.product_name,
-        quantity: line.quantity,
+        quantity: displayQuantity(line.quantity),
         margin: displayPercent(line.margin_percent) ?? '',
-        unit_cost: line.unit_cost ?? null,
+        unit_cost_base: line.unit_cost_base ?? null,
+        currency: quotation.currency,
     }));
     blocks.value = [];
-    items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: item.amount }));
+    items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: displayQuantity(item.amount) }));
     etag.value = quotation.etag;
     quotationCode.value = quotation.code;
     dealId.value = quotation.deal_id;
@@ -1023,8 +1032,8 @@ onMounted(load);
                         <p class="flex flex-col gap-1">
                             <span>{{ t('quotations.builder.lineNo', { no: line.line_no }) }}</span>
                             <span v-if="line.product_name" class="font-medium" :data-testid="fieldId(`existing-${i}-product`)">{{ line.product_name }}</span>
-                            <span v-if="line.unit_cost !== null" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`existing-${i}-cost`)">
-                                {{ t('quotations.detail.unitCost') }} {{ displayDecimals(line.unit_cost) }}
+                            <span v-if="line.unit_cost_base !== null" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`existing-${i}-cost`)">
+                                {{ t('quotations.detail.unitCost') }} <bdi dir="ltr">{{ displayDecimals(line.unit_cost_base) }} {{ line.currency }}</bdi>
                             </span>
                         </p>
                         <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-quantity`)">
@@ -1127,9 +1136,11 @@ onMounted(load);
                                     <span :data-testid="fieldId(`line-${b}-${l}-label`)">{{ catalogLabel(item.catalog_item_id) }}</span>
                                     <!-- The supplier's own figures — internal cost, never a customer price (§7.2).
                                          The quantity is what is left of the offer, not what it recorded (D-81). -->
-                                    <span class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`line-${b}-${l}-recorded`)">
-                                        {{ t('quotations.builder.recorded', { price: displayDecimals(item.unit_price), quantity: displayQuantity(item.available_quantity) }) }}
-                                    </span>
+                                    <!-- D-148: the price in the offer's currency; ponytail: GET /currencies refused → the price without a code, until the offer payload carries its code. -->
+                                    <i18n-t keypath="quotations.builder.recorded" tag="span" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`line-${b}-${l}-recorded`)">
+                                        <template #price><bdi dir="ltr">{{ [displayDecimals(item.unit_price), offerCurrency(block)].filter(Boolean).join(' ') }}</bdi></template>
+                                        <template #quantity>{{ displayQuantity(item.available_quantity) }}</template>
+                                    </i18n-t>
                                 </p>
                                 <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-quantity`)">
                                     <span>{{ t('quotations.detail.quantity') }}</span>

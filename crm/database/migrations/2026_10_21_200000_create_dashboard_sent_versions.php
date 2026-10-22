@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Module 14 · 3.2 — J-09's money projection (`D-141`, `D-144`, `D-149`): one row
+ * Module 14 · 3.2 — J-09's money projection (`D-141`, `D-144`, `D-150`): one row
  * per live sent quotation version. Kept at version grain because `D-141` picks,
  * per chain, the latest version sent *in the period asked for* — a day total
  * could not answer that. Derived and rebuilt whole by every J-09 run, so it
@@ -30,7 +30,7 @@ return new class extends Migration
             $table->decimal('net_amount', 18, 6);
             $table->decimal('additional_total', 18, 6);
             $table->decimal('cost', 18, 6);
-            // `D-149`: at the rate in force when the version was created; null when the pair had none.
+            // `D-150`: at the rate in force when the version was created; null when the pair had none.
             $table->decimal('base_net_amount', 18, 6)->nullable();
             $table->decimal('base_additional_total', 18, 6)->nullable();
             $table->decimal('base_cost', 18, 6)->nullable();

@@ -902,7 +902,7 @@ deptrac:
       # QuotationsContract: `QuotationReaderInterface::liveApprovalCountsByOwner`.
       - QuotationsContract
       # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`);
-      # 4.2: `firstEntriesInto` (`DEAL_STATUS_CHANGED`, `D-150`).
+      # 4.2: `firstEntriesInto` (`DEAL_STATUS_CHANGED`, `D-151`).
       - AuditContract
       # SupplierQuotationsContract, 5.2: `SupplierItemPricingInterface::priceFor` — a sold line's product.
       - SupplierQuotationsContract

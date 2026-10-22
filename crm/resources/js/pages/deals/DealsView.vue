@@ -529,16 +529,17 @@ onMounted(async () => {
         />
 
         <div v-else class="flex flex-col gap-3">
-            <!-- A-40: from 640 the frame clips, so the header sticks under the bar; below 640 the
-                 table stays a table (A-19) and scrolls sideways, or its last columns are cut off (owner, 2026-10-14). -->
+            <!-- A-40: from 640 the frame clips, so the header sticks under the bar; below 640 the frame scrolls
+                 sideways (A-19, owner 2026-10-14), so the header is static there — a sticky one would stick to
+                 the frame and float over the rows (owner 2026-10-21); relative keeps its sr-only text inside. -->
             <div
-                class="table-frame overflow-x-auto rounded-xl transition-opacity sm:overflow-x-clip"
+                class="table-frame relative overflow-x-auto rounded-xl transition-opacity sm:overflow-x-clip"
                 :class="{ 'opacity-50': loading }"
                 :aria-busy="loading"
                 data-testid="deals-table-frame"
             >
                 <table class="w-full text-table" data-testid="deals-table">
-                    <thead class="sticky-head">
+                    <thead class="sticky-head max-sm:static">
                         <tr class="table-head">
                             <th
                                 scope="col"

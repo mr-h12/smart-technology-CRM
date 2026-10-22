@@ -11,11 +11,11 @@ use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\Scope;
 
 /**
- * `GET /dashboard/sales` — the Sales tab's pipeline figures (`D-144`, `D-145`, `D-150`).
+ * `GET /dashboard/sales` — the Sales tab's pipeline figures (`D-144`, `D-145`, `D-151`).
  *
  * Scope as the Overview's. Average deal size only with money (`dashboard.view`
  * All and `view_cost_and_margin`); workload, a per-employee figure, only for a
- * holder of `dashboard.drill_down` (`D-150`) — the keys are absent otherwise.
+ * holder of `dashboard.drill_down` (`D-151`) — the keys are absent otherwise.
  */
 final readonly class DashboardSales
 {

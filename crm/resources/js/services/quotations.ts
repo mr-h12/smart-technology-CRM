@@ -63,8 +63,8 @@ export interface QuotationLine {
     unit_cost_fx_rate_at_time?: string;
     unit_cost_base?: string;
     margin_percent?: string | null;
-    /** `D-106`: the quotation's margin plus the line's extra, as the server computed it; absent with the cost keys. */
-    effective_margin_percent?: string;
+    /** `D-148`: the margin the stored price achieves over `unit_cost_base`, as the server computed it; null on a zero cost, absent with the cost keys. */
+    effective_margin_percent?: string | null;
     line_cost?: string;
 }
 

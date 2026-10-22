@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Module 14, slice 5 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-150`):
+ * Module 14, slice 5 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-151`):
  * lost by reason, by employee, by sector, top customers, best and worst products.
  * The server leaves out what a role may not see; this draws what it sends.
  * Reasons and sectors are named from their managed lists (`DB-05`).

@@ -1006,6 +1006,7 @@ describe('the deals screen after F-41 (F-42 · P6)', () => {
     it('scrolls the table sideways below 640 and clips from 640, so nothing is cut off on a phone (A-40, owner 2026-10-14)', async () => {
         const wrapper = await render(respond());
 
-        expect(wrapper.get('[data-testid="deals-table-frame"]').classes()).toEqual(expect.arrayContaining(['overflow-x-auto', 'sm:overflow-x-clip']));
+        // relative: the frame contains the Edit header's sr-only text once the header is static below 640 (owner, 2026-10-21).
+        expect(wrapper.get('[data-testid="deals-table-frame"]').classes()).toEqual(expect.arrayContaining(['relative', 'overflow-x-auto', 'sm:overflow-x-clip']));
     });
 });

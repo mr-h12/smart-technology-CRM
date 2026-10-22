@@ -128,11 +128,11 @@ final class PricedLineTest extends TestCase
 
     public function test_the_effective_margin_is_the_sum_and_an_empty_line_counts_as_zero(): void
     {
-        // The one place the sum is written: the price and the detail's
-        // effective margin both read it (`D-106`, the owner's ruling (b)).
-        self::assertSame('30.000', PricedLine::effectiveMargin('10.000', '20.000'));
-        self::assertSame('20.000', PricedLine::effectiveMargin(null, '20.000'));
-        self::assertSame('0.000', PricedLine::effectiveMargin('-20.000', '20.000'));
+        // The one place the sum is written: the price reads it (`D-106`);
+        // the detail shows the achieved margin instead (`D-148`).
+        self::assertSame('30.000', PricedLine::effectiveMargin('10.000', '20.000', 3));
+        self::assertSame('20.000', PricedLine::effectiveMargin(null, '20.000', 3));
+        self::assertSame('0.000', PricedLine::effectiveMargin('-20.000', '20.000', 3));
     }
 
     public function test_a_negative_margin_prices_below_cost_rather_than_being_refused(): void

@@ -11,7 +11,7 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Domain\Rbac\Scope;
 
 /**
- * `GET /dashboard/money` (`D-141`, `D-144`, `D-145`, `D-148`, `D-149`): each
+ * `GET /dashboard/money` (`D-141`, `D-144`, `D-145`, `D-149`, `D-150`): each
  * currency\'s won money, profits, margin and delivery cost; the base-currency
  * totals with what could not be converted; and month by month.
  *

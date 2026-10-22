@@ -81,7 +81,7 @@ interface AuditEntryReaderInterface
     public function daysWithEntriesSince(string $event, \DateTimeInterface $since, string $zone): array;
 
     /**
-     * Module 14's outcomes (`D-150`): per entity, the first `$event` entry whose
+     * Module 14's outcomes (`D-151`): per entity, the first `$event` entry whose
      * `new_values->$field` is each of `$values` — e.g. the moment a deal first
      * moved into `won`. Read-only.
      *

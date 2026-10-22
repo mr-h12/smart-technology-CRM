@@ -14,14 +14,14 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Module 14, slice 5 · 5.1 — `GET /api/v1/dashboard/breakdowns` (`D-144`, `D-145`, `D-147`, `D-150`).
+ * Module 14, slice 5 · 5.1 — `GET /api/v1/dashboard/breakdowns` (`D-144`, `D-145`, `D-147`, `D-151`).
  *
  * | part | who | what |
  * |---|---|---|
  * | `lost_by_reason` | everyone with the dashboard, in scope | deals lost in the period, by `lost_reasons` code |
- * | `by_employee` | `dashboard.drill_down` (`D-150`) | won deals per owner; won money per currency with money |
+ * | `by_employee` | `dashboard.drill_down` (`D-151`) | won deals per owner; won money per currency with money |
  * | `by_sector` | money | `D-141`'s won chains and money per customer sector |
- * | `top_customers` | money | up to 20 customers by base-currency won value (`D-149`) |
+ * | `top_customers` | money | up to 20 customers by base-currency won value (`D-150`) |
  * | `products` | money and `dashboard.drill_down` (§12.4 hides them from the CEO) | the ten best and worst sold products by base value |
  *
  * Absent parts are absent keys, never empty lists.

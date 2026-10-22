@@ -109,7 +109,7 @@ interface DealFactsInterface
     public function creationDaysTouchedSince(\DateTimeInterface $since, string $zone): array;
 
     /**
-     * Module 14 (`D-150`, `D-147`): each live deal's creation instant, current owner and lost-reason code. An
+     * Module 14 (`D-151`, `D-147`): each live deal's creation instant, current owner and lost-reason code. An
      * absent or soft-deleted id has no entry. Read-only.
      *
      * @param  list<string>  $dealIds

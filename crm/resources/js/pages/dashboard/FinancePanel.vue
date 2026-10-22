@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Module 14, slice 3 — the Finance tab (`D-144`, `D-148`, `D-149`): per currency
+ * Module 14, slice 3 — the Finance tab (`D-144`, `D-149`, `D-150`): per currency
  * the won money, cost, profits, margin and delivery cost; month by month; and,
  * on request, the base-currency totals with what could not be converted.
  */

@@ -265,7 +265,7 @@ describe('the Overview tab', () => {
 });
 
 /**
- * Module 14, slice 3 · 3.1 — money (`D-141`, `D-144`, `D-145`, `D-148`, `D-149`).
+ * Module 14, slice 3 · 3.1 — money (`D-141`, `D-144`, `D-145`, `D-149`, `D-150`).
  * Asked for only when the meta says `money`; the Overview shows each currency's
  * revenue and profits, the Finance tab the rest, the combine toggle the base totals.
  */
@@ -340,7 +340,7 @@ describe('money', () => {
 });
 
 /**
- * Module 14, slice 4 · 4.1 — the Sales tab I (`D-144`, `D-150`): the funnel,
+ * Module 14, slice 4 · 4.1 — the Sales tab I (`D-144`, `D-151`): the funnel,
  * conversion and win/loss rates, the sales cycle, average deal size (money only)
  * and workload (drill-down holders only).
  */
@@ -409,7 +409,7 @@ describe('the Sales tab', () => {
 });
 
 /**
- * Module 14, slice 5 · 5.1 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-150`):
+ * Module 14, slice 5 · 5.1 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-151`):
  * lost by reason, by employee, by sector, top customers, best and worst products —
  * each drawn only when the answer carries it.
  */

@@ -21,15 +21,15 @@ use Tests\TestCase;
 
 /**
  * Module 14, slice 3 · 3.1 — `GET /api/v1/dashboard/money` (`D-141`, `D-144`,
- * `D-145`, `D-148`, `D-149`).
+ * `D-145`, `D-149`, `D-150`).
  *
  * Revenue is `D-141`'s won money: per chain, the latest version sent in
  * `[from, to]`, counted when it is now `accepted` or `partial`. Per currency,
  * as exact decimal strings: won value (`net_amount`), cost (Σ live line cost),
  * gross profit (`net − additional − cost`), net profit (gross + procurement
  * saving — equal until Module 11), margin (gross ÷ won × 100, two places),
- * delivery cost (the additional items, `D-148`), the won chains. Combined: the
- * base amounts (`D-149`), with the chains that had no rate counted apart.
+ * delivery cost (the additional items, `D-149`), the won chains. Combined: the
+ * base amounts (`D-150`), with the chains that had no rate counted apart.
  * Monthly: the same rule month by month inside the period.
  *
  * Money is shown only to a holder of `quotation.view_cost_and_margin` at

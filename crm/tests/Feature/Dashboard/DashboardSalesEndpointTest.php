@@ -14,14 +14,14 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Module 14, slice 4 · 4.1 — `GET /api/v1/dashboard/sales` (`D-144`, `D-145`, `D-150`).
+ * Module 14, slice 4 · 4.1 — `GET /api/v1/dashboard/sales` (`D-144`, `D-145`, `D-151`).
  *
  * - funnel: deals created in the period by current status, every §4.4 status in order
  * - conversion: of the deals created in the period, those now `won` or later
  * - win/loss: deals that moved into `won` vs `lost` in the period (their first move)
  * - average sales cycle: days from creation to `won`, over the deals won in the period
  * - average deal size (money only — `D-145`): `D-141`'s won value ÷ won chains, per currency
- * - workload ("now", per employee — `dashboard.drill_down` only, `D-150`): open deals per owner
+ * - workload ("now", per employee — `dashboard.drill_down` only, `D-151`): open deals per owner
  *
  * Rates are percentages to two places, null when there is nothing to divide by.
  */

@@ -75,7 +75,7 @@ final readonly class RefreshDashboardAggregates
     }
 
     /**
-     * The money projection, whole (`D-141`, `D-149`): each sent version's company day,
+     * The money projection, whole (`D-141`, `D-150`): each sent version's company day,
      * its deal's owner now, and its amounts in the base currency at the rate in force
      * when the version was created — null when that pair had no rate then.
      *
@@ -118,7 +118,7 @@ final readonly class RefreshDashboardAggregates
     /**
      * Each live line of a kept version, its product (through its supplier line —
      * `SupplierItemPricingInterface`, as the quotation page names its lines), and
-     * its total in the base currency at the version's rate (`D-149`).
+     * its total in the base currency at the version's rate (`D-150`).
      *
      * @param  array<string, ?ExchangeRate>  $rates  quotation id => its rate
      * @return list<array{quotation_id: string, catalog_item_id: ?string, line_total: string, base_line_total: ?string}>
@@ -145,7 +145,7 @@ final readonly class RefreshDashboardAggregates
     }
 
     /**
-     * `D-150`: each deal's first move into `won` or `lost` (its `DEAL_STATUS_CHANGED`
+     * `D-151`: each deal's first move into `won` or `lost` (its `DEAL_STATUS_CHANGED`
      * entries), by company day and current owner; for won, the days from creation.
      *
      * A lost deal keeps its `lost_reasons` code (`D-147`); one lost before the code

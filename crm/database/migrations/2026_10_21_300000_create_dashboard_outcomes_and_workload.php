@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Module 14 · 4.2 — J-09's pipeline tables (`D-144`, `D-150`). Derived, rebuilt
+ * Module 14 · 4.2 — J-09's pipeline tables (`D-144`, `D-151`). Derived, rebuilt
  * whole by every run, so no soft-delete or actor columns (DATABASE.md's J-09 exception).
  */
 return new class extends Migration

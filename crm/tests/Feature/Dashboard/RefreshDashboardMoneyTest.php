@@ -17,13 +17,13 @@ use Tests\Feature\Pdf\InsertsQuotationRows;
 use Tests\TestCase;
 
 /**
- * Module 14, slice 3 · 3.1 — J-09's money projection (`D-141`, `D-144`, `D-148`, `D-149`).
+ * Module 14, slice 3 · 3.1 — J-09's money projection (`D-141`, `D-144`, `D-149`, `D-150`).
  *
  * `dashboard_sent_versions`: one row per live quotation version that was sent,
  * with its chain (the root version's id), its company day of sending, its deal's
  * current owner, its status now, its amounts as stored, its live line cost, and
  * the same three amounts in the base currency at the rate in force when the
- * version was created (`D-149`) — null when that pair had no rate then. Rebuilt
+ * version was created (`D-150`) — null when that pair had no rate then. Rebuilt
  * whole on every run: a status, an owner or a line can change on any day.
  */
 final class RefreshDashboardMoneyTest extends TestCase

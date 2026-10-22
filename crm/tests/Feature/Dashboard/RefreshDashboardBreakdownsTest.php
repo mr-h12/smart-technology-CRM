@@ -14,12 +14,12 @@ use Tests\Feature\Pdf\InsertsQuotationRows;
 use Tests\TestCase;
 
 /**
- * Module 14, slice 5 · 5.1 — what J-09 adds for the breakdowns (`D-144`, `D-147`, `D-149`).
+ * Module 14, slice 5 · 5.1 — what J-09 adds for the breakdowns (`D-144`, `D-147`, `D-150`).
  *
  * - `dashboard_sent_versions` also carries each version's customer and that customer's sector now;
  * - `dashboard_sent_lines`: each live line of a sent version, its catalog product
  *   (through its supplier line), its `line_total`, and that total in the base
- *   currency at the version's rate (`D-149`), null without one;
+ *   currency at the version's rate (`D-150`), null without one;
  * - `dashboard_daily_outcomes` keeps a lost deal's `lost_reasons` code (`D-147`);
  *   a lost deal recorded before the code existed counts as `other`.
  */

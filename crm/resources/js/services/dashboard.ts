@@ -31,7 +31,7 @@ export async function readDashboardOverview(period: { from: string; to: string }
     return (await apiGet<DashboardOverview>(`/dashboard/overview?from=${period.from}&to=${period.to}`)).data;
 }
 
-/** `GET /dashboard/money` (`D-141`, `D-144`, `D-148`, `D-149`): exact decimal strings, never mixed across currencies. */
+/** `GET /dashboard/money` (`D-141`, `D-144`, `D-149`, `D-150`): exact decimal strings, never mixed across currencies. */
 export interface DashboardCurrencyMoney {
     currency: string;
     won_value: string;
@@ -53,7 +53,7 @@ export async function readDashboardMoney(period: { from: string; to: string }): 
     return (await apiGet<DashboardMoney>(`/dashboard/money?from=${period.from}&to=${period.to}`)).data;
 }
 
-/** `GET /dashboard/sales` (`D-144`, `D-150`): `average_deal_size` only with money, `workload` only with drill-down. */
+/** `GET /dashboard/sales` (`D-144`, `D-151`): `average_deal_size` only with money, `workload` only with drill-down. */
 export interface DashboardSales {
     funnel: { status: string; deals: number }[];
     conversion: { created: number; reached_won: number; rate_percent: string | null };
@@ -67,7 +67,7 @@ export async function readDashboardSales(period: { from: string; to: string }): 
     return (await apiGet<DashboardSales>(`/dashboard/sales?from=${period.from}&to=${period.to}`)).data;
 }
 
-/** `GET /dashboard/breakdowns` (`D-144`, `D-145`, `D-147`, `D-150`): each part present only for whom it is shown. */
+/** `GET /dashboard/breakdowns` (`D-144`, `D-145`, `D-147`, `D-151`): each part present only for whom it is shown. */
 export interface DashboardMoneyLine {
     currency: string;
     won_value: string;

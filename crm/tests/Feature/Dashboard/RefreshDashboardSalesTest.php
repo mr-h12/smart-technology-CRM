@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Module 14, slice 4 · 4.1 — J-09's pipeline figures (`D-144`, `D-150`).
+ * Module 14, slice 4 · 4.1 — J-09's pipeline figures (`D-144`, `D-151`).
  *
  * - `dashboard_daily_outcomes`: deals by the company day they first moved into
  *   `won` or `lost` (their `DEAL_STATUS_CHANGED` audit entries), their current

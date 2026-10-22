@@ -3,7 +3,9 @@
  * D-99's form — two places, rounded half-up — the same value the PDF prints,
  * grouped by thousands on screen only (the PDF prints no separators). Storage
  * stays `D-68` and the API publishes it as stored; every input keeps and sends
- * the full string (Design System §6.3 "format only for display").
+ * the full string (Design System §6.3 "format only for display"), except that a
+ * pre-filled quantity, amount or percentage drops its trailing zeros through
+ * {@link displayQuantity} — the same number, never rounded (D-112, U-5).
  *
  * String and `BigInt` work on purpose: no float (`DB-07`), and no arithmetic on
  * a price (`D-67`) — this only rounds what is drawn. Percentages ({@link displayPercent})

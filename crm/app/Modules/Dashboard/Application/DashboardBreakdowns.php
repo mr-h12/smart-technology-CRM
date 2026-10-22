@@ -12,7 +12,7 @@ use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 
 /**
- * `GET /dashboard/breakdowns` — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-150`).
+ * `GET /dashboard/breakdowns` — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-151`).
  *
  * | part | shown to |
  * |---|---|
@@ -22,7 +22,7 @@ use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
  * | `products` | money and `dashboard.drill_down` (§12.4 hides product detail from the CEO) |
  *
  * Money is `dashboard.view` at All with `quotation.view_cost_and_margin` (`D-145`).
- * Rankings are by base-currency value (`D-149`), ties by name.
+ * Rankings are by base-currency value (`D-150`), ties by name.
  */
 final readonly class DashboardBreakdowns
 {
@@ -61,7 +61,7 @@ final readonly class DashboardBreakdowns
             $products = $this->ranked($parts['by_product'], 'catalog_item_id', $this->catalog->labelsOf(...));
             $answer['products'] = [
                 'best' => array_slice($products, 0, self::PRODUCTS),
-                // Lowest first among the products that have a base value to compare (`D-149`).
+                // Lowest first among the products that have a base value to compare (`D-150`).
                 'worst' => array_slice(array_reverse(array_values(array_filter($products, static fn (array $p): bool => ($p['base_value'] ?? null) !== null))), 0, self::PRODUCTS),
             ];
         }
@@ -115,7 +115,7 @@ final readonly class DashboardBreakdowns
 
     /**
      * Rows per (id, currency) folded per id and ranked by base value, highest first,
-     * ties by name; an id with no converted value ranks last (`D-149`). Each row is
+     * ties by name; an id with no converted value ranks last (`D-150`). Each row is
      * returned under `$idKey` (`customer_id`, `catalog_item_id`).
      *
      * @param  list<array{id: string, currency: string, won_value: string, base_value: numeric-string|null}>  $rows

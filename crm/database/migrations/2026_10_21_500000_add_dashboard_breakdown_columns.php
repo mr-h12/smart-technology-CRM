@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Module 14 · 5.2 — what the breakdowns read (`D-144`, `D-147`, `D-149`). J-09's
+ * Module 14 · 5.2 — what the breakdowns read (`D-144`, `D-147`, `D-150`). J-09's
  * derived tables again: rebuilt whole by every run, no soft-delete or actor columns.
  */
 return new class extends Migration
@@ -22,7 +22,7 @@ return new class extends Migration
         });
 
         // Each live line of a sent version: its catalog product and its total, in the
-        // version's currency and in the base currency at the version's rate (`D-149`).
+        // version's currency and in the base currency at the version's rate (`D-150`).
         Schema::create('dashboard_sent_lines', function (Blueprint $table): void {
             $table->uuid('quotation_id');
             $table->uuid('catalog_item_id')->nullable();

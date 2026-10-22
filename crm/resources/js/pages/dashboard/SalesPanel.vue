@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Module 14, slice 4 — the Sales tab I (`D-144`, `D-150`): the funnel in §4.4's
+ * Module 14, slice 4 — the Sales tab I (`D-144`, `D-151`): the funnel in §4.4's
  * order, conversion and win/loss, the sales cycle, average deal size (money
  * only) and workload (drill-down holders only). What the answer leaves out is
  * not drawn; a rate with nothing to divide by reads "—".

@@ -52,7 +52,7 @@ interface DashboardAggregatesInterface
     public function overviewBetween(string $from, string $to, ?array $ownerIds): array;
 
     /**
-     * Replaces the whole money projection (`D-141`, `D-149`).
+     * Replaces the whole money projection (`D-141`, `D-150`).
      *
      * @param  list<array{quotation_id: string, chain_id: string, version: int, sent_day: string, owner_id: ?string, currency: string, status: string, net_amount: string, additional_total: string, cost: string, base_net_amount: ?string, base_additional_total: ?string, base_cost: ?string, customer_id: string, sector: ?string}>  $rows
      */
@@ -81,7 +81,7 @@ interface DashboardAggregatesInterface
 
     /**
      * The Sales tab's breakdowns over `[$from, $to]` (`D-144`): `D-141`'s won chains by
-     * owner, sector, customer and product (money per currency, base totals at `D-149`),
+     * owner, sector, customer and product (money per currency, base totals at `D-150`),
      * won deals by owner and lost deals by reason from the outcomes. `$ownerIds` scopes
      * every owned row as in `overviewBetween`.
      *

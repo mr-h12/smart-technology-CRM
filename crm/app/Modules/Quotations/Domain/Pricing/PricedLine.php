@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Pricing;
 
 /**
- * One quotation line, priced. §5.1's four formulas and nothing else.
+ * One quotation line, priced. §5.1's four formulas, plus the display-only achieved margin (`D-148`).
  *
  * ```
  * unit_cost_base = unit_cost converted at fx_rate_at_time         (D-09, D-115)

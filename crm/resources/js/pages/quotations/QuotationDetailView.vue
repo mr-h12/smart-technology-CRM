@@ -685,7 +685,7 @@ onMounted(refresh);
                                 <td :data-label="t('quotations.detail.product')" class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
                                 <td :data-label="t('quotations.detail.quantity')" class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayQuantity(line.quantity) }}</td>
                                 <td :data-label="t('quotations.detail.unitCost')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost"><bdi dir="ltr">{{ displayDecimals(line.unit_cost_base) }} {{ quotation.currency }}</bdi></td>
-                                <td :data-label="t('quotations.detail.margin')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent">{{ percent(line.effective_margin_percent) }}</td>
+                                <td :data-label="t('quotations.detail.margin')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent"><bdi dir="ltr">{{ percent(line.effective_margin_percent) }}</bdi></td>
                                 <td :data-label="t('quotations.detail.unitPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
                                 <td :data-label="t('quotations.detail.lineTotal')" class="p-3 text-end tabular-nums">{{ displayDecimals(line.line_total) }}</td>
                             </tr>

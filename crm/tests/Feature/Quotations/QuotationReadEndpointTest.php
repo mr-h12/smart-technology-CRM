@@ -523,6 +523,17 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.effective_margin_percent', '9.994');
     }
 
+    /** `D-148`: a price below its cost achieves a negative margin, sign kept — (90 − 100) / 100 × 100 = −10. */
+    public function test_that_the_effective_margin_keeps_the_minus_of_a_price_below_cost(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        $this->storeLine($id, cost: '100', price: '90');
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.effective_margin_percent', '-10.000');
+    }
+
     /** §3.5 `view cost & margin`: withdrawn, the cost fields are absent — not null, not zero. */
     public function test_that_without_the_cost_grant_the_cost_fields_are_absent(): void
     {

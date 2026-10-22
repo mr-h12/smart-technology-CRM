@@ -361,6 +361,15 @@ describe('the quotation detail view', () => {
         expect(cell.find('bdi[dir="ltr"]').exists()).toBe(true);
     });
 
+    // D-148 over D-142: a negative achieved margin keeps its minus first inside the RTL table (A-26), never «%10-».
+    it('draws a negative margin as one left-to-right run, minus first', async () => {
+        const { wrapper } = await render(respond({ quotation: { ...QUOTATION, items: [{ ...COSTED_LINE, effective_margin_percent: '-10.000' }] } }));
+
+        const run = wrapper.find('[data-testid="quotation-line-effective_margin_percent"] bdi[dir="ltr"]');
+        expect(run.exists()).toBe(true);
+        expect(run.text()).toBe('-10%');
+    });
+
     // D-148: no cost, no margin — the server sends null and the cell says so.
     it('shows a dash for a line whose margin is null', async () => {
         const { wrapper } = await render(respond({ quotation: { ...QUOTATION, items: [{ ...COSTED_LINE, unit_cost: '0.000000', unit_cost_base: '0.000000', effective_margin_percent: null }] } }));

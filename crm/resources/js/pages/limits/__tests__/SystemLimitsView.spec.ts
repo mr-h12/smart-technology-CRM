@@ -40,6 +40,8 @@ const LIMITS = {
     'limits.weekly_review_window_hours': { value: null, unit: 'hours', value_type: 'integer' },
     // Module 13 · 7.4: `J-08`'s archive age (`D-127`), in whole months.
     'limits.report_archive_months': { value: null, unit: 'months', value_type: 'integer' },
+    // Module 16 · 2: `J-16`'s window (`D-153`), in days.
+    'quotations.expiry_alert_days': { value: null, unit: 'days', value_type: 'integer' },
     'limits.max_file_size_mb': { value: null, unit: 'megabytes', value_type: 'integer' },
     'identity.lockout_minutes': { value: '30', unit: 'minutes', value_type: 'integer' },
     // `OD-08`'s seventh (Module 3 Point 3.3), the server's own order — missing
@@ -86,6 +88,7 @@ describe('SystemLimitsView', () => {
             'limits.quotation_approval_sla_hours',
             'limits.weekly_review_window_hours',
             'limits.report_archive_months',
+            'quotations.expiry_alert_days',
             'limits.max_file_size_mb',
             'identity.lockout_minutes',
             'limits.customer_similarity_threshold',
@@ -183,6 +186,53 @@ describe('SystemLimitsView', () => {
         expect(threshold.attributes('type')).toBe('text');
         expect(counted.attributes('inputmode')).toBe('numeric');
         expect(threshold.attributes('inputmode')).toBeUndefined();
+    });
+
+    // ── Module 16 · 2: the quotation expiry alert window (`J-16`, `D-153`) ──
+
+    /** The browser check (2026-10-22): the intro said "five of the seven" in words, and an eighth limit made it false. It counts now. */
+    it('counts the limits never configured instead of naming a number in its sentence', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        const view = render();
+        await flushPromises();
+
+        const intro = view.get('[data-testid="limits-unconfigured"]').text();
+        // LIMITS: eight, of which only the lockout has a value.
+        expect(intro).toContain('7');
+        expect(intro).toContain('8');
+        expect(en.limits.subtitle).not.toMatch(/seven|five/i);
+    });
+
+    it('has the expiry alert window label and hint in both languages, Arabic in Arabic script', () => {
+        const arabic = /[\u0600-\u06FF]/;
+        for (const [messages, isArabic] of [[en, false], [ar, true]] as const) {
+            const field = (messages.limits.field as Record<string, string>)['quotations_expiry_alert_days'] as string;
+            const hint = (messages.limits.hint as Record<string, string>)['quotations_expiry_alert_days'] as string;
+
+            for (const word of [field, hint]) {
+                expect(typeof word).toBe('string');
+                expect(word.length).toBeGreaterThan(0);
+                expect(arabic.test(word)).toBe(isArabic);
+            }
+        }
+    });
+
+    it('draws the expiry alert window with its label, hint and translated unit', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        for (const [locale, messages] of [['en', en], ['ar', ar]] as const) {
+            const view = render(locale);
+            await flushPromises();
+
+            const row = view.get('[data-limit-key="quotations.expiry_alert_days"]').text();
+
+            expect(row).toContain((messages.limits.field as Record<string, string>)['quotations_expiry_alert_days']);
+            expect(row).toContain((messages.limits.hint as Record<string, string>)['quotations_expiry_alert_days']);
+            expect(row).toContain((messages.limits.unit as Record<string, string>)['days']);
+            expect(row).not.toContain('limits.field.');
+            expect(row).not.toContain('limits.hint.');
+        }
     });
 
     // ── 7.4: the report archive age (`J-08`, `D-127`) ──────────────────────
@@ -438,7 +488,8 @@ describe('SystemLimitsView', () => {
 
         const fields = view.findAll('[data-limit-key]');
 
-        expect(fields).toHaveLength(7);
+        // 8 since Module 16 · 2's `quotations.expiry_alert_days` (`D-153`).
+        expect(fields).toHaveLength(8);
 
         const hints: Record<string, string> = en.limits.hint;
 

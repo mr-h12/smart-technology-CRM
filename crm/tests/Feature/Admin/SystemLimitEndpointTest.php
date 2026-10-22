@@ -57,6 +57,9 @@ final class SystemLimitEndpointTest extends TestCase
     /** Module 13 · 7.4 — `J-08`'s archive age (`D-127`), in whole months. */
     private const ARCHIVE = 'limits.report_archive_months';
 
+    /** Module 16 · 2 (`D-153`): J-16's window, named in the decision itself. */
+    private const EXPIRY_ALERT = 'quotations.expiry_alert_days';
+
     /** `D-135` removed it; a string, because the enum case is gone. */
     private const DEADLINE = 'limits.daily_report_deadline';
 
@@ -155,11 +158,12 @@ final class SystemLimitEndpointTest extends TestCase
         // §13 screen 6 names five · `D-75` adds the sixth · Module 3 Point 3.3
         // adds the seventh, `OD-08`'s similarity threshold, on the owner's
         // decision of 2026-08-30 · `D-135` removes the daily report deadline, which
-        // leaves six · 7.4 adds `J-08`'s archive age (`D-127`), which makes seven.
+        // leaves six · 7.4 adds `J-08`'s archive age (`D-127`), which makes seven ·
+        // Module 16 · 2 adds `J-16`'s window (`D-153`), which makes eight.
         // The count is asserted first on purpose: a
         // limit added without a reader noticing is a field the screen will not
         // draw, and this line is what makes somebody notice.
-        self::assertCount(7, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline, 7.4 added the archive age.');
+        self::assertCount(8, $limits, '§13 names five, D-75 the sixth, OD-08 the seventh, D-135 removed the daily deadline, 7.4 added the archive age, D-153 the expiry alert window.');
 
         foreach ($limits as $key => $limit) {
             self::assertIsString($key);
@@ -220,9 +224,10 @@ final class SystemLimitEndpointTest extends TestCase
         }
 
         // Was 6 until the threshold was seeded; 7.4's archive age is unvalued too
-        // (the job reads 6 while it is unset, `D-127`), so 5. A count, so a limit
+        // (the job reads 6 while it is unset, `D-127`), so 5; Module 16 · 2's window is
+        // unvalued as well (J-16 reads 3, `D-153`), so 6. A count, so a limit
         // gaining a value cannot slip past this guard unremarked.
-        self::assertSame(5, $unvalued);
+        self::assertSame(6, $unvalued);
 
         $threshold = $limits[SystemLimit::CustomerSimilarityThreshold->value];
         self::assertIsArray($threshold);
@@ -543,6 +548,61 @@ final class SystemLimitEndpointTest extends TestCase
             self::assertStringNotContainsString('report_archive_months', $message, $locale);
             self::assertStringContainsString($words, $message, $locale);
             self::assertSame('limits.limits.report_archive_months', $response->json('error.details.0.field'));
+        }
+    }
+
+    // ── Module 16 · 2: `quotations.expiry_alert_days` (`J-16`, `D-153`) ─────
+
+    /** Declared, unvalued, in days: J-16 reads 3 while the row is empty, so no number is invented here. */
+    public function test_that_the_quotation_expiry_alert_window_is_declared_unvalued_and_in_days(): void
+    {
+        $limits = $this->getJson(self::ENDPOINT, $this->bearerFor(RoleName::SuperAdmin))->assertStatus(200)->json('data.limits');
+
+        self::assertIsArray($limits);
+        self::assertArrayHasKey(self::EXPIRY_ALERT, $limits, 'D-153: the expiry alert window is a system limit.');
+        $window = $limits[self::EXPIRY_ALERT];
+        self::assertIsArray($window);
+        self::assertNull($window['value'], 'D-153 starts it at three days in the job, not in a seeded row.');
+        self::assertSame('days', $window['unit']);
+        self::assertSame('integer', $window['value_type']);
+    }
+
+    public function test_that_the_super_admin_saves_the_expiry_alert_window_audited_and_below_one_day_is_refused(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        $saved = $this->patchJson(self::ENDPOINT, ['limits' => [self::EXPIRY_ALERT => '5']], $bearer)->assertStatus(200)->json('data.limits');
+        self::assertIsArray($saved);
+        self::assertIsArray($saved[self::EXPIRY_ALERT]);
+        self::assertSame('5', $saved[self::EXPIRY_ALERT]['value']);
+
+        $new = DB::scalar("select new_values::text from audit_log where event = 'SYSTEM_LIMITS_UPDATED' order by created_at desc limit 1");
+        self::assertIsString($new);
+        self::assertStringContainsString(self::EXPIRY_ALERT, $new);
+
+        foreach (['0', '-1', '1.5', 'three days'] as $value) {
+            $this->patchJson(self::ENDPOINT, ['limits' => [self::EXPIRY_ALERT => $value]], $bearer)->assertStatus(422);
+        }
+        self::assertSame('5', DB::scalar('select value from system_limits where key = ?', [self::EXPIRY_ALERT]));
+
+        $this->patchJson(self::ENDPOINT, ['limits' => [self::EXPIRY_ALERT => '2']], $this->bearerFor(RoleName::Manager))->assertStatus(403);
+        self::assertSame('5', DB::scalar('select value from system_limits where key = ?', [self::EXPIRY_ALERT]));
+    }
+
+    public function test_that_the_expiry_alert_window_refusal_names_the_limit_in_words(): void
+    {
+        $bearer = $this->bearerFor(RoleName::SuperAdmin);
+
+        foreach (['en' => 'expiry alert', 'ar' => 'تنبيه'] as $locale => $words) {
+            $response = $this->patchJson(self::ENDPOINT, ['limits' => [self::EXPIRY_ALERT => '0']], $bearer + ['Accept-Language' => $locale])->assertStatus(422);
+
+            $message = $response->json('error.details.0.message');
+
+            self::assertIsString($message);
+            self::assertStringNotContainsString('admin.', $message, $locale);
+            self::assertStringNotContainsString('expiry_alert_days', $message, $locale);
+            self::assertStringContainsString($words, $message, $locale);
+            self::assertSame('limits.quotations.expiry_alert_days', $response->json('error.details.0.field'));
         }
     }
 

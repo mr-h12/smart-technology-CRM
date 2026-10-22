@@ -88,7 +88,8 @@ describe('the field explanations', () => {
     it.each([['en', en], ['ar', ar]] as const)('%s carries every hint this screen renders', (_name, bundle) => {
         // Assert the count, not merely that the loop ran: an empty scan passes
         // every assertion below it and proves nothing.
-        expect(hints(bundle)).toHaveLength(26);
+        // 27 since Module 16 · 2's `quotations.expiry_alert_days` (`D-153`).
+        expect(hints(bundle)).toHaveLength(27);
     });
 
     it.each([['en', en], ['ar', ar]] as const)('%s cites no decision or section number', (_name, bundle) => {

@@ -67,4 +67,15 @@ interface UserFactsInterface
      * @return list<string>
      */
     public function teamMemberIdsOf(string $leaderId): array;
+
+    /**
+     * Module 16 · 2 (`D-153`, `D-138`) — each user's Team Leader, for an alert to
+     * "the owner and the owner's Team Leader". Only an active, visible, live
+     * leader is named; the user themself may be inactive. A user with no such
+     * leader has no entry; the empty list answers `[]` without a query.
+     *
+     * @param  list<string>  $userIds
+     * @return array<string, string> user id → leader id
+     */
+    public function teamLeadersOf(array $userIds): array;
 }

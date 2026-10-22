@@ -48,6 +48,7 @@ return [
             'limits_quotation_approval_sla_hours' => 'مهلة اعتماد عرض السعر',
             'limits_weekly_review_window_hours' => 'نافذة المراجعة الأسبوعيّة',
             'limits_report_archive_months' => 'عمر أرشفة التقارير',
+            'quotations_expiry_alert_days' => 'مهلة تنبيه انتهاء عروض الأسعار',
             'limits_max_file_size_mb' => 'الحدّ الأقصى لحجم الملفّ',
             'identity_lockout_minutes' => 'مدّة قفل الحساب',
             'limits_customer_similarity_threshold' => 'حدّ تشابه الأسماء',

@@ -5450,7 +5450,7 @@ rule written twice, no company-time-zone test for J-09, untyped additional items
 Each point is a red turn, then a green turn, on its own branch.
 
 - [x] **0** `D-153` written; this section and the ownership row; the agent guides' next action *(2026-10-22, #421 — `D-153` and `J-16` in the master, this section, the guides and their Arabic twins; the 53 test files reading them 1420 passed)*
-- [ ] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en
+- [x] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en *(2026-10-22, #422 — `alerts` with D-153's kinds and one open alert per user, kind and record; four endpoints, auth only, no delete; the bell on the context bar's first row; full PHP suite 4391 passed alone, vitest 1590; browser ar/en × 1280/375 × light/dark: a long job name ran under its button and Escape stopped closing after «تعليم كمقروء» — both fixed, the second with a test)*
 - [ ] **2** Quotation expiring soon: `quotations.expiry_alert_days`, `J-16` with its catch-up, owner + Team Leader, clearing
 - [ ] **3** Account locked and job failed, to every Super Admin
 - [ ] **4** Storage over limit: `J-14` and its limit setting

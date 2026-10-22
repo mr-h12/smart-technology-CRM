@@ -826,6 +826,11 @@ final class DealListEndpointTest extends TestCase
             {
                 return [$leaderId];
             }
+
+            public function teamLeadersOf(array $userIds): array
+            {
+                return [];
+            }
         };
         $this->app->instance(UserFactsInterface::class, $fake);
 

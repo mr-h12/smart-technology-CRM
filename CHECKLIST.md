@@ -4896,6 +4896,25 @@ owner's order of 2026-10-22, replacing "resumes after this pass" above.
       Below 640 the frame scrolls sideways (owner, 2026-10-14), so the sticky header stuck to the frame,
       123 px down, over the second row. *(2026-10-21, #416 — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
 
+## Quotation-screen redesign — owner-directed, 2026-10-22
+
+The owner's quotation-screen workflow change: a quotation line owns its supplier, catalog item, unit, entered
+price, tax and margin, and no supplier-quotation document is made (`D-154`…`D-165`, proposed, merged #426).
+Five slices, each described to the owner before it starts and divided by the owner: 1 the line owns its
+facts → 2 the new screen (line tax and margin, the toggle, `pricing_mode`) → 3 inline supplier, product and
+unit → 4 retire the supplier-offer screen and `D-81` → 5 delete the legacy code (the tables stay). Module 13
+resumes at 8.3 after the redesign unless the owner reorders.
+
+### Point list — slice 1 approved 2026-10-23 as one point (owner, in chat: "make it one point")
+
+- [ ] **QS.1** The line owns its facts (`D-155`, `D-165`) — migration A gives each `quotation_items` row its
+      catalog item and supplier (NOT NULL, foreign keys), unit code, entered price and tax rate, backfilled
+      from the line's supplier-offer line even when that offer line is soft-deleted, reversible; the existing
+      builder's save fills them on every new line; the quotation detail's product names, the PDF's
+      description, unit and VAT, and the dashboard's best and worst products read the line, not the supplier
+      offer. A quotation whose lines point at a deleted offer shows its product names and generates its PDF.
+      Not in it: `pricing_mode` and the new pricing (slice 2).
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

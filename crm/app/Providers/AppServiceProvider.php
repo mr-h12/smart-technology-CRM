@@ -84,10 +84,14 @@ use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Notifications\Application\RaiseSystemAlerts;
 use App\Modules\Notifications\Domain\Contracts\AlertInboxInterface;
 use App\Modules\Notifications\Domain\Contracts\AlertLedgerInterface;
+use App\Modules\Notifications\Domain\Contracts\FailedJobsInterface;
 use App\Modules\Notifications\Infrastructure\DatabaseAlertInbox;
 use App\Modules\Notifications\Infrastructure\DatabaseAlertLedger;
+use App\Modules\Notifications\Infrastructure\DatabaseFailedJobs;
+use App\Modules\Notifications\Presentation\RaiseJobFailedAlert;
 use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
 use App\Modules\Pdf\Application\Access\ReportPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
@@ -152,6 +156,7 @@ use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -265,6 +270,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AlertInboxInterface::class, DatabaseAlertInbox::class);
         // Module 16 · 2: the jobs that raise and clear alerts.
         $this->app->bind(AlertLedgerInterface::class, DatabaseAlertLedger::class);
+        // Module 16 · 3: what `failed_jobs` still holds, for J-17.
+        $this->app->bind(FailedJobsInterface::class, DatabaseFailedJobs::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 
@@ -684,6 +691,16 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             AccountLocked::class,
             fn (AccountLocked $event): null => $this->app->make(NotifySuperAdminOfLockout::class)->handle($event),
+        );
+        // Module 16 · 3 (`D-153`): the same lock, as an alert under every Super Admin's bell.
+        Event::listen(
+            AccountLocked::class,
+            fn (AccountLocked $event): null => $this->app->make(RaiseSystemAlerts::class)->accountLocked($event),
+        );
+        // Module 16 · 3: a job whose retries are spent, as an alert to every Super Admin.
+        Event::listen(
+            JobFailed::class,
+            fn (JobFailed $event): null => $this->app->make(RaiseJobFailedAlert::class)->handle($event),
         );
 
         // SEC-04's mail. Synchronous on purpose — PasswordChallengeIssued

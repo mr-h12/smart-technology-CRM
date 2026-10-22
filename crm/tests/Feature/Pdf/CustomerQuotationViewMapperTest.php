@@ -512,6 +512,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
             {
                 return [];
             }
+
+            public function superAdminIds(): array
+            {
+                return [];
+            }
+
+            public function lockedUserIds(): array
+            {
+                return [];
+            }
         };
     }
 

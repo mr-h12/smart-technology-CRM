@@ -20,4 +20,23 @@ interface AlertLedgerInterface
      * @return array{raised: int, cleared: int}
      */
     public function keepOpen(string $kind, array $wanted): array;
+
+    /**
+     * Something happened again (a lock, a failure): for each of `$userIds`, the open
+     * alert of `$kind` on `$subjectId` takes one more occurrence, the new details, a
+     * new `last_raised_at`, and is unread again — a new event is news, not a
+     * reminder; with none open, one is raised.
+     *
+     * @param  list<string>  $userIds
+     * @param  array<string, string>  $details
+     */
+    public function occurred(string $kind, string $subjectId, array $userIds, array $details): void;
+
+    /**
+     * Clear the open alerts of `$kind` whose subject is not in `$stillTrue`, rows kept.
+     *
+     * @param  list<string>  $stillTrue
+     * @return int how many were cleared
+     */
+    public function clearAllBut(string $kind, array $stillTrue): int;
 }

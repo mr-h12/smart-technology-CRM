@@ -1982,6 +1982,7 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **The OpenAPI contract does not name `effective_margin_percent`** — *revealed by F.3's waste audit, 2026-10-22.* `grep -c effective_margin docs/OpenAPI_Contract_EN.md` → 0, though the detail sends it since #293 and `D-148` makes it the achieved margin, `string | null` (null at zero cost), only with the cost fields. Fix: one entry in the quotation detail's line schema, a docs write with the owner's yes.
 - [ ] **`fx_rates` rows carry no actor** — *revealed by fix pass F.4's red, 2026-10-22.* On dev, `select count(*), count(created_by), count(updated_by) from fx_rates` → `4|0|0`, while the four `audit_log` entries for `fx_rates` all carry `user_id` (`4|4`). `EloquentFxRateRepository::record()` (`crm/app/Modules/Admin/Infrastructure/EloquentFxRateRepository.php:72-80`) fills only the two currencies, the rate and `effective_from`, and `FxRate::$fillable` (`crm/app/Modules/Admin/Infrastructure/Eloquent/FxRate.php:34`) has no actor column; `HasStandardColumns` leaves the actor to the write path on purpose. `DB-01` names `created_by`/`updated_by` on every table. Fix: pass the actor through `record()` and fill both columns, as `EloquentSupplierDirectory.php:137` does, with a test reading the row back.
 - [ ] **A rate below D-68's eight places answers 500, not 422** — *revealed by fix pass F.4's red, 2026-10-22.* `0.000000001` passes `RecordFxRateRequest`'s `gt:0` (`crm/app/Modules/Admin/Presentation/RecordFxRateRequest.php:85`), `ExchangeRate::of` cuts it to `0.00000000` (`crm/app/Modules/Admin/Domain/Money/ExchangeRate.php:45`), and the insert hits `fx_rates_rate_positive`. Proven by a throwaway feature test in `FxRateEndpointTest`'s style (run once against `crm_test`, then deleted, never committed): `POST /api/v1/fx-rates` as Super Admin → `STATUS=500`, `{"error":{"code":"internal_error",…}}`, `SQLSTATE[23514] … violates check constraint "fx_rates_rate_positive"`. The rate form's meaning line (`D-152`) already draws nothing for it. Fix: refuse a rate that is zero at eight places at the boundary (422 on `rate`), pinned by an endpoint test.
+- [ ] **Two docs lines disagree on when Modules 11 and 12 resume, and the Arabic guides carry no test counts** — *revealed by the fix-pass close's waste audit, 2026-10-22; on `main` since #421.* `CHECKLIST.md`'s Module 11 and Module 12 headers say "resumes after Module 14 (`D-143`, 2026-10-21)", while the four guides' Current State says Modules 11 and 12 resume after Module 16 (`D-153`). `arabic/CLAUDE_AR.md` and `arabic/AGENTS_AR.md` never carried the Current State counts (`grep -cE '4363|4260|3519'` → 0 on `main`), and their next-action line lacks the English "F-27…F-30 / L.0–L.7 stay paused" clause. Fix: the two headers name Module 16 (mohanadmm's track, `D-153`); the Arabic Current State re-synced with the English.
 - [ ] **Two pricing edges in `wonMoneySentBetween`** — *revealed by Module 13 · 8.2's pricing review, 2026-10-20 (low).* (1) The rows are keyed by currency **code**: two currency ids sharing a code (one live, one soft-deleted, which `currencies_code_unique_alive` allows) would overwrite each other's sums. (2) `currencyCode()` (`EloquentQuotationDirectory.php:574`) throws on a soft-deleted currency, so one won quotation in an archived currency fails the whole monthly report. Fix: key by id, and read the code with trashed rows.
 - [ ] **An English note in the Arabic report PDF prints its punctuation reversed** — *revealed by Module 13 · 8.2's real PDF render, 2026-10-20.* A note `1. September closed above plan.` prints as `.September closed above plan .1`: the notes list is RTL, and the Latin run has no isolate (UAX #9). The quotation PDF already isolates LTR runs (`$ltr`). Fix: wrap each note in `dir="auto"` or the `$ltr` isolate, with a render read as an image.
 - [ ] **`point-gates` names a CI step that does not exist** — *revealed by W.1's waste audit, 2026-10-20.* `.claude/skills/point-gates/SKILL.md` (gate 6's notes) says vitest runs in `php-image.yml` step "Type-check, test and build the frontend"; `grep -rn "Type-check, test and build" .github/workflows/` → nothing. Vitest and `npm run build` (= `vue-tsc --noEmit && vite build`) run in `frontend.yml` on `setup-node`, not on the node:22 image.
@@ -4859,6 +4860,9 @@ read-only agents and re-checked by the main session; the engine itself is right 
 of all 135 live dev quotations: 0 header mismatches). The owner grouped them into four points, approved
 2026-10-20. Each point: its own branch off `origin/main`, a failing test first, the eight gates, the
 auditors read-only, the full suite last and alone, a seven-part report, and the owner's merge.
+**Closed 2026-10-22:** F.1–F.5 merged (#405, #411, #418, #420, #416). The owner's quotation-screen workflow
+change comes next (its decisions `D-154`+ first, no code before them), then Module 13 resumes at 8.3 — the
+owner's order of 2026-10-22, replacing "resumes after this pass" above.
 
 - [x] **F.1** PDF line math — U-1 (the printed unit price × quantity misses the printed line amount by up
       to 0.06 in 21 of 134 dev quotations: the unit price is stored at six places and printed at two),
@@ -4874,9 +4878,10 @@ auditors read-only, the full suite last and alone, a seven-part report, and the 
       raw price in the supplier's currency with no code; no `.vue` reads `unit_cost_base`), U-9
       (QT-2026-0004's effective margin 15% beside a price priced at 5%). The owner's call on U-4 first. Also (F.1's pricing review): the effective margin shown is the configured sum, not the one achieved after `D-142`'s rounding (cost 0.02 at 20% → priced 0.02, 0% achieved).
       *(2026-10-22, #418 — `D-148`: cost shown is `unit_cost_base` + the quotation's code (QT-2026-0018: 16.61 USD, not 877.19); margin shown is the achieved one, null → «—» at zero cost (QT-2026-0004: 5%, not 15%); the builder's supplier price carries the offer's code; pricing and customer PDFs unchanged)*
-- [ ] **F.4** Exchange rates and re-pricing — U-3 (two reversed EGP→USD rows on dev priced QT-2026-0011
+- [x] **F.4** Exchange rates and re-pricing — U-3 (two reversed EGP→USD rows on dev priced QT-2026-0011
       and QT-2026-0014; the client PC unchecked; a guard), U-8 (editing a draft re-prices it at today's rate
       and supplier price, `D-09`). The client-PC fx query and the owner's answers first.
+      *(2026-10-22, #420 — `D-152`: the rate form shows «1 EGP = 51 USD» and «1 USD = 0.01960784 EGP» before saving; the two reversed dev rows soft-deleted)*
 - [x] **F.5** The deals table's header floats over its rows on a phone (owner's iPhone report, 2026-10-21).
       Below 640 the frame scrolls sideways (owner, 2026-10-14), so the sticky header stuck to the frame,
       123 px down, over the second row. *(2026-10-21, #416 — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
@@ -5312,7 +5317,8 @@ No Response") and `J-02`'s missing catch-up stay in the debt register above; the
 
 ## Module 13 — Reports
 
-**Paused 2026-10-20 at 8.3 (the owner):** the urgent fix pass F.1…F.4 runs first; 8.3's three open
+**Paused 2026-10-20 at 8.3 (the owner):** the urgent fix pass ran first and closed 2026-10-22; 8.3 resumes
+after the owner's quotation-screen workflow change. 8.3's three open
 questions (the per-employee columns, customers under `created_by`, the 8.3a/8.3b split) stay open.
 
 > As an employee, I want to submit my reports so they reach my Team Leader, so that management can

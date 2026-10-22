@@ -263,3 +263,236 @@ describe('the Overview tab', () => {
         expect(wrapper.find('[data-testid="dashboard-period-kind"]').exists()).toBe(true);
     });
 });
+
+/**
+ * Module 14, slice 3 · 3.1 — money (`D-141`, `D-144`, `D-145`, `D-149`, `D-150`).
+ * Asked for only when the meta says `money`; the Overview shows each currency's
+ * revenue and profits, the Finance tab the rest, the combine toggle the base totals.
+ */
+const MONEY = {
+    currencies: [
+        { currency: 'EGP', won_value: '1600.000000', cost: '900.000000', gross_profit: '600.000000', net_profit: '600.000000', margin_percent: '37.50', delivery_cost: '100.000000', won_chains: 2 },
+        { currency: 'USD', won_value: '20.000000', cost: '8.000000', gross_profit: '10.000000', net_profit: '10.000000', margin_percent: '50.00', delivery_cost: '2.000000', won_chains: 1 },
+    ],
+    combined: { currency: 'EGP', won_value: '2100.000000', gross_profit: '900.000000', net_profit: '900.000000', delivery_cost: '200.000000', unconverted: 1 },
+    monthly: [
+        { month: '2026-09', currency: 'EGP', won_value: '1000.000000', gross_profit: '400.000000' },
+        { month: '2026-10', currency: 'EGP', won_value: '500.000000', gross_profit: '400.000000' },
+        { month: '2026-10', currency: 'USD', won_value: '20.000000', gross_profit: '10.000000' },
+    ],
+};
+
+function moneyApi(metaData: unknown = { ...MANAGER_META, last_updated_at: OVERVIEW.last_updated_at }): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        const data = /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : metaData;
+        return json(200, { data, meta: { request_id: 'r' } });
+    });
+}
+
+const moneyCalls = (fetchMock: ReturnType<typeof vi.fn>): string[] =>
+    fetchMock.mock.calls.map(([input]) => String(input)).filter((url) => /\/dashboard\/money\?/.test(url));
+
+describe('money', () => {
+    it('shows each currency\'s revenue and profits on the Overview', async () => {
+        const fetchMock = moneyApi();
+        const wrapper = await render(fetchMock);
+
+        expect(moneyCalls(fetchMock)[0]).toMatch(/\/api\/v1\/dashboard\/money\?from=2026-10-01&to=2026-10-31$/);
+        const egp = wrapper.get('[data-testid="dashboard-money-EGP"]').text();
+        expect(egp).toContain('1,600.00');
+        expect(egp).toContain('600.00');
+        expect(wrapper.get('[data-testid="dashboard-money-USD"]').text()).toContain('20.00');
+        expect(wrapper.get('[data-testid="dashboard-net-profit-note"]').text()).toContain('equals gross profit until Procurement');
+    });
+
+    it('never asks for money without the meta\'s money', async () => {
+        const fetchMock = moneyApi({ ...MANAGER_META, scope: 'team', tabs: ['overview', 'sales', 'outdoor'], money: false });
+        const wrapper = await render(fetchMock);
+
+        expect(moneyCalls(fetchMock)).toHaveLength(0);
+        expect(wrapper.find('[data-testid^="dashboard-money-"]').exists()).toBe(false);
+    });
+
+    it('lists margin and delivery cost per currency on the Finance tab, with a bar per month', async () => {
+        const wrapper = await render(moneyApi());
+        await wrapper.get('[data-testid="dashboard-tab-finance"]').trigger('click');
+        await flushPromises();
+
+        const egp = wrapper.get('[data-testid="dashboard-finance-EGP"]').text();
+        expect(egp).toContain('37.50');
+        expect(egp).toContain('100.00');
+        expect(wrapper.findAll('[data-testid="dashboard-month-bar"]')).toHaveLength(3);
+    });
+
+    it('combines into the base currency on request, naming what could not be converted', async () => {
+        const wrapper = await render(moneyApi());
+        await wrapper.get('[data-testid="dashboard-tab-finance"]').trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="dashboard-combined"]').exists()).toBe(false);
+
+        await wrapper.get('[data-testid="dashboard-combine"]').setValue(true);
+
+        const combined = wrapper.get('[data-testid="dashboard-combined"]').text();
+        expect(combined).toContain('2,100.00');
+        expect(combined).toContain('1');
+    });
+});
+
+/**
+ * Module 14, slice 4 · 4.1 — the Sales tab I (`D-144`, `D-151`): the funnel,
+ * conversion and win/loss rates, the sales cycle, average deal size (money only)
+ * and workload (drill-down holders only).
+ */
+const SALES = {
+    funnel: [
+        { status: 'lead', deals: 1 }, { status: 'contacted', deals: 3 }, { status: 'waiting_customer_request', deals: 0 },
+        { status: 'supplier_rfq', deals: 0 }, { status: 'supplier_quotation', deals: 0 }, { status: 'quotation_sent', deals: 0 },
+        { status: 'negotiations', deals: 0 }, { status: 'won', deals: 1 }, { status: 'purchasing', deals: 1 },
+        { status: 'delivery', deals: 0 }, { status: 'delivery_complete', deals: 0 }, { status: 'lost', deals: 1 },
+    ],
+    conversion: { created: 7, reached_won: 2, rate_percent: '28.57' },
+    win_loss: { won: 3, lost: 1, win_rate_percent: '75.00' },
+    average_sales_cycle_days: '10.00',
+    average_deal_size: [{ currency: 'EGP', value: '800.000000' }],
+    workload: [{ owner_id: 'u1', name: 'Mona Member', open_deals: 4 }],
+};
+
+function salesApi(sales: unknown = SALES): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        // The Sales tab also mounts the breakdowns (5.2); the server always sends `lost_by_reason`.
+        const data = /\/dashboard\/sales\?/.test(url) ? sales
+            : /\/dashboard\/breakdowns\?/.test(url) ? { base_currency: 'EGP', lost_by_reason: [] }
+                : /\/dashboard\/money\?/.test(url) ? MONEY : /\/dashboard\/overview\?/.test(url) ? OVERVIEW : MANAGER_META;
+        return json(200, { data, meta: { request_id: 'r' } });
+    });
+}
+
+async function openSales(fetchMock: ReturnType<typeof vi.fn>) {
+    const wrapper = await render(fetchMock);
+    await wrapper.get('[data-testid="dashboard-tab-sales"]').trigger('click');
+    await flushPromises();
+    return wrapper;
+}
+
+describe('the Sales tab', () => {
+    it('asks for the period and draws every funnel stage in order', async () => {
+        const fetchMock = salesApi();
+        const wrapper = await openSales(fetchMock);
+
+        expect(fetchMock.mock.calls.map(([u]) => String(u)).some((u) => /\/dashboard\/sales\?from=2026-10-01&to=2026-10-31$/.test(u))).toBe(true);
+        const stages = wrapper.findAll('[data-testid="dashboard-funnel-stage"]');
+        expect(stages).toHaveLength(12);
+        expect(stages[0]!.attributes('data-status')).toBe('lead');
+        expect(stages[11]!.attributes('data-status')).toBe('lost');
+    });
+
+    it('shows the rates, the cycle and the deal size', async () => {
+        const wrapper = await openSales(salesApi());
+
+        expect(wrapper.get('[data-testid="dashboard-conversion"]').text()).toContain('28.57');
+        expect(wrapper.get('[data-testid="dashboard-win-rate"]').text()).toContain('75.00');
+        expect(wrapper.get('[data-testid="dashboard-sales-cycle"]').text()).toContain('10.00');
+        expect(wrapper.get('[data-testid="dashboard-deal-size-EGP"]').text()).toContain('800.00');
+        expect(wrapper.get('[data-testid="dashboard-workload"]').text()).toContain('Mona Member');
+    });
+
+    it('leaves out what the answer leaves out, and says "—" for a rate with nothing to divide', async () => {
+        const { average_deal_size: _size, workload: _load, ...counts } = SALES;
+        const wrapper = await openSales(salesApi({ ...counts, conversion: { created: 0, reached_won: 0, rate_percent: null } }));
+
+        expect(wrapper.find('[data-testid^="dashboard-deal-size-"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="dashboard-workload"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="dashboard-conversion"]').text()).toContain('—');
+    });
+});
+
+/**
+ * Module 14, slice 5 · 5.1 — the Sales tab II (`D-144`, `D-145`, `D-147`, `D-151`):
+ * lost by reason, by employee, by sector, top customers, best and worst products —
+ * each drawn only when the answer carries it.
+ */
+const BREAKDOWNS = {
+    base_currency: 'EGP',
+    lost_by_reason: [{ code: 'price_too_high', deals: 3 }, { code: 'other', deals: 1 }],
+    by_employee: [{ owner_id: 'u1', name: 'Mona Member', won_deals: 2, money: [{ currency: 'EGP', won_value: '1500.000000' }] }],
+    by_sector: [{ sector: 'medical', won_chains: 2, money: [{ currency: 'EGP', won_value: '1500.000000' }] }],
+    top_customers: [{ customer_id: 'c1', name: 'Delta Medical', base_value: '1000.000000', money: [{ currency: 'EGP', won_value: '1000.000000' }] }],
+    products: {
+        best: [{ catalog_item_id: 'p1', name: 'Widget', base_value: '1400.000000', money: [{ currency: 'EGP', won_value: '1400.000000' }] }],
+        worst: [{ catalog_item_id: 'p2', name: 'Gadget', base_value: '1100.000000', money: [{ currency: 'EGP', won_value: '100.000000' }] }],
+    },
+};
+
+function breakdownsApi(breakdowns: unknown = BREAKDOWNS): ReturnType<typeof vi.fn> {
+    return vi.fn(async (input: string) => {
+        const url = String(input);
+        const data = /\/dashboard\/breakdowns\?/.test(url) ? breakdowns
+            : /\/dashboard\/sales\?/.test(url) ? SALES
+                : /\/dashboard\/money\?/.test(url) ? MONEY
+                    : /\/dashboard\/overview\?/.test(url) ? OVERVIEW
+                        : /\/managed-lists\/lost_reasons/.test(url) ? [{ code: 'price_too_high', label_en: 'Price too high', label_ar: 'السعر أعلى من المتوقع', position: 1 }, { code: 'other', label_en: 'Other', label_ar: 'أخرى', position: 7 }]
+                            : /\/managed-lists\/sectors/.test(url) ? [{ code: 'medical', label_en: 'Medical', label_ar: 'طبي', position: 1 }]
+                                : MANAGER_META;
+        return json(200, { data, meta: { request_id: 'r', pagination: { page: 1, per_page: 25, total: 1, total_pages: 1, has_next_page: false, has_previous_page: false } } });
+    });
+}
+
+describe('the Sales tab II', () => {
+    it('draws each breakdown with its labels', async () => {
+        const wrapper = await openSales(breakdownsApi());
+
+        expect(wrapper.get('[data-testid="dashboard-lost-by-reason"]').text()).toContain('Price too high');
+        expect(wrapper.get('[data-testid="dashboard-lost-by-reason"]').text()).toContain('3');
+        expect(wrapper.get('[data-testid="dashboard-by-employee"]').text()).toContain('Mona Member');
+        expect(wrapper.get('[data-testid="dashboard-by-employee"]').text()).toContain('1,500.00');
+        expect(wrapper.get('[data-testid="dashboard-by-sector"]').text()).toContain('Medical');
+        expect(wrapper.get('[data-testid="dashboard-top-customers"]').text()).toContain('Delta Medical');
+        expect(wrapper.get('[data-testid="dashboard-products-best"]').text()).toContain('Widget');
+        expect(wrapper.get('[data-testid="dashboard-products-worst"]').text()).toContain('Gadget');
+    });
+
+    it('draws only what the answer carries', async () => {
+        const wrapper = await openSales(breakdownsApi({ base_currency: 'EGP', lost_by_reason: [], by_employee: [{ owner_id: 'u1', name: 'Mona Member', won_deals: 2 }] }));
+
+        expect(wrapper.find('[data-testid="dashboard-by-employee"]').text()).not.toContain('.00');
+        for (const part of ['by-sector', 'top-customers', 'products-best', 'products-worst']) {
+            expect(wrapper.find(`[data-testid="dashboard-${part}"]`).exists()).toBe(false);
+        }
+    });
+});
+
+/**
+ * Module 14, slice 6 · 6.1 — drill-down (`D-145`): for a holder of `drill_down`,
+ * a figure opens the list it counts, with that list's filters; for anyone else
+ * (the CEO) it is a number, never a link.
+ */
+describe('drill-down', () => {
+    const href = (wrapper: Awaited<ReturnType<typeof render>>, testid: string): string | undefined =>
+        wrapper.find(`[data-testid="${testid}"] a`).attributes('href');
+
+    it('turns the Overview figures into links to their lists', async () => {
+        const wrapper = await render(api());
+
+        expect(href(wrapper, 'dashboard-tile-deals-total')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31');
+        expect(href(wrapper, 'dashboard-tile-deals-open')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31&progress=open');
+        expect(href(wrapper, 'dashboard-tile-deals-closed')).toBe('/deals?created_from=2026-10-01&created_to=2026-10-31&progress=closed');
+        expect(href(wrapper, 'dashboard-tile-customers')).toBe('/customers?created_from=2026-10-01&created_to=2026-10-31');
+        expect(href(wrapper, 'dashboard-tile-pending-approvals')).toBe('/approvals');
+        expect(href(wrapper, 'dashboard-tile-returned')).toBe('/quotations');
+    });
+
+    it('links each funnel stage and each workload row', async () => {
+        const wrapper = await openSales(salesApi());
+
+        expect(wrapper.findAll('[data-testid="dashboard-funnel-stage"] a')[0]!.attributes('href')).toBe('/deals?status=lead&created_from=2026-10-01&created_to=2026-10-31');
+        expect(wrapper.find('[data-testid="dashboard-workload"] a').attributes('href')).toBe('/deals?owner=u1&progress=open');
+    });
+
+    it('draws no link without drill-down', async () => {
+        const wrapper = await render(api({ meta: { ...MANAGER_META, drill_down: false, tabs: ['overview', 'sales', 'finance', 'outdoor'], last_updated_at: OVERVIEW.last_updated_at } }));
+
+        expect(wrapper.find('[data-testid^="dashboard-tile-"] a').exists()).toBe(false);
+    });
+});

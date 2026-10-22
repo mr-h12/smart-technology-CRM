@@ -55,6 +55,8 @@ final class ContactTitleMigrationTest extends TestCase
 
     public function test_that_the_migration_rolls_back_and_forward(): void
     {
+        // `D-147`'s `lost_reasons` widens the same CHECK later; a real rollback undoes it first, so this one does too.
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_10_21_400000_add_lost_reason_codes.php']));
         self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => self::MIGRATION]));
 
         self::assertFalse(Schema::hasColumn('customers', 'contact_title'), 'down() left the column behind (DEV-03).');

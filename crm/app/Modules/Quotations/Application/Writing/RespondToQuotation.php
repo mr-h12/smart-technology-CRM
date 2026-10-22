@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Application\Writing;
 
+use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
+use App\Modules\Admin\Domain\Reference\ListEntry;
+use App\Modules\Admin\Domain\Reference\ManagedList;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
@@ -60,7 +63,14 @@ final readonly class RespondToQuotation
         private SupplierItemQuantityInterface $supplierQuantities,
         private AuditRecorderInterface $audit,
         private ConnectionInterface $connection,
+        private ManagedListRepositoryInterface $lists,
     ) {}
+
+    /** @return list<string> the live `lost_reasons` codes (`D-147`) */
+    private function lostReasonCodes(): array
+    {
+        return array_map(static fn (ListEntry $entry): string => $entry->code(), $this->lists->entriesFor(ManagedList::LostReasons));
+    }
 
     /**
      * @param  list<string>  $heldScopes  §3.2 codes on `quotation.record_customer_response`
@@ -73,6 +83,7 @@ final readonly class RespondToQuotation
         string $quotationId,
         string $response,
         ?string $reason,
+        ?string $reasonCode,
         ?string $customerPoReference,
         ?string $poDate,
         ?string $ifMatch,
@@ -87,13 +98,20 @@ final readonly class RespondToQuotation
             throw new InvalidArgumentException('An acceptance needs the customer\'s reference and date.');
         }
 
-        return $this->connection->transaction(function () use ($quotationId, $response, $reason, $customerPoReference, $poDate, $ifMatch, $heldScopes, $actorId, $event, $rejected, $accepted): RecordedResponse {
+        return $this->connection->transaction(function () use ($quotationId, $response, $reason, $reasonCode, $customerPoReference, $poDate, $ifMatch, $heldScopes, $actorId, $event, $rejected, $accepted): RecordedResponse {
             $before = $this->access->open($quotationId, $ifMatch, $heldScopes, $actorId);
 
-            $needsReason = $response === 'counter' || $rejected;
-            if ($needsReason && ($reason === null || preg_match('/\S/u', $reason) !== 1)) {
+            // §6.3 as `D-147` amends it: Counter needs its text; Rejected needs a live
+            // `lost_reasons` code, and a note only when the code is `other`.
+            $hasText = $reason !== null && preg_match('/\S/u', $reason) === 1;
+            if ($rejected && ! in_array($reasonCode, $this->lostReasonCodes(), true)) {
+                throw QuotationWriteRefused::reasonCodeRequired();
+            }
+            $needsReason = $response === 'counter' || ($rejected && $reasonCode === 'other');
+            if ($needsReason && ! $hasText) {
                 throw QuotationWriteRefused::reasonRequired();
             }
+            $reason = $hasText ? $reason : null;
 
             if (! QuotationStatusTransition::isAllowed($before->status, $response)) {
                 throw QuotationWriteRefused::invalidTransition($before->status, $response);
@@ -101,7 +119,9 @@ final readonly class RespondToQuotation
 
             $statuses = $rejected ? $this->quotations->lockStatusesOfDeal($before->dealId) : [];
 
-            if (! $this->quotations->moveStatus($quotationId, $response, $before->versionToken, $actorId, $needsReason ? ['rejection_reason' => $reason] : [])) {
+            if (! $this->quotations->moveStatus($quotationId, $response, $before->versionToken, $actorId, match (true) {
+                $rejected => ['rejection_reason' => $reason, 'rejection_reason_code' => $reasonCode], $needsReason => ['rejection_reason' => $reason], default => []
+            })) {
                 throw QuotationWriteRefused::staleVersion(QuotationEtag::of($before));
             }
 
@@ -115,6 +135,10 @@ final readonly class RespondToQuotation
 
             $old = ['status' => $before->status, 'rejection_reason' => $before->rejectionReason];
             $new = ['status' => $after->status, 'rejection_reason' => $after->rejectionReason];
+            if ($rejected) {
+                $old['rejection_reason_code'] = $before->rejectionReasonCode;
+                $new['rejection_reason_code'] = $after->rejectionReasonCode;
+            }
 
             if ($accepted) {
                 [$old['consumed_quantity'], $new['consumed_quantity']] = $this->consumeLines($before);
@@ -139,10 +163,10 @@ final readonly class RespondToQuotation
             }
 
             $dealLost = null;
-            if ($rejected && is_string($reason)) {
+            if ($rejected) {
                 unset($statuses[$quotationId]);
                 $othersLive = array_intersect($statuses, QuotationListCriteria::BUCKETS['active']);
-                $dealLost = $othersLive === [] && $this->deals->quotationRejected($before->dealId, $reason, $actorId);
+                $dealLost = $othersLive === [] && $this->deals->quotationRejected($before->dealId, $reason, $actorId, $reasonCode);
             }
 
             return new RecordedResponse($after, $copy, $dealLost);

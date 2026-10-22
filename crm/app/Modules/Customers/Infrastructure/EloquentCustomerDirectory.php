@@ -262,6 +262,15 @@ final readonly class EloquentCustomerDirectory implements CustomerDirectoryInter
     {
         $query->where('customers.is_archived', $criteria->isArchived);
 
+        // Module 14 · 6.1 (`D-145`): the dashboard's days are the company's, so these are too.
+        if ($criteria->createdFrom !== null) {
+            $query->whereRaw('(customers.created_at AT TIME ZONE ?)::date >= ?::date', [$criteria->zone, $criteria->createdFrom]);
+        }
+
+        if ($criteria->createdTo !== null) {
+            $query->whereRaw('(customers.created_at AT TIME ZONE ?)::date <= ?::date', [$criteria->zone, $criteria->createdTo]);
+        }
+
         if ($criteria->customerStatus !== null) {
             $query->where('customers.customer_status', $criteria->customerStatus);
         }

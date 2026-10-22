@@ -34,8 +34,9 @@ interface DealOutcomeInterface
     public function quotationNegotiated(string $dealId, string $actorId): void;
 
     /**
-     * The deal goes `lost` with the reason. Returns false, and changes
-     * nothing, when its status has no `lost` edge (rule b).
+     * The deal goes `lost` with the reason — its note, and since `D-147` its
+     * `lost_reasons` code. Returns false, and changes nothing, when its status
+     * has no `lost` edge (rule b).
      */
-    public function quotationRejected(string $dealId, string $reason, string $actorId): bool;
+    public function quotationRejected(string $dealId, ?string $reason, string $actorId, ?string $reasonCode = null): bool;
 }

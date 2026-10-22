@@ -79,4 +79,14 @@ interface AuditEntryReaderInterface
      * @return list<string>
      */
     public function daysWithEntriesSince(string $event, \DateTimeInterface $since, string $zone): array;
+
+    /**
+     * Module 14's outcomes (`D-151`): per entity, the first `$event` entry whose
+     * `new_values->$field` is each of `$values` — e.g. the moment a deal first
+     * moved into `won`. Read-only.
+     *
+     * @param  list<string>  $values
+     * @return list<array{entity_id: string, value: string, at: string}>
+     */
+    public function firstEntriesInto(string $event, string $entityType, string $field, array $values): array;
 }

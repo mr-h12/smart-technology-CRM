@@ -443,6 +443,24 @@ function customerCalls(asked: string[]): string[] {
     return asked.filter((url) => url.startsWith('/api/v1/customers')).map((url) => decodeURIComponent(url));
 }
 
+describe('CustomersView — Module 14 · 6.1, the dashboard\'s drill-down', () => {
+    it('carries the dashboard\'s created-date filter', async () => {
+        await signIn(READER);
+        const asked = stubScreen();
+        const router = createAppRouter();
+        await router.push('/customers?created_from=2026-10-01&created_to=2026-10-31');
+        await router.isReady();
+
+        const wrapper = mount(CustomersView, { global: { plugins: [router, createI18n({ legacy: false, locale: 'en', fallbackLocale: 'en', messages: { en, ar } })] } });
+        await flushPromises();
+
+        // The owner's browser check (2026-10-22): the days as every screen draws them, never raw ISO.
+        expect(wrapper.get('[data-testid="customers-dashboard-filter"]').text()).toContain('01/10/2026 – 31/10/2026');
+        expect(customerCalls(asked).at(-1)).toContain('filter[created_from]=2026-10-01');
+        expect(customerCalls(asked).at(-1)).toContain('filter[created_to]=2026-10-31');
+    });
+});
+
 describe('CustomersView — §5.2 filters and search', () => {
     it('offers the sectors the administrator configured, in the caller’s language', async () => {
         stubScreen();

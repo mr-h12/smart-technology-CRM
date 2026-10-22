@@ -523,7 +523,8 @@
             "service_types": "Service types",
             "delivery_terms": "Delivery terms",
             "companies": "Companies",
-            "contact_titles": "Contact titles"
+            "contact_titles": "Contact titles",
+            "lost_reasons": "Lost reasons"
         },
         "column": {
             "code": "Code",
@@ -647,7 +648,9 @@
             "ownerInactive": "Customers of deactivated employees",
             "archived": "Records",
             "archivedActive": "Active",
-            "archivedArchived": "Archived"
+            "archivedArchived": "Archived",
+            "fromDashboard": "From the dashboard: added {from} – {to}",
+            "clearDashboard": "Clear"
         },
         "empty": {
             "filtered": {
@@ -1052,7 +1055,13 @@
             "source": "Source",
             "sourceAll": "Any source",
             "ownerAll": "Any owner",
-            "toggle": "Filters ({count})"
+            "toggle": "Filters ({count})",
+            "fromDashboard": "From the dashboard: created {from} – {to}",
+            "clearDashboard": "Clear",
+            "progress": {
+                "open": "open deals",
+                "closed": "closed deals"
+            }
         },
         "column": {
             "code": "Code",
@@ -1316,7 +1325,12 @@
             "additionalTotal": "Additional items",
             "rounding": "Rounding (to {unit})",
             "finalTotal": "Final total",
-            "openDeal": "Open the deal"
+            "openDeal": "Open the deal",
+            "respondReasonCode": "Why the customer rejected it",
+            "respondReasonCodePick": "Choose a reason…",
+            "respondReasonOptional": "Note (optional)",
+            "recordNeedsReasonCode": "Choose why the customer rejected it to record the response.",
+            "rejectionReasonCode": "Why it was rejected"
         },
         "builder": {
             "title": "New quotation",
@@ -1657,6 +1671,42 @@
             "pending_approvals": "Pending approvals",
             "returned": "Returned quotations",
             "now": "now"
+        },
+        "money": {
+            "currency": "Currency",
+            "won_value": "Revenue",
+            "cost": "Cost",
+            "gross_profit": "Gross profit",
+            "net_profit": "Net profit",
+            "margin": "Margin",
+            "delivery_cost": "Delivery & installation",
+            "net_profit_note": "Net profit equals gross profit until Procurement is live.",
+            "combine": "Combine into the base currency",
+            "unconverted": "{count} won quotation(s) had no exchange rate at the time and are left out.",
+            "monthly": "By month: revenue / gross profit",
+            "none": "Nothing won in this period."
+        },
+        "sales": {
+            "conversion": "Conversion",
+            "of_created": "{won} of {created} reached Won",
+            "win_rate": "Win rate",
+            "won_lost": "{won} won · {lost} lost",
+            "cycle": "Average sales cycle",
+            "days": "{days} days",
+            "deal_size": "Average deal size",
+            "funnel": "Sales funnel",
+            "workload": "Open deals per employee"
+        },
+        "breakdowns": {
+            "lost_by_reason": "Lost deals by reason",
+            "by_employee": "By employee",
+            "by_sector": "By sector",
+            "top_customers": "Top customers",
+            "best_products": "Best-selling products",
+            "worst_products": "Least-selling products",
+            "won_deals": "{count} won",
+            "none": "Not set",
+            "empty": "Nothing in this period."
         }
     }
 }

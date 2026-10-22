@@ -558,6 +558,8 @@ deptrac:
       # `CustomerFollowUpsInterface`, never Reports' tables.
       - ReportsContract
     CustomersDriver:
+      # AdminContract, Module 14 · 6.1: `CompanyToday::zone()` — the list filters creation days in the company's zone (`D-145`).
+      - AdminContract
       - CustomersContract
       - Framework
       - SharedContracts
@@ -600,6 +602,8 @@ deptrac:
     # *contract* half only; nothing points at `StorageDriver`, and nothing
     # should.
     Deals:
+      # AdminContract, Module 14 · 6.1: `CompanyToday::zone()` — the list filters creation days in the company's zone, as the dashboard counts them (`D-145`).
+      - AdminContract
       - Framework
       - SharedContracts
       - IdentityContract
@@ -897,8 +901,13 @@ deptrac:
       - CustomersContract
       # QuotationsContract: `QuotationReaderInterface::liveApprovalCountsByOwner`.
       - QuotationsContract
-      # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`).
+      # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`);
+      # 4.2: `firstEntriesInto` (`DEAL_STATUS_CHANGED`, `D-151`).
       - AuditContract
+      # SupplierQuotationsContract, 5.2: `SupplierItemPricingInterface::priceFor` — a sold line's product.
+      - SupplierQuotationsContract
+      # CatalogContract, 5.2: `CatalogItemLabelsInterface::labelsOf` — the products' names.
+      - CatalogContract
     Notifications: ~
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.

@@ -91,4 +91,19 @@ final readonly class EloquentCustomerNames implements CustomerNamesInterface, Ne
 
         return $days;
     }
+
+    public function sectorsOf(array $customerIds): array
+    {
+        if ($customerIds === []) {
+            return [];
+        }
+
+        $sectors = [];
+        /** @var object{id: string, sector: ?string} $row */
+        foreach ($this->connection->table('customers')->whereIn('id', $customerIds)->whereNull('deleted_at')->get(['id', 'sector']) as $row) {
+            $sectors[$row->id] = $row->sector;
+        }
+
+        return $sectors;
+    }
 }

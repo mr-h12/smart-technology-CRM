@@ -118,6 +118,24 @@ final class CustomerListEndpointTest extends TestCase
         return $id;
     }
 
+    // ─────────────────────────────── Module 14 · 6.1: the dashboard's drill-down filter
+
+    /** `D-145`: "new customers" on the dashboard opens the customers created in its period, by the company's day. */
+    public function test_that_created_from_and_to_filter_by_the_companys_day(): void
+    {
+        $this->patchJson('/api/v1/settings', ['settings' => ['locale.timezone' => 'Africa/Cairo']], $this->bearerFor(RoleName::SuperAdmin))->assertStatus(200);
+        $inside = $this->customer('The 5th in Cairo');
+        DB::table('customers')->where('id', $inside)->update(['created_at' => '2026-10-04 22:30:00']);
+        $outside = $this->customer('The 4th in Cairo');
+        DB::table('customers')->where('id', $outside)->update(['created_at' => '2026-10-04 20:00:00']);
+
+        $names = $this->getJson(self::ENDPOINT.'?filter[created_from]=2026-10-05&filter[created_to]=2026-10-31', $this->bearerFor(RoleName::Manager))
+            ->assertOk()->json('data.*.name');
+
+        self::assertSame(['The 5th in Cairo'], $names);
+        $this->getJson(self::ENDPOINT.'?filter[created_to]=yesterday', $this->bearerFor(RoleName::Manager))->assertStatus(400);
+    }
+
     // ─────────────────────────────── the envelope and the contract
 
     public function test_that_an_unauthenticated_caller_is_refused(): void

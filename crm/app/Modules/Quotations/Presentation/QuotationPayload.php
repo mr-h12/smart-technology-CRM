@@ -173,6 +173,7 @@ final class QuotationPayload
             'version' => $quotation->version,
             'parent_id' => $quotation->parentId,
             'rejection_reason' => $quotation->rejectionReason,
+            'rejection_reason_code' => $quotation->rejectionReasonCode,
             'sent_at' => $quotation->sentAt,
             'submitted_at' => $quotation->submittedAt,
             ...$waiting->of($quotation->status, $quotation->submittedAt),

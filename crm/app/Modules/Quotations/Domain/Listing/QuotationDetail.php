@@ -57,6 +57,8 @@ final readonly class QuotationDetail
         public int $version,
         public ?string $parentId,
         public ?string $rejectionReason,
+        /** `D-147`: the `lost_reasons` code of a Rejected answer; null otherwise. */
+        public ?string $rejectionReasonCode,
         public ?string $sentAt,
         public ?string $submittedAt,
         public ?string $returnedAt,

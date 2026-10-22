@@ -75,6 +75,178 @@ final readonly class DatabaseDashboardAggregates implements DashboardAggregatesI
         ];
     }
 
+    public function replaceSentVersions(array $rows): void
+    {
+        $this->replace('dashboard_sent_versions', null, $rows);
+    }
+
+    public function moneyBetween(string $from, string $to): array
+    {
+        // `D-141`: per chain, the latest version sent in the period; won when accepted or partial.
+        $won = <<<'SQL'
+            won AS (
+                SELECT * FROM (
+                    SELECT DISTINCT ON (chain_id) * FROM dashboard_sent_versions
+                    WHERE sent_day BETWEEN ? AND ?
+                    ORDER BY chain_id, version DESC, sent_day DESC
+                ) latest
+                WHERE status IN ('accepted', 'partial')
+            )
+            SQL;
+
+        /** @var list<object{currency: string, won_value: string, cost: string, gross_profit: string, margin_percent: string, delivery_cost: string, won_chains: int}> $currencies */
+        $currencies = $this->connection->select("WITH {$won}
+            SELECT currency, SUM(net_amount) AS won_value, SUM(cost) AS cost,
+                SUM(net_amount - additional_total - cost) AS gross_profit,
+                CASE WHEN SUM(net_amount) = 0 THEN 0.00 ELSE ROUND(SUM(net_amount - additional_total - cost) / SUM(net_amount) * 100, 2) END AS margin_percent,
+                SUM(additional_total) AS delivery_cost, COUNT(*) AS won_chains
+            FROM won GROUP BY currency ORDER BY currency", [$from, $to]);
+
+        /** @var object{won_value: string, gross_profit: string, delivery_cost: string, unconverted: int} $combined */
+        $combined = $this->connection->selectOne("WITH {$won}
+            SELECT COALESCE(SUM(base_net_amount), 0.000000) AS won_value,
+                COALESCE(SUM(base_net_amount - base_additional_total - base_cost), 0.000000) AS gross_profit,
+                COALESCE(SUM(base_additional_total), 0.000000) AS delivery_cost,
+                COUNT(*) FILTER (WHERE base_net_amount IS NULL) AS unconverted
+            FROM won", [$from, $to]);
+
+        /** @var list<object{month: string, currency: string, won_value: string, gross_profit: string}> $monthly */
+        $monthly = $this->connection->select(<<<'SQL'
+            SELECT month, currency, SUM(net_amount) AS won_value, SUM(net_amount - additional_total - cost) AS gross_profit
+            FROM (
+                SELECT DISTINCT ON (chain_id, to_char(sent_day, 'YYYY-MM')) to_char(sent_day, 'YYYY-MM') AS month, *
+                FROM dashboard_sent_versions
+                WHERE sent_day BETWEEN ? AND ?
+                ORDER BY chain_id, to_char(sent_day, 'YYYY-MM'), version DESC, sent_day DESC
+            ) latest
+            WHERE status IN ('accepted', 'partial')
+            GROUP BY month, currency ORDER BY month, currency
+            SQL, [$from, $to]);
+
+        return [
+            'currencies' => array_map(static fn (object $r): array => [
+                'currency' => $r->currency, 'won_value' => (string) $r->won_value, 'cost' => (string) $r->cost,
+                'gross_profit' => (string) $r->gross_profit, 'margin_percent' => (string) $r->margin_percent,
+                'delivery_cost' => (string) $r->delivery_cost, 'won_chains' => (int) $r->won_chains,
+            ], $currencies),
+            'combined' => [
+                'won_value' => (string) $combined->won_value, 'gross_profit' => (string) $combined->gross_profit,
+                'delivery_cost' => (string) $combined->delivery_cost, 'unconverted' => (int) $combined->unconverted,
+            ],
+            'monthly' => array_map(static fn (object $r): array => [
+                'month' => $r->month, 'currency' => $r->currency, 'won_value' => (string) $r->won_value, 'gross_profit' => (string) $r->gross_profit,
+            ], $monthly),
+        ];
+    }
+
+    public function replaceOutcomes(array $rows): void
+    {
+        $this->replace('dashboard_daily_outcomes', null, $rows);
+    }
+
+    public function replaceWorkload(array $rows): void
+    {
+        $this->replace('dashboard_live_workload', null, $rows);
+    }
+
+    public function replaceSentLines(array $rows): void
+    {
+        $this->replace('dashboard_sent_lines', null, $rows);
+    }
+
+    public function breakdownsBetween(string $from, string $to, ?array $ownerIds): array
+    {
+        $outcomes = fn (string $outcome) => $this->scoped($this->connection->table('dashboard_daily_outcomes')->whereBetween('day', [$from, $to]), 'owner_id', $ownerIds)
+            ->where('outcome', $outcome);
+
+        $lost = [];
+        /** @var object{code: string, deals: int} $row */
+        foreach ($outcomes('lost')->groupBy('reason_code')->selectRaw('reason_code AS code, SUM(deals) AS deals')
+            ->orderByDesc('deals')->orderBy('reason_code')->get() as $row) {
+            $lost[] = ['code' => $row->code, 'deals' => (int) $row->deals];
+        }
+
+        /** @var array<string, int|string> $wonDeals */
+        $wonDeals = $outcomes('won')->whereNotNull('owner_id')->groupBy('owner_id')->selectRaw('owner_id, SUM(deals) AS deals')->pluck('deals', 'owner_id')->all();
+
+        [$won, $bindings] = $this->wonChains($from, $to, $ownerIds);
+        $select = fn (string $sql): array => $this->connection->select("WITH {$won} {$sql}", $bindings);
+
+        /** @var list<object{owner_id: string, currency: string, won_value: string}> $byOwner */
+        $byOwner = $select('SELECT owner_id, currency, SUM(net_amount) AS won_value FROM won WHERE owner_id IS NOT NULL GROUP BY owner_id, currency ORDER BY owner_id, currency');
+        /** @var list<object{sector: ?string, currency: string, won_value: string, won_chains: int}> $bySector */
+        $bySector = $select('SELECT sector, currency, SUM(net_amount) AS won_value, COUNT(*) AS won_chains FROM won GROUP BY sector, currency ORDER BY sector, currency');
+        /** @var list<object{id: string, currency: string, won_value: string, base_value: numeric-string|null}> $byCustomer */
+        $byCustomer = $select('SELECT customer_id AS id, currency, SUM(net_amount) AS won_value, SUM(base_net_amount) AS base_value FROM won WHERE customer_id IS NOT NULL GROUP BY customer_id, currency ORDER BY customer_id, currency');
+        /** @var list<object{id: string, currency: string, won_value: string, base_value: numeric-string|null}> $byProduct */
+        $byProduct = $select('SELECT l.catalog_item_id AS id, w.currency, SUM(l.line_total) AS won_value, SUM(l.base_line_total) AS base_value
+            FROM dashboard_sent_lines l JOIN won w ON w.quotation_id = l.quotation_id
+            WHERE l.catalog_item_id IS NOT NULL GROUP BY l.catalog_item_id, w.currency ORDER BY l.catalog_item_id, w.currency');
+
+        return [
+            'lost_by_reason' => $lost,
+            'won_deals_by_owner' => array_map(static fn (int|string $n): int => (int) $n, $wonDeals),
+            'money_by_owner' => array_map(static fn (object $r): array => ['owner_id' => $r->owner_id, 'currency' => $r->currency, 'won_value' => (string) $r->won_value], $byOwner),
+            'by_sector' => array_map(static fn (object $r): array => ['sector' => $r->sector, 'currency' => $r->currency, 'won_value' => (string) $r->won_value, 'won_chains' => (int) $r->won_chains], $bySector),
+            'by_customer' => array_map(static fn (object $r): array => ['id' => $r->id, 'currency' => $r->currency, 'won_value' => (string) $r->won_value, 'base_value' => $r->base_value], $byCustomer),
+            'by_product' => array_map(static fn (object $r): array => ['id' => $r->id, 'currency' => $r->currency, 'won_value' => (string) $r->won_value, 'base_value' => $r->base_value], $byProduct),
+        ];
+    }
+
+    /**
+     * `D-141`'s won chains over `[$from, $to]` as a CTE named `won`: per chain the
+     * latest version sent in the period, kept when `accepted` or `partial`; scoped to
+     * `$ownerIds` when given.
+     *
+     * @param  list<string>|null  $ownerIds
+     * @return array{0: string, 1: list<string>}
+     */
+    private function wonChains(string $from, string $to, ?array $ownerIds): array
+    {
+        $scope = '';
+        $bindings = [$from, $to];
+        if ($ownerIds !== null) {
+            $scope = $ownerIds === [] ? ' AND FALSE' : ' AND owner_id IN ('.implode(', ', array_fill(0, count($ownerIds), '?')).')';
+            $bindings = [...$bindings, ...$ownerIds];
+        }
+
+        return ["won AS (
+                SELECT * FROM (
+                    SELECT DISTINCT ON (chain_id) * FROM dashboard_sent_versions
+                    WHERE sent_day BETWEEN ? AND ?
+                    ORDER BY chain_id, version DESC, sent_day DESC
+                ) latest
+                WHERE status IN ('accepted', 'partial'){$scope}
+            )", $bindings];
+    }
+
+    public function salesBetween(string $from, string $to, ?array $ownerIds): array
+    {
+        /** @var array<string, int|string> $byStatus */
+        $byStatus = $this->scoped($this->connection->table('dashboard_daily_deals')->whereBetween('day', [$from, $to]), 'owner_id', $ownerIds)
+            ->groupBy('status')->selectRaw('status, SUM(deals) AS n')->pluck('n', 'status')->all();
+
+        $outcomes = $this->scoped($this->connection->table('dashboard_daily_outcomes')->whereBetween('day', [$from, $to]), 'owner_id', $ownerIds)
+            ->selectRaw("COALESCE(SUM(deals) FILTER (WHERE outcome = 'won'), 0) AS won, COALESCE(SUM(deals) FILTER (WHERE outcome = 'lost'), 0) AS lost, COALESCE(SUM(cycle_days), 0) AS cycle_days")
+            ->first();
+        $int = static fn (mixed $v): int => is_numeric($v) ? (int) $v : 0;
+
+        $workload = [];
+        /** @var object{owner_id: string, open_deals: int} $row */
+        foreach ($this->scoped($this->connection->table('dashboard_live_workload'), 'owner_id', $ownerIds)
+            ->orderByDesc('open_deals')->orderBy('owner_id')->get() as $row) {
+            $workload[] = ['owner_id' => $row->owner_id, 'open_deals' => (int) $row->open_deals];
+        }
+
+        return [
+            'deals_by_status' => array_map(static fn (int|string $n): int => (int) $n, $byStatus),
+            'won' => $int(is_object($outcomes) ? $outcomes->won : 0),
+            'lost' => $int(is_object($outcomes) ? $outcomes->lost : 0),
+            'cycle_days' => $int(is_object($outcomes) ? $outcomes->cycle_days : 0),
+            'workload' => $workload,
+        ];
+    }
+
     /**
      * Null keeps every row (All, unowned included); a list keeps only those owners —
      * an unowned row never matches one (`D-138`).

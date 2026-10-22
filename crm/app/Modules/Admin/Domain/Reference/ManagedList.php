@@ -59,4 +59,7 @@ enum ManagedList: string
 
     /** `D-104`: the title before a customer's contact person, *Mr.* / *Mrs.* (F-38). */
     case ContactTitles = 'contact_titles';
+
+    /** `D-147`: why a customer rejected a quotation — and so why its deal was lost. */
+    case LostReasons = 'lost_reasons';
 }

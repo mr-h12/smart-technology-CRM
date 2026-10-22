@@ -35,7 +35,7 @@ final readonly class CustomerListCriteria
     public const MAX_PER_PAGE = 100;
 
     /** §6.2: the fields this resource declares as filterable. */
-    public const ALLOWED_FILTERS = ['customer_status', 'sector', 'is_archived', 'is_incomplete', 'owner_inactive'];
+    public const ALLOWED_FILTERS = ['customer_status', 'sector', 'is_archived', 'is_incomplete', 'owner_inactive', 'created_from', 'created_to'];
 
     /** §6.2: "Comma-separated allowed fields. Prefix `-` means descending." */
     public const ALLOWED_SORTS = ['name', 'created_at', 'start_date'];
@@ -56,6 +56,10 @@ final readonly class CustomerListCriteria
         public ?bool $isIncomplete = null,
         public bool $ownerInactive = false,
         public array $sorts = [['field' => self::DEFAULT_SORT, 'descending' => false]],
+        // Module 14 · 6.1, the dashboard's drill-down: creation days in `$zone`, both included.
+        public ?string $createdFrom = null,
+        public ?string $createdTo = null,
+        public string $zone = 'UTC',
     ) {}
 
     /**
@@ -63,7 +67,7 @@ final readonly class CustomerListCriteria
      *
      * @throws InvalidCustomerListQuery
      */
-    public static function fromQuery(array $query): self
+    public static function fromQuery(array $query, string $zone = 'UTC'): self
     {
         $page = self::positiveInteger($query['page'] ?? null, 'page', 1);
         $perPage = self::positiveInteger($query['per_page'] ?? null, 'per_page', self::DEFAULT_PER_PAGE);
@@ -90,6 +94,9 @@ final readonly class CustomerListCriteria
             isIncomplete: $filters['is_incomplete'],
             ownerInactive: $filters['owner_inactive'] ?? false,
             sorts: self::sorts($query['sort'] ?? null),
+            createdFrom: $filters['created_from'],
+            createdTo: $filters['created_to'],
+            zone: $zone,
         );
     }
 
@@ -193,7 +200,7 @@ final readonly class CustomerListCriteria
     }
 
     /**
-     * @return array{customer_status: string|null, sector: string|null, is_archived: bool|null, is_incomplete: bool|null, owner_inactive: bool|null}
+     * @return array{customer_status: string|null, sector: string|null, is_archived: bool|null, is_incomplete: bool|null, owner_inactive: bool|null, created_from: string|null, created_to: string|null}
      *
      * @throws InvalidCustomerListQuery
      */
@@ -205,6 +212,8 @@ final readonly class CustomerListCriteria
             'is_archived' => null,
             'is_incomplete' => null,
             'owner_inactive' => null,
+            'created_from' => null,
+            'created_to' => null,
         ];
 
         if ($value === null) {
@@ -227,6 +236,8 @@ final readonly class CustomerListCriteria
             'is_archived' => self::boolean($value['is_archived'] ?? null, 'filter[is_archived]'),
             'is_incomplete' => self::boolean($value['is_incomplete'] ?? null, 'filter[is_incomplete]'),
             'owner_inactive' => self::boolean($value['owner_inactive'] ?? null, 'filter[owner_inactive]'),
+            'created_from' => self::day($value['created_from'] ?? null, 'filter[created_from]'),
+            'created_to' => self::day($value['created_to'] ?? null, 'filter[created_to]'),
         ];
     }
 
@@ -262,6 +273,20 @@ final readonly class CustomerListCriteria
 
         if (! is_string($value) || preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $value) !== 1) {
             throw InvalidCustomerListQuery::of($parameter, 'not_a_code');
+        }
+
+        return $value;
+    }
+
+    /** Module 14 · 6.1: a calendar day (`Y-m-d`) that exists; the company's zone reads it (`D-145`). */
+    private static function day(mixed $value, string $parameter): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $value, $m) !== 1 || ! checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            throw InvalidCustomerListQuery::of($parameter, 'not_a_date');
         }
 
         return $value;

@@ -81,19 +81,6 @@ final class CatalogLineDescriptionsTest extends TestCase
         }
     }
 
-    public function test_that_an_archived_supplier_line_has_no_entry(): void
-    {
-        // `priceFor()` answers null for a soft-deleted offer's line. No entry
-        // is what makes the mapper refuse the document instead of printing a
-        // blank description.
-        $descriptions = new CatalogLineDescriptions(
-            self::prices([self::LINE_A => self::price(self::CATALOG_A), self::LINE_B => null]),
-            self::labels([self::CATALOG_A => 'Centrifugal pump 5 HP']),
-        );
-
-        self::assertSame([self::LINE_A => 'Centrifugal pump 5 HP'], $descriptions->descriptionsOf([self::LINE_A, self::LINE_B]));
-    }
-
     public function test_that_a_catalog_item_the_catalog_cannot_name_has_no_entry(): void
     {
         $descriptions = new CatalogLineDescriptions(

@@ -68,6 +68,19 @@ final class RefreshDashboardBreakdownsTest extends TestCase
         ));
     }
 
+    /** QS.1 · `D-155`: the line names its own product, so a sent line whose offer line was soft-deleted still counts for it. */
+    public function test_that_a_line_on_a_deleted_offer_counts_for_its_product(): void
+    {
+        $id = $this->pricedQuotation('accepted', '2026-10-05 10:00:00', 'EGP', '1000', lineCosts: ['1000']);
+        DB::table('supplier_quotation_items')->update(['deleted_at' => now()]);
+        $widget = DB::table('catalog_items')->where('name', 'Widget')->value('id');
+        self::assertIsString($widget);
+
+        $this->refresh();
+
+        self::assertSame([$widget], DB::table('dashboard_sent_lines')->where('quotation_id', $id)->pluck('catalog_item_id')->all());
+    }
+
     public function test_that_a_lost_outcome_keeps_its_reason_code_and_an_older_one_counts_as_other(): void
     {
         $coded = $this->lostDeal('price_too_high');

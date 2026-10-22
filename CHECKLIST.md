@@ -4907,13 +4907,14 @@ resumes at 8.3 after the redesign unless the owner reorders.
 
 ### Point list — slice 1 approved 2026-10-23 as one point (owner, in chat: "make it one point")
 
-- [ ] **QS.1** The line owns its facts (`D-155`, `D-165`) — migration A gives each `quotation_items` row its
-      catalog item and supplier (NOT NULL, foreign keys), unit code, entered price and tax rate, backfilled
-      from the line's supplier-offer line even when that offer line is soft-deleted, reversible; the existing
-      builder's save fills them on every new line; the quotation detail's product names, the PDF's
-      description, unit and VAT, and the dashboard's best and worst products read the line, not the supplier
-      offer. A quotation whose lines point at a deleted offer shows its product names and generates its PDF.
-      Not in it: `pricing_mode` and the new pricing (slice 2).
+- [ ] **QS.1** The line names its own product (`D-155`) — migration A gives each `quotation_items` row its
+      `catalog_item_id` (NOT NULL, foreign key), backfilled from the line's supplier-offer line even when that
+      offer line is soft-deleted, reversible; the existing builder's save and the version copy fill it; the
+      quotation detail's product names, the PDF's description and unit, and the dashboard's best and worst
+      products read the line, not the supplier offer. A quotation whose lines point at a deleted offer shows
+      its product names and generates its PDF. Cut to one column by the owner, 2026-10-23: the line's
+      supplier, unit code, entered price and tax rate have no reader before slice 2 and arrive with it
+      (migration B). Not in it: `pricing_mode` and the new pricing (slice 2).
 
 ## Shell revisions — owner-directed
 

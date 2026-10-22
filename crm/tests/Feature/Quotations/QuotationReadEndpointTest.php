@@ -581,6 +581,19 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.product_name', null);
     }
 
+    /** QS.1 · `D-155`: the line names its own product, so a supplier's edit that soft-deleted its offer line leaves the name standing. */
+    public function test_that_a_line_on_a_deleted_offer_is_still_named(): void
+    {
+        $id = $this->quotation($this->deal(null));
+        DB::table('supplier_quotation_items')
+            ->where('id', DB::table('quotation_items')->where('quotation_id', $id)->value('supplier_quotation_item_id'))
+            ->update(['deleted_at' => now()]);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.product_name', 'Widget');
+    }
+
     // ─────────────────────────────────────────── §10.3 price drift (Point 4.5)
 
     /** `D-36`: the quotation keeps its captured price and warns, per line, in `meta.warnings`. */

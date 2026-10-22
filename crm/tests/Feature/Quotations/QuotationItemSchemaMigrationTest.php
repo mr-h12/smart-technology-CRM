@@ -342,15 +342,6 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         );
     }
 
-    /** The product is reached through the supplier line; a second path could disagree with it. */
-    public function test_that_the_line_does_not_name_the_product_twice(): void
-    {
-        self::assertFalse(
-            Schema::hasColumn('quotation_items', 'catalog_item_id'),
-            'a second path to the product lets a line and its supplier line name different items.',
-        );
-    }
-
     // ──────────────────────────────────────────────────────── design §13
 
     public function test_that_the_indexes_section_13_names_exist(): void

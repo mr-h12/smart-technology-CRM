@@ -57,6 +57,18 @@ final class CustomerQuotationViewMapperTest extends TestCase
         '0199a000-0000-7000-8000-00000000a003' => ['unitCost' => '4333.39', 'unitCostBase' => '4333.3900', 'lineCost' => '4333.39', 'marginPercent' => '19.45'],
     ];
 
+    /**
+     * QS.1 · `D-155`: the catalog item each supplier item quotes — what a line
+     * names, and what its description and unit are keyed by.
+     *
+     * @var array<string, string>
+     */
+    private const CATALOG_ITEMS = [
+        '0199a000-0000-7000-8000-00000000a001' => '0199a000-0000-7000-8000-00000000ca01',
+        '0199a000-0000-7000-8000-00000000a002' => '0199a000-0000-7000-8000-00000000ca02',
+        '0199a000-0000-7000-8000-00000000a003' => '0199a000-0000-7000-8000-00000000ca03',
+    ];
+
     private const DEFAULT_MARGIN = '21.75';
 
     private const FX_RATE = '48.7310';
@@ -147,7 +159,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
     public function test_that_an_undescribed_line_is_refused_naming_the_line(): void
     {
         $descriptions = self::descriptions();
-        unset($descriptions['0199a000-0000-7000-8000-00000000a003']);
+        unset($descriptions['0199a000-0000-7000-8000-00000000ca03']);
 
         $this->expectException(CustomerViewIncomplete::class);
         $this->expectExceptionMessageMatches('/no description for line\(s\) 3\.$/');
@@ -163,7 +175,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         $this->mapper(lineDescriptions: self::lineDescriptions(self::descriptions(), $asked))
             ->map(self::quotation(repeatFirstItem: true));
 
-        self::assertSame([array_keys(self::SUPPLIER_ITEMS)], $asked->getArrayCopy());
+        self::assertSame([array_values(self::CATALOG_ITEMS)], $asked->getArrayCopy());
     }
 
     public function test_that_the_terms_cross_in_order_and_an_empty_body_is_left_out(): void
@@ -254,7 +266,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
     /** `D-107`: a catalog item with no unit prints `—`, so it maps, with no unit. */
     public function test_a_line_with_no_unit_maps_with_none(): void
     {
-        $first = array_key_first(self::SUPPLIER_ITEMS);
+        $first = self::CATALOG_ITEMS['0199a000-0000-7000-8000-00000000a001'];
 
         $line = $this->mapper(units: [$first => ['en' => 'Piece', 'ar' => 'قطعة']])->map(self::quotation())->lines[1];
 
@@ -608,16 +620,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
              */
             public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked, private readonly array $units) {}
 
-            public function descriptionsOf(array $supplierQuotationItemIds): array
+            public function descriptionsOf(array $catalogItemIds): array
             {
-                $this->asked->append($supplierQuotationItemIds);
+                $this->asked->append($catalogItemIds);
 
-                return array_intersect_key($this->descriptions, array_flip($supplierQuotationItemIds));
+                return array_intersect_key($this->descriptions, array_flip($catalogItemIds));
             }
 
-            public function unitsOf(array $supplierQuotationItemIds): array
+            public function unitsOf(array $catalogItemIds): array
             {
-                return array_intersect_key($this->units, array_flip($supplierQuotationItemIds));
+                return array_intersect_key($this->units, array_flip($catalogItemIds));
             }
         };
     }
@@ -627,7 +639,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
      */
     private static function units(): array
     {
-        return array_combine(array_keys(self::SUPPLIER_ITEMS), [
+        return array_combine(array_values(self::CATALOG_ITEMS), [
             ['en' => 'Piece', 'ar' => 'قطعة'],
             ['en' => 'Box', 'ar' => 'علبة'],
             ['en' => 'Piece', 'ar' => 'قطعة'],
@@ -639,7 +651,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
      */
     private static function descriptions(): array
     {
-        return array_combine(array_keys(self::SUPPLIER_ITEMS), ['Formatter M428dw', 'Toner CF259A', 'Fuser RM2-5399']);
+        return array_combine(array_values(self::CATALOG_ITEMS), ['Formatter M428dw', 'Toner CF259A', 'Fuser RM2-5399']);
     }
 
     /**
@@ -672,10 +684,12 @@ final class CustomerQuotationViewMapperTest extends TestCase
         $items = [];
         foreach ($ids as $index => $id) {
             $costs = self::SUPPLIER_ITEMS[$id];
+            $supplierItem = $repeatFirstItem && $index === 2 ? $ids[0] : $id;
             $items[] = new QuotationLine(
                 id: '0199a000-0000-7000-8000-00000000b00'.($index + 1),
                 lineNo: $index + 1,
-                supplierQuotationItemId: $repeatFirstItem && $index === 2 ? $ids[0] : $id,
+                supplierQuotationItemId: $supplierItem,
+                catalogItemId: self::CATALOG_ITEMS[$supplierItem],
                 unitCost: $costs['unitCost'],
                 unitCostCurrency: 'USD',
                 unitCostFxRateAtTime: self::FX_RATE,
@@ -691,7 +705,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         if ($repeatFirstItem) {
             // Two lines quoting the same supplier item: asked for once, and
             // the third item still asked for through a fourth line.
-            $items[] = new QuotationLine('0199a000-0000-7000-8000-00000000b004', 4, $ids[2], '4333.39', 'USD', self::FX_RATE, '4333.3900', '19.45', '5418.00', '1', '5418.00', '4333.39');
+            $items[] = new QuotationLine('0199a000-0000-7000-8000-00000000b004', 4, $ids[2], self::CATALOG_ITEMS[$ids[2]], '4333.39', 'USD', self::FX_RATE, '4333.3900', '19.45', '5418.00', '1', '5418.00', '4333.39');
         }
 
         return new QuotationDetail(

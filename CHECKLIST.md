@@ -2024,6 +2024,12 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **The Arabic guides lag the English ones on tax and OD-01** — *revealed by the same audit, 2026-10-22.*
       `arabic/CLAUDE_AR.md` and `arabic/AGENTS_AR.md` lack the discount-before-tax (`D-64`), additional-items (`D-62`)
       and optional-rounding (`D-65`) lines, and still show OD-01 open with the «أيوه» assumption, which `D-62` closed.
+- [ ] **The dashboard still guards a null product that nothing writes** — *revealed by QS.1's waste audit, 2026-10-23.*
+      Since QS.1 every sent line carries its own `catalog_item_id` (NOT NULL), so `RefreshDashboardAggregates::sentLines()`
+      always writes a product. Still shaped for the old null: `dashboard_sent_lines.catalog_item_id` is nullable
+      (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
+      `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
+      Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
 
 ## Agent guide revisions — owner-directed
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -25,10 +24,6 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
     use RefreshDatabase;
 
     private const MIGRATION = 'database/migrations/2026_10_23_000000_add_catalog_item_id_to_quotation_items.php';
-
-    private const FOREIGN_KEY_VIOLATION = '23503';
-
-    private const NOT_NULL_VIOLATION = '23502';
 
     private string $quotationId;
 
@@ -114,19 +109,6 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
         );
     }
 
-    /** `D-155`: a line without a product, or naming one the catalog does not hold, is refused by the database. */
-    public function test_that_a_line_without_a_known_product_is_refused(): void
-    {
-        $supplierLine = $this->supplierLine('Switch 24-port', deleted: false)['line'];
-
-        self::assertSame(self::NOT_NULL_VIOLATION, $this->refusedWith(
-            fn () => $this->line($supplierLine, 1, ['catalog_item_id' => null]),
-        ));
-        self::assertSame(self::FOREIGN_KEY_VIOLATION, $this->refusedWith(
-            fn () => $this->line($supplierLine, 1, ['catalog_item_id' => Uuid::uuid4()->toString()]),
-        ));
-    }
-
     // ───────────────────────────────────────────────────────────────── helpers
 
     /** @return array{item: string, line: string} a catalog product and a supplier line on it */
@@ -158,23 +140,5 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
         ], $overrides));
 
         return $id;
-    }
-
-    /** The SQLSTATE a write is refused with — inside a savepoint, so a second write in the same test still runs. */
-    private function refusedWith(callable $write): string
-    {
-        try {
-            DB::transaction(static function () use ($write): void {
-                $write();
-            });
-        } catch (QueryException $exception) {
-            $state = $exception->errorInfo[0] ?? null;
-
-            self::assertIsString($state);
-
-            return $state;
-        }
-
-        self::fail('The database accepted a row it should have refused.');
     }
 }

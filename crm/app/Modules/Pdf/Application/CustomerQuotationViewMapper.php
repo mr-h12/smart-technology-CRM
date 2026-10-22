@@ -53,8 +53,8 @@ use App\Modules\Quotations\Domain\Pricing\CustomerLineFigures;
  *   quotation, which `D-89` prints over the sign-off. Absent when Identity has
  *   no entry — the hidden Super Admin (§3.1), or a deleted account — because a
  *   document is not worth refusing over the name under "Best Regards".
- * - **From `LineDescriptionsInterface`**: what each line is. The supplier-quotation
- *   item id is *used* to ask, and is not carried into the view.
+ * - **From `LineDescriptionsInterface`**: what each line is. The line's own
+ *   catalog item id (QS.1 · `D-155`) is *used* to ask, and is not carried into the view.
  *
  * ── Blank is absent ───────────────────────────────────────────────────────
  *
@@ -185,7 +185,7 @@ final readonly class CustomerQuotationViewMapper
     private function lines(QuotationDetail $quotation): array
     {
         $itemIds = array_values(array_unique(array_map(
-            static fn (QuotationLine $line): string => $line->supplierQuotationItemId,
+            static fn (QuotationLine $line): string => $line->catalogItemId,
             $quotation->items,
         )));
         $descriptions = $this->lineDescriptions->descriptionsOf($itemIds);
@@ -198,7 +198,7 @@ final readonly class CustomerQuotationViewMapper
         $undescribed = [];
 
         foreach ($quotation->items as $line) {
-            $description = self::present($descriptions[$line->supplierQuotationItemId] ?? null);
+            $description = self::present($descriptions[$line->catalogItemId] ?? null);
 
             if ($description === null) {
                 $undescribed[] = $line->lineNo;
@@ -213,8 +213,8 @@ final readonly class CustomerQuotationViewMapper
                 quantity: $line->quantity,
                 unitPrice: $line->unitPrice,
                 lineTotal: $line->lineTotal,
-                unitEn: $units[$line->supplierQuotationItemId]['en'] ?? null,
-                unitAr: $units[$line->supplierQuotationItemId]['ar'] ?? null,
+                unitEn: $units[$line->catalogItemId]['en'] ?? null,
+                unitAr: $units[$line->catalogItemId]['ar'] ?? null,
                 vatAmount: CustomerLineFigures::vat($lineTotal, $discountPercent, $taxPercent),
             );
         }

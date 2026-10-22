@@ -14,7 +14,6 @@ use App\Modules\Customers\Domain\Contracts\NewCustomersInterface;
 use App\Modules\Dashboard\Domain\Contracts\DashboardAggregatesInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
-use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\ConnectionInterface;
 
@@ -42,7 +41,6 @@ final readonly class RefreshDashboardAggregates
         private ConnectionInterface $connection,
         private CurrencyRepositoryInterface $currencies,
         private FxRateRepositoryInterface $rates,
-        private SupplierItemPricingInterface $supplierPrices,
     ) {}
 
     /** @return int|null how many days were rebuilt; null when every day was */
@@ -116,26 +114,22 @@ final readonly class RefreshDashboardAggregates
     }
 
     /**
-     * Each live line of a kept version, its product (through its supplier line —
-     * `SupplierItemPricingInterface`, as the quotation page names its lines), and
+     * Each live line of a kept version, its product (the line's own, `D-155`), and
      * its total in the base currency at the version's rate (`D-150`).
      *
      * @param  array<string, ?ExchangeRate>  $rates  quotation id => its rate
-     * @return list<array{quotation_id: string, catalog_item_id: ?string, line_total: string, base_line_total: ?string}>
+     * @return list<array{quotation_id: string, catalog_item_id: string, line_total: string, base_line_total: ?string}>
      */
     private function sentLines(array $rates): array
     {
-        $products = [];
         $rows = [];
         foreach ($this->quotations->sentVersionLines() as $line) {
             if (! array_key_exists($line['quotation_id'], $rates)) {
                 continue;
             }
-            // ponytail: one lookup per distinct supplier line; a bulk reader when the catalog grows past a few thousand lines.
-            $products[$line['supplier_quotation_item_id']] ??= $this->supplierPrices->priceFor($line['supplier_quotation_item_id'])?->catalogItemId;
             $rows[] = [
                 'quotation_id' => $line['quotation_id'],
-                'catalog_item_id' => $products[$line['supplier_quotation_item_id']],
+                'catalog_item_id' => $line['catalog_item_id'],
                 'line_total' => $line['line_total'],
                 'base_line_total' => $rates[$line['quotation_id']]?->convert($line['line_total'], 6),
             ];

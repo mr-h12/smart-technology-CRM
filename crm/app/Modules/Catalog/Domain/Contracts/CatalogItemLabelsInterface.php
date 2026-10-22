@@ -6,8 +6,8 @@ namespace App\Modules\Catalog\Domain\Contracts;
 
 /**
  * F-16 · 1.1 — what a catalog item is called, for a module that holds only its
- * id. A customer quotation line names its supplier line, which names a catalog
- * item; Quotations may not read `catalog_items` itself (`deptrac.modules.yaml`,
+ * id. A customer quotation line names its own catalog item (`D-155`);
+ * Quotations may not read `catalog_items` itself (`deptrac.modules.yaml`,
  * `CatalogContract`).
  *
  * Strings in, strings out, on `CatalogProductProvisionerInterface`'s terms. §7.3

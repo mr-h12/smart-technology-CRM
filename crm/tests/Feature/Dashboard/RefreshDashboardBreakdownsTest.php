@@ -54,7 +54,7 @@ final class RefreshDashboardBreakdownsTest extends TestCase
         $id = $this->pricedQuotation('accepted', '2026-10-05 10:00:00', 'USD', '30', lineCosts: ['10', '2'], deletedLineCosts: ['7']);
         $gadget = $this->secondProduct();
         $lines = DB::table('quotation_items')->where('quotation_id', $id)->whereNull('deleted_at')->orderBy('line_no')->pluck('id')->all();
-        DB::table('quotation_items')->where('id', $lines[1])->update(['supplier_quotation_item_id' => $gadget['line']]);
+        DB::table('quotation_items')->where('id', $lines[1])->update(['supplier_quotation_item_id' => $gadget['line'], 'catalog_item_id' => $gadget['item']]);
         $widget = DB::table('catalog_items')->where('name', 'Widget')->value('id');
 
         $this->refresh();

@@ -910,8 +910,6 @@ deptrac:
       # AuditContract: `AuditEntryReaderInterface::countsByDay` / `daysWithEntriesSince` (`SELF_APPROVAL`);
       # 4.2: `firstEntriesInto` (`DEAL_STATUS_CHANGED`, `D-151`).
       - AuditContract
-      # SupplierQuotationsContract, 5.2: `SupplierItemPricingInterface::priceFor` — a sold line's product.
-      - SupplierQuotationsContract
       # CatalogContract, 5.2: `CatalogItemLabelsInterface::labelsOf` — the products' names.
       - CatalogContract
     # Module 16 · 1 (`D-153`): the alerts a person reads under the bell.
@@ -955,11 +953,9 @@ deptrac:
       # it holds Laravel's view factory and translator. Every other module that
       # renders or translates holds the same grant.
       - Framework
-      # SupplierQuotationsContract and CatalogContract, Point 3.2 — a quotation
-      # line's supplier line → its catalog item (`SupplierItemPricingInterface`)
-      # → the item's label (`CatalogItemLabelsInterface`), the join F-16 made
-      # for the detail screen. Only the label leaves `CatalogLineDescriptions`.
-      - SupplierQuotationsContract
+      # CatalogContract, Point 3.2 (QS.1 · `D-155`) — a quotation line's own
+      # catalog item → the item's label and unit (`CatalogItemLabelsInterface`).
+      # Only the label and the unit leave `CatalogLineDescriptions`.
       - CatalogContract
       # StorageContract, Point 4.1 — `D-38` for `AttachmentParent::Quotation`:
       # `QuotationPdfAttachmentPermission` implements Storage's

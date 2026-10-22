@@ -107,10 +107,10 @@ interface QuotationReaderInterface
 
     /**
      * Module 14's products (`D-144`): each live line of each live sent version — its
-     * supplier line (the product is the supplier line's, `D-37`) and its `line_total`.
+     * product (the line's own, `D-155`) and its `line_total`.
      * Read-only.
      *
-     * @return list<array{quotation_id: string, supplier_quotation_item_id: string, line_total: numeric-string}>
+     * @return list<array{quotation_id: string, catalog_item_id: string, line_total: numeric-string}>
      */
     public function sentVersionLines(): array;
 }

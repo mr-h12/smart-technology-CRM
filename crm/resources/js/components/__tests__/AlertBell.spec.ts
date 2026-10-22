@@ -92,6 +92,8 @@ function appRouter() {
             { path: '/users', name: 'users', component: blank },
             { path: '/quotations/:id', name: 'quotation-detail', component: blank },
             { path: '/customers', name: 'customers', component: blank },
+            // The context bar's user chip links here.
+            { path: '/account/security', name: 'account-security', component: blank },
         ],
     });
 }
@@ -222,6 +224,22 @@ describe('AlertBell — the list', () => {
         expect(wrapper.find('[data-testid="alert-bell-count"]').exists()).toBe(false);
         expect(wrapper.findAll('[data-testid="alert-row"]')).toHaveLength(2);
         expect(wrapper.findAll('[data-testid="alert-row"]')[0]!.attributes('data-read')).toBe('true');
+    });
+
+    /** The browser check (2026-10-22): the pressed button leaves with the unread state, so the focus must not fall to the page — and Escape must still close. */
+    it('keeps the focus on the row it read, and still closes on Escape', async () => {
+        const { wrapper } = await open(server({ unread: 1 }));
+
+        await wrapper.get('[data-testid="alert-read"]').trigger('click');
+        await flushPromises();
+
+        expect(document.activeElement).toBe(wrapper.findAll('[data-testid="alert-row"]')[0]!.get('a').element);
+
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await flushPromises();
+
+        expect(wrapper.find('[data-testid="alert-list"]').exists()).toBe(false);
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="alert-bell"]').element);
     });
 
     it('marks every alert read at once', async () => {

@@ -5443,7 +5443,7 @@ rule written twice, no company-time-zone test for J-09, untyped additional items
 
 Each point is a red turn, then a green turn, on its own branch.
 
-- [ ] **0** `D-153` written; this section and the ownership row; the agent guides' next action
+- [x] **0** `D-153` written; this section and the ownership row; the agent guides' next action *(2026-10-22, #421 — `D-153` and `J-16` in the master, this section, the guides and their Arabic twins; the 53 test files reading them 1420 passed)*
 - [ ] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en
 - [ ] **2** Quotation expiring soon: `quotations.expiry_alert_days`, `J-16` with its catch-up, owner + Team Leader, clearing
 - [ ] **3** Account locked and job failed, to every Super Admin

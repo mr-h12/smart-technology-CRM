@@ -20,6 +20,7 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { currentTheme, setTheme, THEMES, type Theme } from '@/theme';
 import { useAuth } from '@/stores/auth';
+import AlertBell from '@/components/AlertBell.vue';
 import LocaleSegment from '@/components/LocaleSegment.vue';
 
 defineProps<{
@@ -123,6 +124,10 @@ function themeLabel(option: Theme): string {
         <p class="me-auto min-w-0 truncate text-start text-section-title text-balance max-sm:flex-1" :title="title">
             {{ title }}
         </p>
+
+        <!-- Module 16 · 1 (`D-153`): the bell. On the title's row, beside it at every width:
+             below 640px the controls' row below is already full (F-21). -->
+        <AlertBell v-if="auth.isAuthenticated.value" class="max-sm:order-none" />
 
         <!-- §4.3 "< 640px" (F-21): on one row, the menu button and these
              controls needed 399–410px of the 351 a 375px phone has inside the

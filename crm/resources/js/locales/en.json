@@ -1712,5 +1712,23 @@
             "none": "Not set",
             "empty": "Nothing in this period."
         }
+    },
+    "alerts": {
+        "title": "Alerts",
+        "bell": "Alerts",
+        "bellCount": "Alerts, {count} unread",
+        "readAll": "Mark all read",
+        "markRead": "Mark read",
+        "unread": "Unread",
+        "empty": "No alerts. Anything that needs your attention will show here.",
+        "error": "The alerts could not be loaded.",
+        "occurrences": "Happened {count} times",
+        "kind": {
+            "quotation_expiring": "Quotation {number} expires on {date}",
+            "account_locked": "The account of {name} is locked after failed sign-ins",
+            "job_failed": "A background job failed: {job}",
+            "storage_over_limit": "Storage is over its limit",
+            "backup_failed": "The last backup failed"
+        }
     }
 }

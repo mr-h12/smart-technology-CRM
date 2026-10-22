@@ -189,9 +189,9 @@ final class QuotationPayload
                     'line_no' => $line->lineNo,
                     'product_name' => $lineNames[$line->id] ?? null,
                     ...($withCosts ? $line->asRow() : array_diff_key($line->asRow(), array_flip(QuotationLine::COST_FIELDS))),
-                    // `D-106`, the owner's ruling (b): the whole margin, computed here, never by the SPA —
+                    // `D-148` (over `D-106`'s ruling (b)): the margin the stored price achieves, computed here, never by the SPA —
                     // a cost field, so it goes with the others; read-only, so not in `asRow()`'s audit values.
-                    ...($withCosts ? ['effective_margin_percent' => PricedLine::effectiveMargin($line->marginPercent === null ? null : Decimal::of($line->marginPercent, 'margin_percent'), Decimal::of($quotation->defaultMargin, 'default_margin'))] : []),
+                    ...($withCosts ? ['effective_margin_percent' => PricedLine::achievedMargin(Decimal::of($line->unitPrice, 'unit_price'), Decimal::of($line->unitCostBase, 'unit_cost_base'))] : []),
                 ],
                 $quotation->items,
             ),

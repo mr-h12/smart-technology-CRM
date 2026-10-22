@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Pricing;
 
 /**
- * One quotation line, priced. §5.1's four formulas and nothing else.
+ * One quotation line, priced. §5.1's four formulas, plus the display-only achieved margin (`D-148`).
  *
  * ```
  * unit_cost_base = unit_cost converted at fx_rate_at_time         (D-09, D-115)
@@ -108,16 +108,36 @@ final readonly class PricedLine
     /**
      * The line's whole margin — the quotation's plus the line's extra, an empty
      * line counting as `0` (`D-106`). The one place the sum is written: the
-     * price above and the detail's `effective_margin_percent` both read it.
+     * price above reads it; the detail shows `achievedMargin()` instead (`D-148`).
      *
      * @param  numeric-string|null  $lineMargin
      * @param  numeric-string  $defaultMargin
-     * @param  int  $scale  `margin_percent`'s NUMERIC(6,3) for display; the pricing passes its own
+     * @param  int  $scale  the pricing's own; `margin_percent`'s NUMERIC(6,3) is 3
      * @return numeric-string
      */
-    public static function effectiveMargin(?string $lineMargin, string $defaultMargin, int $scale = 3): string
+    public static function effectiveMargin(?string $lineMargin, string $defaultMargin, int $scale): string
     {
         return bcadd($defaultMargin, $lineMargin ?? '0', $scale);
+    }
+
+    /**
+     * `D-148`: the margin the stored figures achieve, `(unit_price − unit_cost_base) / unit_cost_base × 100`,
+     * three places half away from zero; null on a zero cost (the `unit_cost >= 0` CHECK allows it).
+     * Display only — the pricing above keeps `effectiveMargin()`'s configured sum (`D-106`).
+     *
+     * @param  numeric-string  $unitPrice
+     * @param  numeric-string  $unitCostBase
+     * @return numeric-string|null
+     */
+    public static function achievedMargin(string $unitPrice, string $unitCostBase): ?string
+    {
+        if (bccomp($unitCostBase, '0', self::SCALE) === 0) {
+            return null;
+        }
+
+        $ratio = bcdiv(bcmul(bcsub($unitPrice, $unitCostBase, self::SCALE), '100', self::SCALE), $unitCostBase, self::SCALE + 2);
+
+        return bcadd(bcround($ratio, 3), '0', 3);
     }
 
     /**

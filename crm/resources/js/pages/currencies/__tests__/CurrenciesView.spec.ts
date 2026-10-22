@@ -488,6 +488,13 @@ describe('what a typed rate means, before it is saved', () => {
 
         expect(line).toContain('الاتجاه المعاكس');
         expect(line).not.toContain('the other way');
+
+        // D-152: an equation never breaks between its number and its code
+        // (browser check, ar 375: «1» ended one line, «USD = 0.01960784 EGP» began the next).
+        const runs = wrapper.get('[data-testid="rates-meaning"]').findAll('bdi[dir="ltr"]');
+
+        expect(runs).toHaveLength(2);
+        expect(runs.every((run) => run.classes('whitespace-nowrap'))).toBe(true);
     });
 
     // No number, no line: nothing to read, and never a division by zero.

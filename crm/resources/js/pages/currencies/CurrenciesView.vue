@@ -586,8 +586,8 @@ onMounted(async () => {
                     class="w-full text-[var(--color-text-muted)] text-pretty tabular-nums"
                     data-testid="rates-meaning"
                 >
-                    <template #forward><bdi dir="ltr">{{ t('currencies.rates.meaning.equation', { from: meaning.from, rate: meaning.rate, to: meaning.to }) }}</bdi></template>
-                    <template #inverse><bdi dir="ltr">{{ t('currencies.rates.meaning.equation', { from: meaning.to, rate: meaning.inverse, to: meaning.from }) }}</bdi></template>
+                    <template #forward><bdi dir="ltr" class="whitespace-nowrap">{{ t('currencies.rates.meaning.equation', { from: meaning.from, rate: meaning.rate, to: meaning.to }) }}</bdi></template>
+                    <template #inverse><bdi dir="ltr" class="whitespace-nowrap">{{ t('currencies.rates.meaning.equation', { from: meaning.to, rate: meaning.inverse, to: meaning.from }) }}</bdi></template>
                 </i18n-t>
 
                 <p

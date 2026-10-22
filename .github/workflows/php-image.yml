@@ -311,6 +311,7 @@ jobs:
             paths: >-
               tests/Feature/SupplierQuotations tests/Feature/Customers
               tests/Feature/Suppliers tests/Feature/Infrastructure tests/Feature/Database
+              tests/Feature/Notifications
               tests/Feature/Search tests/Feature/EnvironmentTest.php
               tests/Feature/ExampleTest.php
               tests/Feature/Pdf tests/Feature/Support

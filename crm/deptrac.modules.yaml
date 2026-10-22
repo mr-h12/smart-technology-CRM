@@ -908,7 +908,11 @@ deptrac:
       - SupplierQuotationsContract
       # CatalogContract, 5.2: `CatalogItemLabelsInterface::labelsOf` — the products' names.
       - CatalogContract
-    Notifications: ~
+    # Module 16 · 1 (`D-153`): the alerts a person reads under the bell.
+    Notifications:
+      - Framework
+      # SharedContracts: the envelope, and `UtcAtom` for the alert's moments.
+      - SharedContracts
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.
     Pdf:

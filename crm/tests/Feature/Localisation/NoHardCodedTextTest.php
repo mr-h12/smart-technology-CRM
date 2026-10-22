@@ -69,7 +69,10 @@ final class NoHardCodedTextTest extends TestCase
         self::assertNotEmpty($files, 'No .vue files were scanned — the scan is not looking where the source is.');
         self::assertSame(
             [
-                'AccountSecurityView.vue', 'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
+                'AccountSecurityView.vue',
+                // Module 16 · 1 — the bell; every label is an `alerts.*` key. Added after the scan passed on it.
+                'AlertBell.vue',
+                'App.vue', 'AppContextBar.vue', 'AppSidebar.vue',
                 // Module 8 Point 3.1 — §8's Approvals screen; every label is
                 // an `approvals.*` or reused `quotations.detail.*` key.
                 'ApprovalsView.vue',

@@ -21,6 +21,7 @@ use App\Modules\Deals\Infrastructure\EloquentDealDirectory;
 use App\Modules\Idempotency\Infrastructure\DatabaseIdempotencyStore;
 use App\Modules\Identity\Application\Administration\UpdateUser;
 use App\Modules\Identity\Infrastructure\EloquentRoleDirectory;
+use App\Modules\Notifications\Infrastructure\DatabaseAlertInbox;
 use App\Modules\Pdf\Infrastructure\DatabasePdfGenerations;
 use App\Modules\Pdf\Infrastructure\DatabaseReportPdfGenerations;
 use App\Modules\Quotations\Application\Writing\DeleteQuotation;
@@ -445,6 +446,10 @@ final class AuditEnforcementTest extends TestCase
                     .'(counts of deals, customers, self-approvals and pending or returned quotations) from records '
                     .'already audited when they were written, on a schedule with no actor; dashboard_refreshes logs '
                     .'each run, and the nightly run rebuilds everything from the source.',
+            // Module 16 · 1 (`D-153`): the reader's own read state under the bell.
+            DatabaseAlertInbox::class => 'AUD-01 does not apply: marking an alert read changes only its reader\'s '
+                    .'own display state (read_at) on a row addressed to them; no business record, no other person\'s '
+                    .'view and no decision changes, and the alert itself is raised and cleared by the jobs that own it.',
         ];
     }
 

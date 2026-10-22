@@ -84,6 +84,8 @@ use App\Modules\Identity\Infrastructure\EloquentUserFacts;
 use App\Modules\Identity\Infrastructure\Notifications\NotifySuperAdminOfLockout;
 use App\Modules\Identity\Infrastructure\Notifications\SendPasswordChallenge;
 use App\Modules\Identity\Presentation\RbacGateRegistrar;
+use App\Modules\Notifications\Domain\Contracts\AlertInboxInterface;
+use App\Modules\Notifications\Infrastructure\DatabaseAlertInbox;
 use App\Modules\Pdf\Application\Access\QuotationPdfAttachmentPermission;
 use App\Modules\Pdf\Application\Access\ReportPdfAttachmentPermission;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
@@ -256,6 +258,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(NewCustomersInterface::class, EloquentCustomerNames::class);
         // Module 14 · 2.1b (`D-146`): J-09's own summary tables.
         $this->app->bind(DashboardAggregatesInterface::class, DatabaseDashboardAggregates::class);
+        // Module 16 · 1 (`D-153`): the alerts under the bell.
+        $this->app->bind(AlertInboxInterface::class, DatabaseAlertInbox::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 

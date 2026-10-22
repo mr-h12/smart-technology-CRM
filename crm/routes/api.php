@@ -23,6 +23,7 @@ use App\Modules\Identity\Presentation\PermissionController;
 use App\Modules\Identity\Presentation\RoleController;
 use App\Modules\Identity\Presentation\SessionController;
 use App\Modules\Identity\Presentation\UserController;
+use App\Modules\Notifications\Presentation\AlertController;
 use App\Modules\Pdf\Presentation\QuotationPdfController;
 use App\Modules\Pdf\Presentation\ReportPdfController;
 use App\Modules\Quotations\Presentation\QuotationController;
@@ -48,7 +49,7 @@ use Illuminate\Support\Facades\Route;
 // router copies these patterns onto each route as it is registered. `{code}`
 // and `{list}` are not ids and stay free. The regex is `whereUuid()`'s.
 Route::patterns(array_fill_keys([
-    'catalogItem', 'customer', 'deal', 'file', 'note', 'purchaseOrder', 'quotation',
+    'alert', 'catalogItem', 'customer', 'deal', 'file', 'note', 'purchaseOrder', 'quotation',
     'role', 'session', 'supplier', 'supplierQuotation', 'user',
 ], '[\da-fA-F]{8}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{4}-[\da-fA-F]{12}'));
 
@@ -865,6 +866,17 @@ Route::middleware(['auth', 'permission:quotation.create'])
 // without `quotation.approve` is answered `approvals: 0`, not `403`. Not in
 // `OpenAPI §7`: flagged on the point list (#131) as a new requirement.
 Route::middleware('auth')->get('badges', [QuotationController::class, 'badges']);
+
+// Module 16 · 1 (`D-153`) — the bell. `auth` only, like `badges` above: an alert is
+// addressed to a person, who reads their own; another's answers 404 (`SEC-09`).
+// No `Idempotency-Key`: marking read twice is marking read once. No delete route —
+// an alert is cleared by its cause, never deleted.
+Route::middleware('auth')->prefix('alerts')->group(function (): void {
+    Route::get('/', [AlertController::class, 'index']);
+    Route::get('/unread-count', [AlertController::class, 'unreadCount']);
+    Route::post('/read-all', [AlertController::class, 'readAll']);
+    Route::post('/{alert}/read', [AlertController::class, 'read']);
+});
 
 // Module 14 (`D-145`, `D-146`) — the dashboard. `dashboard.view` at any scope
 // opens it; which tabs and figures follow is `DashboardMeta`'s answer.

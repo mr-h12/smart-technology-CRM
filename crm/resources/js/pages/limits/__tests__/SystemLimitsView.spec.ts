@@ -42,6 +42,8 @@ const LIMITS = {
     'limits.report_archive_months': { value: null, unit: 'months', value_type: 'integer' },
     // Module 16 · 2: `J-16`'s window (`D-153`), in days.
     'quotations.expiry_alert_days': { value: null, unit: 'days', value_type: 'integer' },
+    // Module 16 · 4: `J-14`'s threshold (`D-153`), a share of the files volume.
+    'limits.storage_alert_percent': { value: null, unit: 'percent', value_type: 'integer' },
     'limits.max_file_size_mb': { value: null, unit: 'megabytes', value_type: 'integer' },
     'identity.lockout_minutes': { value: '30', unit: 'minutes', value_type: 'integer' },
     // `OD-08`'s seventh (Module 3 Point 3.3), the server's own order — missing
@@ -89,6 +91,7 @@ describe('SystemLimitsView', () => {
             'limits.weekly_review_window_hours',
             'limits.report_archive_months',
             'quotations.expiry_alert_days',
+            'limits.storage_alert_percent',
             'limits.max_file_size_mb',
             'identity.lockout_minutes',
             'limits.customer_similarity_threshold',
@@ -198,9 +201,9 @@ describe('SystemLimitsView', () => {
         await flushPromises();
 
         const intro = view.get('[data-testid="limits-unconfigured"]').text();
-        // LIMITS: eight, of which only the lockout has a value.
-        expect(intro).toContain('7');
+        // LIMITS: nine, of which only the lockout has a value.
         expect(intro).toContain('8');
+        expect(intro).toContain('9');
         expect(en.limits.subtitle).not.toMatch(/seven|five/i);
     });
 
@@ -232,6 +235,26 @@ describe('SystemLimitsView', () => {
             expect(row).toContain((messages.limits.unit as Record<string, string>)['days']);
             expect(row).not.toContain('limits.field.');
             expect(row).not.toContain('limits.hint.');
+        }
+    });
+
+    // ── Module 16 · 4: the storage threshold (`J-14`, `D-153`) ──────────────
+
+    it('draws the storage threshold with its label, hint and a translated percent unit', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => envelope(LIMITS)));
+
+        for (const [locale, messages] of [['en', en], ['ar', ar]] as const) {
+            const view = render(locale);
+            await flushPromises();
+
+            const row = view.get('[data-limit-key="limits.storage_alert_percent"]').text();
+            const unit = (messages.limits.unit as Record<string, string>)['percent'];
+
+            expect(typeof unit).toBe('string');
+            expect(row).toContain((messages.limits.field as Record<string, string>)['limits_storage_alert_percent']);
+            expect(row).toContain((messages.limits.hint as Record<string, string>)['limits_storage_alert_percent']);
+            expect(row).toContain(unit);
+            expect(row).not.toContain('limits.');
         }
     });
 
@@ -488,8 +511,8 @@ describe('SystemLimitsView', () => {
 
         const fields = view.findAll('[data-limit-key]');
 
-        // 8 since Module 16 · 2's `quotations.expiry_alert_days` (`D-153`).
-        expect(fields).toHaveLength(8);
+        // 9 since Module 16 · 4's `limits.storage_alert_percent` (`D-153`).
+        expect(fields).toHaveLength(9);
 
         const hints: Record<string, string> = en.limits.hint;
 

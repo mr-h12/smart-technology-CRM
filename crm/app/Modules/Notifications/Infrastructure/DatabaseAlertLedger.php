@@ -29,7 +29,7 @@ final class DatabaseAlertLedger implements AlertLedgerInterface
 
             $raised = 0;
             foreach ($wanted as $alert) {
-                $key = $alert['user_id'].'|'.$alert['subject_id'];
+                $key = $alert['user_id'].'|'.($alert['subject_id'] ?? '');
                 $details = json_encode($alert['details'], JSON_THROW_ON_ERROR);
 
                 if (isset($open[$key])) {

@@ -4923,6 +4923,29 @@ resumes at 8.3 after the redesign unless the owner reorders.
       (migration B). Not in it: `pricing_mode` and the new pricing (slice 2).
       *(2026-10-23, #429 — all 348 dev lines named, the 52 on deleted offer lines included; QT-2026-0129's PDF generates, refused before; dashboard 71/71 sent lines carry a product)*
 
+### Point list — slice 2 approved 2026-10-23 as two points (owner, in chat: "2a+2c then 2b")
+
+- [ ] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
+      `D-163`…`D-165`) — migration B gives each `quotation_items` row its `supplier_id` (NOT NULL, foreign key),
+      `unit_code`, `entered_unit_price` and `tax_percent`, backfilled from the line's supplier-offer line even when
+      that offer line is soft-deleted, and each quotation its `pricing_mode` (`legacy` on every existing row;
+      `default_margin` only in `legacy`); `supplier_quotation_item_id` becomes nullable. A new line's tax is taken
+      out of the entered price, then its own margin is added (`D-156`); tax is per line and the «شامل الضريبة»
+      toggle is the preparer's (`D-157`); no quotation margin, no quotation tax rates, no FX on a new line
+      (`D-164`). The builder's line section becomes an entry row (an existing supplier, product and unit only;
+      typing a new one is slice 3) and a table with remove and send-back, the supplier, tax and margin kept after
+      Enter; additional items above the table with their note (`D-159`); the figures appear after saving, as today.
+      A legacy Draft converts at its next save (`D-165`). The price-drift and over-quantity warnings retire
+      (`D-161`); accepting consumes only lines that still point at an offer. The detail shows each line's supplier,
+      unit, entered price and tax to cost viewers, and the note under «إرسال للاعتماد» (`D-163`). The PDF taxes each
+      line at its own rate and reads the unit from the line; in `tax_included` mode it prints unit and line prices
+      including tax, **no VAT column**, and «السعر شامل الضريبة» under the table as well as in the terms (owner,
+      2026-10-23); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
+      product or unit (slice 3).
+- [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
+      with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
+      and the totals block shows before Save.
+
 ## Shell revisions — owner-directed
 
 Changes the owner asked for directly, outside any module's point list. They belong to no module

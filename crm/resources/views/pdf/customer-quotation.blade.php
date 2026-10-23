@@ -32,8 +32,8 @@
 @php($rtl = $direction === 'rtl')
 {{-- QS.2a: keyed on the VAT figure — the header rate is null on a tax-included quotation (D-165). --}}
 @php($taxed = $view->taxAmount !== null)
-{{-- D-157: a tax-included page prints gross prices, so it has no VAT column; it says so under the table instead. --}}
-@php($vatColumn = $taxed && ! $view->pricesIncludeTax)
+{{-- D-168 (owner, 2026-10-23): the VAT column whenever there is tax — a tax-included page prints net prices with it and the note under the table. --}}
+@php($vatColumn = $taxed)
 <!doctype html>
 <html lang="{{ $locale }}" dir="{{ $direction }}">
 <head>

@@ -214,8 +214,8 @@ final class QuotationWriteEndpointTest extends TestCase
     }
 
     /**
-     * QS.2a · `D-156` example 1, stored to the figure: 114 typed including 14 % is 100 net (the unit cost,
-     * `D-164`: in the quotation's own currency at rate 1), +20 % is 120.00, × 3 is 360.00; 10 % off before the
+     * QS.2a · `D-167` example 1, stored to the figure: 100 typed is the unit cost before tax (`D-164`: in the
+     * quotation's own currency at rate 1), +20 % is 120.00, × 3 is 360.00; 10 % off before the
      * tax (`D-64`), the line's own 14 % on 324.00 is 45.36 (`D-157`), the delivery untaxed (`D-62`) → 419.36.
      * No quotation margin, no quotation tax rates, no supplier offer behind the line (`D-155`). `D-161`: no
      * warning, so no `meta.warnings` key — a client testing it for truthiness and for presence agree.
@@ -242,7 +242,7 @@ final class QuotationWriteEndpointTest extends TestCase
 
         self::assertSame([
             'supplier_quotation_item_id' => null, 'supplier_id' => $line['supplier_id'], 'catalog_item_id' => $line['catalog_item_id'],
-            'unit_code' => 'piece', 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
+            'unit_code' => 'piece', 'entered_unit_price' => '100.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
             'unit_cost' => '100.000000', 'unit_cost_currency' => 'EGP', 'unit_cost_fx_rate_at_time' => '1.00000000', 'unit_cost_base' => '100.000000',
             'unit_price' => '120.000000', 'quantity' => '3.0000', 'line_total' => '360.000000', 'line_cost' => '300.000000',
         ], (array) DB::table('quotation_items')->where('quotation_id', $id)->first([

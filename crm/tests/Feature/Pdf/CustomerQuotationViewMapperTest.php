@@ -115,24 +115,24 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertSame('Formatter M428dw', $view->lines[0]->description);
 
         // QS.2a (`D-155`): a tax_included line carries what was typed — its
-        // supplier, the entered price 114 (tax included) and the margin 20 % —
-        // and its net cost, 100 a unit and 300 the line. None of it reaches
-        // the view, and none of these strings is one of E1's printed figures
-        // (136.80, 410.40, 45.36), so a mapper that printed the entered price
-        // or the cost instead of the gross price fails here.
+        // supplier, the entered price 100 (the cost, `D-167`) and the margin
+        // 20 % — and its line cost, 300. None of it reaches the view, and none
+        // of these values is one of E1's printed figures (120.00, 360.00,
+        // 45.36), so a mapper that printed the entered price or the cost
+        // instead of the selling price fails here.
         $supplierId = self::SUPPLIER_ITEMS['0199a000-0000-7000-8000-00000000a001']['supplierId'];
         $taxIncluded = $this->mapper()->map(self::quotation(
             taxPercent: null,
             discountPercent: '10.000',
             pricingMode: PricingMode::TaxIncluded,
-            items: [self::lineOwned(1, array_values(self::CATALOG_ITEMS)[0], 'box', '114.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000')],
+            items: [self::lineOwned(1, array_values(self::CATALOG_ITEMS)[0], 'box', '100.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000')],
         ));
-        // The gross price first: the net 120.000000 would contain "20.000" and read as a margin leak.
-        self::assertSame('136.800000', self::atScale6($taxIncluded->lines[0]->unitPrice), 'The gross price did not cross, so the search below proves nothing.');
+        self::assertSame('120.000000', self::atScale6($taxIncluded->lines[0]->unitPrice), 'The selling price did not cross, so the search below proves nothing.');
 
+        // Whole JSON values, quoted: the selling price "120.000000" contains the margin's digits "20.000".
         $taxIncludedJson = json_encode($taxIncluded, JSON_THROW_ON_ERROR);
-        foreach ([$supplierId, '114.000000', '20.000', '100.000000', '300.000000'] as $value) {
-            self::assertStringNotContainsString($value, $taxIncludedJson, "\"{$value}\" is the tax-included line's supplier, entered price, margin or cost, and reached the customer view.");
+        foreach ([$supplierId, '100.000000', '20.000', '300.000000'] as $value) {
+            self::assertStringNotContainsString('"'.$value.'"', $taxIncludedJson, "\"{$value}\" is the tax-included line's supplier, entered price, margin or cost, and reached the customer view.");
         }
     }
 
@@ -317,16 +317,14 @@ final class CustomerQuotationViewMapperTest extends TestCase
     // ── QS.2a: the line owns its unit and its tax (`D-155`…`D-157`, `D-165`) ──
 
     /**
-     * `D-156`'s first example, toggle on: the PDF prints the unit and the line
-     * including tax — round2(120.00 × 1.14) = 136.80 and round2(136.80 × 3) =
-     * 410.40 — and each line's VAT at its **own** rate on its discounted
-     * amount (`D-157`): 360.00 × 0.90 × 14 % = 45.36. The header carries no
-     * rate (`D-165`), so a VAT taken at the quotation's rate is none at all. A
-     * 0 % line beside it (allowed, `D-157`) is taxed 0, not left untaxed, and
-     * its gross price is its price. Each unit is the line's code, not its
-     * catalog item's.
+     * E1, toggle on (`D-168`): the PDF prints the stored net unit and line
+     * prices, 120.00 and 360.00, and each line's VAT at its **own** rate on
+     * its discounted amount (`D-157`): 360.00 × 0.90 × 14 % = 45.36. The
+     * header carries no rate (`D-165`), so a VAT taken at the quotation's
+     * rate is none at all. A 0 % line beside it (allowed, `D-157`) is taxed 0,
+     * not left untaxed. Each unit is the line's code, not its catalog item's.
      */
-    public function test_a_tax_included_quotation_maps_gross_prices_and_each_lines_own_vat(): void
+    public function test_a_tax_included_quotation_maps_net_prices_and_each_lines_own_vat(): void
     {
         $catalog = array_values(self::CATALOG_ITEMS);
 
@@ -335,7 +333,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
             discountPercent: '10.000',
             pricingMode: PricingMode::TaxIncluded,
             items: [
-                self::lineOwned(1, $catalog[0], 'box', '114.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000'),
+                self::lineOwned(1, $catalog[0], 'box', '100.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000'),
                 self::lineOwned(2, $catalog[1], 'pcs', '50.000000', '0.000', '50.000000', '1.0000', '60.000000', '60.000000'),
             ],
         ));
@@ -343,7 +341,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertTrue($view->pricesIncludeTax);
         self::assertSame(
             [
-                ['Formatter M428dw', 'Box', 'علبة', '136.800000', '410.400000', '45.360000'],
+                ['Formatter M428dw', 'Box', 'علبة', '120.000000', '360.000000', '45.360000'],
                 ['Toner CF259A', 'Piece', 'قطعة', '60.000000', '60.000000', '0.000000'],
             ],
             array_map(static fn ($line): array => [

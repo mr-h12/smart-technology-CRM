@@ -88,9 +88,9 @@ export type PricingMode = 'tax_included' | 'tax_exempt';
 /** One line as the builder types it — `GET /quotations/{id}`'s `entry` (contract §4), cost viewers only. */
 export interface QuotationEntryLine {
     supplier_id: string;
-    supplier_name: string;
+    supplier_name: string | null;
     catalog_item_id: string;
-    product_name: string;
+    product_name: string | null;
     unit_code: string | null;
     entered_unit_price: string;
     tax_percent: string | null;

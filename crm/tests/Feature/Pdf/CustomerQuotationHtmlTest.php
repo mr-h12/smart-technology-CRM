@@ -228,37 +228,37 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
-    // ── QS.2a: «شامل الضريبة» on (`D-156`, `D-157`; the owner, 2026-10-23) ──
+    // ── QS.2a: «شامل الضريبة» on (`D-157`; `D-168`, the owner, 2026-10-23) ──
 
     /**
-     * The unit and the line print including tax, so there is **no VAT column**
-     * — no header and no cell, the additional item's included — while the
-     * totals block stays as it is: Total Amount Excl. VAT (360.00 + 50.00),
-     * Discount, the lines' VAT, Total. The terms keep «The price includes VAT».
+     * The legacy layout: net unit and line prices **with the VAT column** —
+     * each line's VAT, the additional item's 0.00 — and the totals block as
+     * it is: Total Amount Excl. VAT (360.00 + 50.00), Discount, the lines'
+     * VAT, Total. The terms keep «The price includes VAT».
      */
-    public function test_that_a_tax_included_page_prints_prices_including_tax_and_no_vat_column(): void
+    public function test_that_a_tax_included_page_prints_net_prices_and_a_vat_column(): void
     {
         foreach (['ar', 'en'] as $locale) {
             $html = $this->html($locale, ...self::taxIncluded());
 
             $vat = preg_quote(e((string) Lang::get('pdf.table.vat', [], $locale)), '/');
-            self::assertDoesNotMatchRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $html, "The tax-included {$locale} page has a VAT column.");
+            self::assertMatchesRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $html, "The tax-included {$locale} page has no VAT column.");
 
-            // Each row whole, `<tr>` to `</tr>`: five cells, the gross figures, no VAT cell.
-            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '136.80', '410.40'), $html, "The {$locale} line does not print 136.80 and 410.40 in five cells.");
-            self::assertMatchesRegularExpression(self::row('Delivery & Installation', '—', '1', '50.00', '50.00'), $html, "The {$locale} additional item keeps a VAT cell.");
+            // Each row whole, `<tr>` to `</tr>`: six cells, the net figures and the line's VAT.
+            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '120.00', '45.36', '360.00'), $html, "The {$locale} line does not print 120.00, 45.36 and 360.00 in six cells.");
+            self::assertMatchesRegularExpression(self::row('Delivery & Installation', '—', '1', '50.00', '0.00', '50.00'), $html, "The {$locale} additional item has no 0.00 VAT cell.");
 
             $total = static fn (string $key, string $value): string => '<td[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.totals.'.$key, [], $locale)), '/').'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>';
             self::assertMatchesRegularExpression(
                 '/'.$total('excl_vat', '410.00').'.*?'.$total('discount', '36.00').'.*?'.$total('tax', '45.36').'.*?class="final".*?'.$total('final', '419.36 EGP').'/su',
                 $html,
-                "The {$locale} totals block is not D-156's 410.00 · 36.00 · 45.36 · 419.36.",
+                "The {$locale} totals block is not E1's 410.00 · 36.00 · 45.36 · 419.36.",
             );
             self::assertStringContainsString('id="vat-included"', $html, "The {$locale} terms lost «The price includes VAT».");
 
-            // §3.12 rule 2, §14.6: the entered price (114.00), the net cost
-            // (100.00 a unit, 300.00 the line) and the margin never print.
-            foreach (['114.00', '100.00', '300.00', '20.000'] as $leak) {
+            // §3.12 rule 2, §14.6: the entered price, which is the cost (100.00
+            // a unit, 300.00 the line, `D-167`), and the margin never print.
+            foreach (['100.00', '300.00', '20.000'] as $leak) {
                 self::assertStringNotContainsString($leak, $html, "\"{$leak}\" is the entered price, a cost or the margin.");
             }
         }
@@ -319,8 +319,8 @@ final class CustomerQuotationHtmlTest extends TestCase
     }
 
     /**
-     * `D-156`'s first example, toggle on, as the mapper hands it over: 120.00
-     * × 1.14 = 136.80 a unit, 136.80 × 3 = 410.40 the line; the header carries
+     * E1, toggle on, as the mapper hands it over: the stored net 120.00 a unit
+     * and 360.00 the line (`D-168`), the line's VAT 45.36; the header carries
      * no single rate (`D-165`) and its VAT is the lines' sum, 45.36.
      *
      * @return array<string, mixed>
@@ -329,7 +329,7 @@ final class CustomerQuotationHtmlTest extends TestCase
     {
         return [
             'pricesIncludeTax' => true,
-            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '136.800000', '410.400000', 'Pcs', 'قطعة', '45.360000')],
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '120.000000', '360.000000', 'Pcs', 'قطعة', '45.360000')],
             'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '50.000000')],
             'subtotal' => '360.000000',
             'additionalTotal' => '50.000000',

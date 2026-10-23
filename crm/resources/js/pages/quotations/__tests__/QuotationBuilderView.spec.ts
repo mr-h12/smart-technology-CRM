@@ -94,11 +94,12 @@ const QUOTATION = {
 
 /**
  * QS.2a — `GET /quotations/{id}`'s `entry` (contract §4), what the builder loads
- * into its table: D-156's E1 (entered 114 at 14 % tax, 20 % margin, quantity 3)
+ * into its table: E1 (entered 100 (the supplier's cost before tax) at 14 % tax, 20 % margin,
+ * priced 120.00 — owner, 2026-10-23: tax is added, never taken out; quantity 3)
  * and a 0 % line (owner, 2026-10-22 answer 5), as the server stores them.
  */
 const ENTRY_LINES = [
-    { supplier_id: 's1', supplier_name: 'Nile Pumps Co', catalog_item_id: 'ci1', product_name: 'Pump 5HP', unit_code: 'pcs', entered_unit_price: '114.000000', tax_percent: '14.000', margin_percent: '20.000', quantity: '3.0000' },
+    { supplier_id: 's1', supplier_name: 'Nile Pumps Co', catalog_item_id: 'ci1', product_name: 'Pump 5HP', unit_code: 'pcs', entered_unit_price: '100.000000', tax_percent: '14.000', margin_percent: '20.000', quantity: '3.0000' },
     { supplier_id: 's2', supplier_name: 'Delta Valves', catalog_item_id: 'ci2', product_name: 'Installation', unit_code: 'm', entered_unit_price: '500.000000', tax_percent: '0.000', margin_percent: '10.000', quantity: '1.0000' },
 ];
 
@@ -109,7 +110,7 @@ const PRICED = {
     final_total: '914.360000', subtotal: '910.000000', additional_total: '50.000000', discount_amount: '91.000000', tax_base: '819.000000', tax_amount: '45.360000',
     net_amount: '869.000000', total_before_round: '914.360000', rounding_diff: '0.000000', rounding_enabled: false,
     items: [
-        { id: 'l1', line_no: 1, supplier_quotation_item_id: null, catalog_item_id: 'ci1', product_name: 'Pump 5HP', supplier_id: 's1', supplier_name: 'Nile Pumps Co', unit_code: 'pcs', entered_unit_price: '114.000000', tax_percent: '14.000', quantity: '3.0000', unit_price: '120.000000', line_total: '360.000000', unit_cost: '100.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '100.000000', margin_percent: '20.000' },
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: null, catalog_item_id: 'ci1', product_name: 'Pump 5HP', supplier_id: 's1', supplier_name: 'Nile Pumps Co', unit_code: 'pcs', entered_unit_price: '100.000000', tax_percent: '14.000', quantity: '3.0000', unit_price: '120.000000', line_total: '360.000000', unit_cost: '100.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '100.000000', margin_percent: '20.000' },
         { id: 'l2', line_no: 2, supplier_quotation_item_id: null, catalog_item_id: 'ci2', product_name: 'Installation', supplier_id: 's2', supplier_name: 'Delta Valves', unit_code: 'm', entered_unit_price: '500.000000', tax_percent: '0.000', quantity: '1.0000', unit_price: '550.000000', line_total: '550.000000', unit_cost: '500.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '500.000000', margin_percent: '10.000' },
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '50.000000' }],
@@ -118,14 +119,14 @@ const PRICED = {
 
 /** What a save sends for `ENTRY_LINES` — the stored strings without their trailing zeros (U-5), nothing priced (`D-67`). */
 const SENT_LINES = [
-    { supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '114', tax_percent: '14', margin_percent: '20', quantity: '3' },
+    { supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '100', tax_percent: '14', margin_percent: '20', quantity: '3' },
     { supplier_id: 's2', catalog_item_id: 'ci2', unit_code: 'm', entered_unit_price: '500', tax_percent: '0', margin_percent: '10', quantity: '1' },
 ];
 
 /**
  * `D-165`'s E4 (contract §3): a taxed legacy Draft — default margin 10, line extra 5,
  * cost 100, quotation tax 14 %. Its `entry` is the server's conversion: `tax_included`,
- * entered 100 × 1.14 = 114, margin 10 + 5 = 15.
+ * entered 100 = unit_cost_base, margin 10 + 5 = 15.
  */
 const LEGACY = {
     ...QUOTATION,
@@ -352,8 +353,8 @@ interface Typed {
     quantity?: string;
 }
 
-/** `D-156`'s E1, as the preparer types it. */
-const E1: Typed = { supplier: 'Nile Pumps Co', product: 'Pump 5HP', unit: 'pcs', price: '114', tax: '14', margin: '20', quantity: '3' };
+/** E1, as the preparer types it: entered 100 (the supplier's cost before tax) at 14 % tax, 20 % margin, priced 120.00 — owner, 2026-10-23: tax is added, never taken out. */
+const E1: Typed = { supplier: 'Nile Pumps Co', product: 'Pump 5HP', unit: 'pcs', price: '100', tax: '14', margin: '20', quantity: '3' };
 
 /** A second product from the second supplier, at 0 % tax. */
 const SECOND: Typed = { supplier: 'Delta Valves', product: 'Installation', unit: 'm', price: '500', tax: '0', margin: '10', quantity: '1' };
@@ -462,7 +463,7 @@ describe('the quotation builder (create)', () => {
         expect(cell(wrapper, 0, 'supplier')).toBe('Nile Pumps Co');
         expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
         expect(cell(wrapper, 0, 'unit')).toBe('Piece');
-        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'price')).toBe('100');
         expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
         expect(cell(wrapper, 0, 'margin')).toMatch(/^20\s*%?$/);
         expect(cell(wrapper, 0, 'quantity')).toBe('3');
@@ -527,7 +528,7 @@ describe('the quotation builder (create)', () => {
         expect(value(wrapper, 'entry-supplier')).toBe('Nile Pumps Co');
         expect(value(wrapper, 'entry-product')).toBe('Pump 5HP');
         expect(value(wrapper, 'entry-unit')).toBe('pcs');
-        expect(value(wrapper, 'entry-price')).toBe('114');
+        expect(value(wrapper, 'entry-price')).toBe('100');
         expect(value(wrapper, 'entry-tax')).toBe('14');
         expect(value(wrapper, 'entry-margin')).toBe('20');
         expect(value(wrapper, 'entry-quantity')).toBe('3');
@@ -633,7 +634,7 @@ describe('the quotation builder (create)', () => {
         const body = saves(fetchMock)[0]?.body as { pricing_mode: string; lines: Array<Record<string, unknown>> };
 
         expect(body.pricing_mode).toBe('tax_exempt');
-        expect(body.lines).toEqual([{ supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '114', margin_percent: '20', quantity: '3' }]);
+        expect(body.lines).toEqual([{ supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '100', margin_percent: '20', quantity: '3' }]);
         expect(body).not.toHaveProperty('tax_percents');
         expect(body).not.toHaveProperty('tax_percent');
     });
@@ -864,7 +865,7 @@ describe('the quotation builder (edit)', () => {
         expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
         expect(cell(wrapper, 0, 'unit')).toBe('Piece');
         // U-5: a stored figure is offered without its trailing zeros — trimmed, never rounded.
-        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'price')).toBe('100');
         expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
         expect(cell(wrapper, 0, 'margin')).toMatch(/^20\s*%?$/);
         expect(cell(wrapper, 0, 'quantity')).toBe('3');
@@ -881,7 +882,7 @@ describe('the quotation builder (edit)', () => {
         const { wrapper } = await render(fetchMock, EDIT);
 
         expect((wrapper.get(id('tax-included')).element as HTMLInputElement).checked).toBe(true);
-        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'price')).toBe('100');
         expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
         expect(cell(wrapper, 0, 'margin')).toMatch(/^15\s*%?$/);
 
@@ -1099,7 +1100,7 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
 
         expect(router.currentRoute.value.path).toBe(APPROVE);
         // QS.2a: the approver edits the same table the preparer typed.
-        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'price')).toBe('100');
         expect(wrapper.find(id('save')).text()).toBe('Edit & approve');
     });
 

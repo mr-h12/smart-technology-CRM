@@ -106,7 +106,7 @@ final readonly class ShowQuotation
 
     /**
      * What the builder loads (cost viewers only): the quotation as entry values. A `legacy` one is converted
-     * (`D-165`) — typed including its tax, with its whole margin — so the next save prices it the new way.
+     * (`D-165`) — typed at its cost, the tax beside it (`D-167`), with its whole margin — so the next save prices it the new way.
      *
      * @param  array<string, string>  $lineNames  {@see self::lineNames()}
      * @param  array<string, string>  $supplierNames  {@see self::supplierNames()}

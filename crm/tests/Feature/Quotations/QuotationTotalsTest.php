@@ -25,9 +25,9 @@ final class QuotationTotalsTest extends TestCase
 {
     /**
      * A line whose `line_total` is exactly $amount, so a totals test reads as
-     * arithmetic over known numbers rather than as a second margin test. A
-     * taxed line is typed at `amount × (1 + t/100)`, so the tax taken back out
-     * leaves `amount` once the unit price rounds to 2 places (`D-156`, `D-142`).
+     * arithmetic over known numbers rather than as a second margin test. Taxed
+     * or not, it is typed at `amount`: the tax is added on top, never taken out
+     * (`D-167`).
      *
      * @param  numeric-string  $amount  at most 2 places
      * @param  numeric-string|null  $taxPercent
@@ -35,22 +35,22 @@ final class QuotationTotalsTest extends TestCase
     private static function lineTotalling(string $amount, ?string $taxPercent = null): PricedLine
     {
         return PricedLine::fromEntered(
-            enteredUnitPrice: $taxPercent === null ? $amount : bcmul($amount, bcadd('1', bcdiv($taxPercent, '100', 8), 8), 6),
+            enteredUnitPrice: $amount,
             taxPercent: $taxPercent,
             marginPercent: '0',
             quantity: '1',
         );
     }
 
-    // ───────────────────────────────── D-156's worked examples
+    // ───────────────────────────────── D-167's worked examples
 
     public function test_e1_a_tax_included_line_is_taxed_at_its_own_rate_after_the_discount(): void
     {
-        // 114 at 14%, margin 20%, × 3 → 360.00; discount 10% → 36.00; base
+        // Cost 100, margin 20%, × 3 → 360.00; discount 10% → 36.00; base
         // 324.00; VAT 324 × 14% = 45.36; delivery 50 untaxed; 360 + 50 − 36 =
         // 374.00; + 45.36 = 419.36.
         $totals = QuotationTotals::from(
-            [PricedLine::fromEntered(enteredUnitPrice: '114', taxPercent: '14', marginPercent: '20', quantity: '3')],
+            [PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3')],
             ['50'],
             '10',
         );
@@ -73,10 +73,10 @@ final class QuotationTotalsTest extends TestCase
 
     public function test_e2_a_tax_that_carries_three_places_is_kept_until_print(): void
     {
-        // 90 at 10%, margin 20% → 98.18; VAT 98.18 × 10% = 9.818; 107.998. The
-        // PDF prints 9.82 and 108.00 (`D-99`: two places at print only).
+        // Cost 81.82 at 10%, margin 20% → 98.184 → 98.18; VAT 98.18 × 10% = 9.818;
+        // 107.998. The PDF prints 9.82 and 108.00 (`D-99`: two places at print only).
         $totals = QuotationTotals::from(
-            [PricedLine::fromEntered(enteredUnitPrice: '90', taxPercent: '10', marginPercent: '20', quantity: '1')],
+            [PricedLine::fromEntered(enteredUnitPrice: '81.82', taxPercent: '10', marginPercent: '20', quantity: '1')],
             [],
             '0',
         );
@@ -107,15 +107,15 @@ final class QuotationTotalsTest extends TestCase
     public function test_each_line_is_taxed_at_its_own_rate_on_its_discounted_amount(): void
     {
         // `D-157`, two rates in one quotation, discount 10%, delivery 50:
-        //   A: 114 at 14%, margin 20%, × 3 → net 100 → 120.00 → 360.00
-        //   B: 110 at 10%, margin  0%, × 2 → net 100 → 100.00 → 200.00
+        //   A: cost 100 at 14%, margin 20%, × 3 → 120.00 → 360.00
+        //   B: cost 100 at 10%, margin  0%, × 2 → 100.00 → 200.00
         // subtotal 560.00; discount 56.00; base 504.00;
         // VAT A = 360 × 0.90 × 14% = 45.36; VAT B = 200 × 0.90 × 10% = 18.00; Σ = 63.36;
         // net 560 + 50 − 56 = 554.00; total 554.00 + 63.36 = 617.36.
         $totals = QuotationTotals::from(
             [
-                PricedLine::fromEntered(enteredUnitPrice: '114', taxPercent: '14', marginPercent: '20', quantity: '3'),
-                PricedLine::fromEntered(enteredUnitPrice: '110', taxPercent: '10', marginPercent: '0', quantity: '2'),
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '10', marginPercent: '0', quantity: '2'),
             ],
             ['50'],
             '10',
@@ -138,7 +138,7 @@ final class QuotationTotalsTest extends TestCase
         // line, not none.
         $totals = QuotationTotals::from(
             [
-                PricedLine::fromEntered(enteredUnitPrice: '114', taxPercent: '14', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3'),
                 PricedLine::fromEntered(enteredUnitPrice: '50', taxPercent: '0', marginPercent: '10', quantity: '1'),
             ],
             [],

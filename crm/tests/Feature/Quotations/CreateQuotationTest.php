@@ -60,9 +60,9 @@ final class CreateQuotationTest extends TestCase
     // ──────────────────────────────────── QS.2a · D-156 · D-157 · D-62 · D-64
 
     /**
-     * The whole of §5 as QS.2a prices it, end to end through the use case: each line's tax taken out of the
-     * price typed, then its own margin added (`D-156`) — 114 incl. 14 % → 100 → 120.00 × 3 = 360.00, and 50
-     * incl. 0 % (allowed, `D-157`) → 50 → 55.00 × 2 = 110.00 — the discount spread over the lines before tax
+     * The whole of §5 as QS.2a prices it, end to end through the use case: the price typed is the cost before
+     * tax, its own margin added (`D-167`) — 100 at 14 % → 120.00 × 3 = 360.00, and 50 at 0 % (allowed,
+     * `D-157`) → 55.00 × 2 = 110.00 — the discount spread over the lines before tax
      * (`D-64`, `D-158`), each line taxed at its own rate, the sum the VAT line: 360 × 0.9 × 14 % + 110 × 0.9
      * × 0 % = 45.36; the delivery untaxed (`D-62`); `D-65`'s rounding (EGP, unit 1, on) on the final total
      * alone. 470.00 + 50.00 − 47.00 + 45.36 = 518.36 → 518, −0.36 stored. Every figure by hand.
@@ -92,7 +92,7 @@ final class CreateQuotationTest extends TestCase
 
         self::assertSame([
             [
-                'supplier_quotation_item_id' => null, 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
+                'supplier_quotation_item_id' => null, 'entered_unit_price' => '100.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
                 'unit_cost' => '100.000000', 'unit_cost_base' => '100.000000', 'unit_price' => '120.000000', 'line_total' => '360.000000', 'line_cost' => '300.000000',
             ],
             [

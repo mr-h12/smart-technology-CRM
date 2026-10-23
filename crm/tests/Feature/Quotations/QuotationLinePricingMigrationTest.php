@@ -49,7 +49,7 @@ final class QuotationLinePricingMigrationTest extends TestCase
         'net_amount' => '360.5', 'total_before_round' => '403.97', 'final_total' => '403.97', 'rounding_diff' => '0',
     ];
 
-    /** E1: 114 at 14%, margin 20, × 3 — no quotation margin, no quotation rate, yet a tax amount (`D-157`). */
+    /** E1: cost 100 at 14%, margin 20, × 3 — no quotation margin, no quotation rate, yet a tax amount (`D-157`). */
     private const TAX_INCLUDED = [
         'default_margin' => null, 'tax_percent' => null, 'tax_percents' => '[]',
         'subtotal' => '360', 'discount_amount' => '36', 'tax_base' => '324', 'tax_amount' => '45.36',
@@ -445,7 +445,7 @@ final class QuotationLinePricingMigrationTest extends TestCase
     }
 
     /**
-     * E1's line, owning its facts (`D-155`): no offer line, typed 114 at 14%, margin 20, × 3.
+     * E1's line, owning its facts (`D-155`): no offer line, typed 100 at 14%, margin 20, × 3 (`D-167`).
      *
      * @param  array<string, mixed>  $overrides
      */
@@ -456,7 +456,7 @@ final class QuotationLinePricingMigrationTest extends TestCase
         DB::table('quotation_items')->insert(array_merge([
             'id' => Uuid::uuid4()->toString(), 'quotation_id' => $quotationId, 'line_no' => 1, 'supplier_quotation_item_id' => null,
             'supplier_id' => $this->supplierA, 'catalog_item_id' => $this->offerLines['switch']['item'], 'unit_code' => 'pcs',
-            'entered_unit_price' => '114', 'tax_percent' => '14',
+            'entered_unit_price' => '100', 'tax_percent' => '14',
             'unit_cost' => '100.000000', 'unit_cost_currency' => 'EGP', 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => '100.000000',
             'margin_percent' => '20', 'unit_price' => '120.000000', 'quantity' => '3.0000', 'line_total' => '360.000000', 'line_cost' => '300.000000',
             'created_at' => now(), 'updated_at' => now(),

@@ -19,11 +19,11 @@ trait QuotationLineFixtures
 {
     /**
      * One line on a supplier and a product of its own, in the unit `piece` — example 1's line by default:
-     * 114 including 14 %, at 20 %, × 3. A null `$tax` leaves the key out, as a `tax_exempt` body must.
+     * cost 100 with 14 % added on top (`D-167`), at 20 %, × 3. A null `$tax` leaves the key out, as a `tax_exempt` body must.
      *
      * @return array<string, string>
      */
-    private function lineBody(string $entered = '114', ?string $tax = '14', string $margin = '20', string $quantity = '3'): array
+    private function lineBody(string $entered = '100', ?string $tax = '14', string $margin = '20', string $quantity = '3'): array
     {
         $supplierId = Uuid::uuid4()->toString();
         $catalogItemId = Uuid::uuid4()->toString();

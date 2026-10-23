@@ -290,8 +290,8 @@ function applyDetail(quotation: QuotationDetail): void {
     terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
     // U-5: a stored figure is offered without its trailing zeros — trimmed, never rounded.
     lines.value = (quotation.entry?.lines ?? []).map((line) => ({
-        supplier: { id: line.supplier_id, name: line.supplier_name },
-        product: { id: line.catalog_item_id, name: line.product_name },
+        supplier: { id: line.supplier_id, name: line.supplier_name ?? '' },
+        product: { id: line.catalog_item_id, name: line.product_name ?? '' },
         // A legacy line backfilled from a catalog item without a unit has none; the unit is left to choose (D-155).
         unit: line.unit_code ?? '',
         price: displayQuantity(line.entered_unit_price),

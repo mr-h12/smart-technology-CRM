@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Domain\Pricing;
 
 /**
- * One quotation line, priced from what was typed. §5.1 as `D-156` restates it.
+ * One quotation line, priced from what was typed. §5.1 as `D-167` restates it
+ * (owner, 2026-10-23: tax is added, never removed) — the entered price is the
+ * supplier's cost before tax, in both modes.
  *
  * ```
- * net        = entered ÷ (1 + tax / 100), truncated to 6 places    (tax-included; else net = entered)
- * unit_price = net × (1 + margin / 100), rounded to 2 places       (D-142)
+ * unit_cost  = entered, at the money scale
+ * unit_price = entered × (1 + margin / 100), rounded to 2 places   (D-142)
  * line_total = unit_price × quantity, rounded to 2 places          (D-142)
- * line_cost  = net × quantity                                      (the stored unit cost is the net)
+ * line_cost  = entered × quantity
  * ```
  *
- * The margin is the line's own; there is no quotation margin and no FX on a new line (`D-164`).
+ * The line's tax is added on top of its discounted amount by `QuotationTotals` (`D-157`); it never
+ * touches these figures. The margin is the line's own; there is no quotation margin and no FX on a
+ * new line (`D-164`).
  *
  * Pure by construction. `deptrac.layers.yaml` gives `Domain` an empty ruleset —
  * *"may depend on nothing"* — so this class reaches neither the framework, nor
@@ -58,7 +62,7 @@ final readonly class PricedLine
 
     /**
      * @param  numeric-string  $enteredUnitPrice  in the quotation's currency
-     * @param  numeric-string|null  $taxPercent  the line's own rate taken out of the entered price; null when the price is used as typed (`D-157`)
+     * @param  numeric-string|null  $taxPercent  the line's own rate, added on top in `QuotationTotals`; null when untaxed (`D-157`)
      * @param  numeric-string  $marginPercent  the line's margin
      * @param  numeric-string  $quantity
      */
@@ -77,9 +81,7 @@ final readonly class PricedLine
         // rounded: BCMath truncates, PostgreSQL rounds half-up, and a value that
         // reached NUMERIC(18,6) by a different route than the engine's would
         // break the additive CHECKs by a millionth (owner's ruling, 2026-09-07).
-        $unitCostBase = $taxPercent === null
-            ? bcadd($enteredUnitPrice, '0', self::SCALE)
-            : IncludedTax::net($enteredUnitPrice, $taxPercent);
+        $unitCostBase = bcadd($enteredUnitPrice, '0', self::SCALE);
         // D-142: the selling price rounds to 2 places (bcround: half away from zero), stored at the money scale.
         $unitPrice = bcadd(bcround(bcmul($unitCostBase, $multiplier, self::SCALE), 2), '0', self::SCALE);
 
@@ -116,8 +118,8 @@ final readonly class PricedLine
     }
 
     /**
-     * The line's net cost, in the quotation's currency (`D-164`): the entered price with the line's own
-     * tax taken out, truncated to 6 places (`D-156`), or the entered price as typed when it has no tax.
+     * The line's cost before tax, in the quotation's currency (`D-164`): the entered price at the money
+     * scale (`D-167`; owner, 2026-10-23: tax is added, never removed).
      *
      * @return numeric-string
      */
@@ -157,7 +159,7 @@ final readonly class PricedLine
     }
 
     /**
-     * The rate this line was taken out at, which `QuotationTotals` taxes it at (`D-157`); null when untaxed.
+     * The line's own rate, which `QuotationTotals` adds on top of its discounted amount (`D-157`); null when untaxed.
      *
      * @return numeric-string|null
      */

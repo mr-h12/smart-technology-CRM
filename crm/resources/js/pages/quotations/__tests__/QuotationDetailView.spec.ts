@@ -937,7 +937,7 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         window.localStorage.clear();
     });
 
-    /** D-156's E1 as a cost viewer reads it: entered 114 at 14 % tax, priced 120.00. */
+    /** E1 as a cost viewer reads it: entered 100 (the supplier's cost before tax) at 14 % tax, 20 % margin, priced 120.00 — owner, 2026-10-23: tax is added, never taken out. */
     const PRICED_LINE = {
         ...COSTED_LINE,
         supplier_quotation_item_id: null,
@@ -946,7 +946,7 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         supplier_id: 's1',
         supplier_name: 'Nile Pumps Co',
         unit_code: 'pcs',
-        entered_unit_price: '114.000000',
+        entered_unit_price: '100.000000',
         tax_percent: '14.000',
         quantity: '3.0000',
         unit_price: '120.000000',
@@ -981,8 +981,9 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
 
         expect(wrapper.get('[data-testid="quotation-line-supplier"]').text()).toBe('Nile Pumps Co');
         expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('Piece');
-        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).toContain('114.00');
-        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).not.toContain('114.000000');
+        // The cell's whole text: unit_cost_base is 100.000000 too, so a bare '100.00' would also pass on '1100.00'.
+        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).toBe('100.00 EGP');
+        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).not.toContain('100.000000');
         expect(wrapper.get('[data-testid="quotation-line-tax_percent"]').text()).toMatch(/^14\s*%$/);
     });
 

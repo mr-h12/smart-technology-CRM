@@ -22,8 +22,9 @@ use InvalidArgumentException;
  *
  * ── What it computes, and why the caller could not ─────────────────────────
  *
- * Per line (`D-156`): the line is priced from what was typed — the entered
- * price, its own tax and its own margin — by {@see PricedLine::fromEntered()}.
+ * Per line (`D-167`; owner, 2026-10-23: tax is added, never removed): the line
+ * is priced from what was typed — the entered price, the supplier's cost before
+ * tax, plus its own margin — by {@see PricedLine::fromEntered()}.
  * The line is typed in the quotation's currency (`D-164`): no supplier price,
  * no FX rate, no quotation margin. Per quotation (§5.2): {@see QuotationTotals}
  * totals to the tax base, taxing each line at its own rate (`D-157`), and
@@ -35,8 +36,8 @@ use InvalidArgumentException;
  *
  * ── `D-157`: the toggle is the preparer's ──────────────────────────────────
  *
- * `pricing_mode` is `tax_included` (each line carries its rate, taken out of
- * the typed price) or `tax_exempt` (the typed price is used as is and the
+ * `pricing_mode` is `tax_included` (each line carries its rate, added on top
+ * of its discounted amount) or `tax_exempt` (no line carries a rate and the
  * quotation has no tax line at all, `D-63`). It is not forced from the
  * customer's exemption. A new save writes no quotation margin and no quotation
  * tax rate (`D-165`).

@@ -225,7 +225,7 @@ final class QuotationNewVersionEndpointTest extends TestCase
 
         self::assertSame('tax_included', DB::table('quotations')->where('id', $copyId)->value('pricing_mode'));
         self::assertSame(
-            ['supplier_quotation_item_id' => null, 'supplier_id' => $line['supplier_id'], 'unit_code' => 'piece', 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000'],
+            ['supplier_quotation_item_id' => null, 'supplier_id' => $line['supplier_id'], 'unit_code' => 'piece', 'entered_unit_price' => '100.000000', 'tax_percent' => '14.000'],
             (array) DB::table('quotation_items')->where('quotation_id', $copyId)->first(['supplier_quotation_item_id', 'supplier_id', 'unit_code', 'entered_unit_price', 'tax_percent']),
         );
     }

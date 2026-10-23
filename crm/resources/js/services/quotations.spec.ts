@@ -100,7 +100,7 @@ const DRAFT: QuotationCreateDraft = {
         supplier_id: '0192f000-0000-7000-8000-000000000301',
         catalog_item_id: '0192f000-0000-7000-8000-000000000401',
         unit_code: 'pcs',
-        entered_unit_price: '114',
+        entered_unit_price: '100',
         tax_percent: '14',
         margin_percent: '20',
         quantity: '3',

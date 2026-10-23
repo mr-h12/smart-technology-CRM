@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
-use App\Modules\Quotations\Domain\Pricing\IncludedTax;
 use App\Modules\Quotations\Domain\Pricing\LegacyEntry;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Pricing\PricingMode;
@@ -14,11 +13,12 @@ use PHPUnit\Framework\TestCase;
 /**
  * QS.2a — `D-165`: a legacy Draft converts to the new pricing at its next save,
  * so the builder loads it as entry values. A taxed legacy quotation (its header
- * `tax_percent` not null) becomes `tax_included`: each line is typed at
- * `trunc6(unit_cost_base × (1 + t/100))` with the line's tax `t`; an exempt one
- * becomes `tax_exempt` and is typed at `unit_cost_base`. Either way the line's
- * margin is `D-106`'s whole margin, `default_margin + (line margin ?? 0)` — the
- * one place that sum survives (`D-156` removes it from the pricing).
+ * `tax_percent` not null) becomes `tax_included` with the quotation's rate on
+ * each line; an exempt one becomes `tax_exempt`. Either way each line is typed
+ * at its `unit_cost_base` exactly — the entered price is the cost before tax
+ * (`D-167`; owner, 2026-10-23: tax is added, never removed) — and its margin is
+ * `D-106`'s whole margin, `default_margin + (line margin ?? 0)` — the one place
+ * that sum survives (`D-156` removes it from the pricing).
  *
  * Pure, so PHPUnit's own `TestCase`, for the reason `PricedLineTest` gives.
  */
@@ -34,21 +34,22 @@ final class LegacyEntryTest extends TestCase
         self::assertSame(PricingMode::TaxExempt, LegacyEntry::mode(null));
     }
 
-    public function test_e4_a_taxed_line_is_typed_including_its_tax_with_its_whole_margin(): void
+    public function test_e4_a_taxed_line_is_typed_at_its_cost_with_its_whole_margin(): void
     {
-        // E4: cost 100 at 14% → typed 114; margin 10 + 5 = 15.
+        // E4: cost 100 at 14% → typed 100, the 14% beside it; margin 10 + 5 = 15.
         self::assertSame(
-            ['entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '15.000'],
+            ['entered_unit_price' => '100.000000', 'tax_percent' => '14.000', 'margin_percent' => '15.000'],
             LegacyEntry::line(unitCostBase: '100.000000', lineMargin: '5.000', defaultMargin: '10.000', taxPercent: '14.000'),
         );
     }
 
-    public function test_a_taxed_line_converts_back_to_the_same_net_cost(): void
+    public function test_a_taxed_line_converts_to_the_same_cost(): void
     {
-        // D-165: the legacy Draft "keeps its price" — typed price ÷ (1 + t) must land on the cost, to the last place.
+        // D-165: the legacy Draft "keeps its price" — the typed price is the cost, to the last place.
         $entered = LegacyEntry::line(unitCostBase: '33.333333', lineMargin: null, defaultMargin: '0', taxPercent: '14.000')['entered_unit_price'];
 
-        self::assertSame('33.333333', IncludedTax::net($entered, '14.000'));
+        self::assertSame('33.333333', $entered);
+        self::assertSame('33.333333', PricedLine::fromEntered($entered, '14.000', '0', '1')->unitCostBase());
     }
 
     public function test_an_exempt_line_is_typed_at_its_cost_with_no_tax(): void
@@ -67,11 +68,11 @@ final class LegacyEntryTest extends TestCase
         self::assertSame('0.000', LegacyEntry::line(unitCostBase: '100.000000', lineMargin: '-10.000', defaultMargin: '10.000', taxPercent: null)['margin_percent']);
     }
 
-    public function test_the_typed_price_is_truncated_to_the_money_scale(): void
+    public function test_the_typed_price_is_the_cost_at_the_money_scale(): void
     {
-        // 1234.567891 × 1.14 = 1407.40739574 → 1407.407396: rounded up, so `IncludedTax::net`'s truncation returns the cost (`D-165`).
+        // `D-167`: no gross figure to round — a taxed line is typed at its cost (`D-165`).
         self::assertSame(
-            '1407.407396',
+            '1234.567891',
             LegacyEntry::line(unitCostBase: '1234.567891', lineMargin: null, defaultMargin: '0.000', taxPercent: '14.000')['entered_unit_price'],
         );
     }
@@ -99,9 +100,8 @@ final class LegacyEntryTest extends TestCase
 
     public function test_d142s_line_priced_again_from_its_entry_keeps_its_price(): void
     {
-        // QT-2026-0135 (`D-142`): cost 26315.789474 at 14% is entered rounded up,
-        // 30000.000001, so taken back out it is the cost again, 26315.789474, and
-        // the selling price is still 26315.79, the line still 263157.90.
+        // QT-2026-0135 (`D-142`): cost 26315.789474 at 14% is entered as the cost,
+        // 26315.789474, so the selling price is still 26315.79, the line still 263157.90.
         $entry = LegacyEntry::line(unitCostBase: '26315.789474', lineMargin: null, defaultMargin: '0.000', taxPercent: '14.000');
         $line = PricedLine::fromEntered(
             enteredUnitPrice: $entry['entered_unit_price'],
@@ -110,8 +110,7 @@ final class LegacyEntryTest extends TestCase
             quantity: '10',
         );
 
-        // 26315.789474 × 1.14 = 30000.00000036 → rounded up, so 30000.000001 ÷ 1.14 truncates back to the cost.
-        self::assertSame('30000.000001', $entry['entered_unit_price']);
+        self::assertSame('26315.789474', $entry['entered_unit_price']);
         self::assertSame('26315.790000', $line->unitPrice());
         self::assertSame('263157.900000', $line->lineTotal());
     }

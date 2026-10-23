@@ -619,7 +619,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.unit_code', 'piece')
             ->assertJsonPath('data.items.0.supplier_id', $line['supplier_id'])
             ->assertJsonPath('data.items.0.supplier_name', 'Alpha Supplies')
-            ->assertJsonPath('data.items.0.entered_unit_price', '114.000000')
+            ->assertJsonPath('data.items.0.entered_unit_price', '100.000000')
             ->assertJsonPath('data.items.0.tax_percent', '14.000')
             ->json('data.entry');
 
@@ -628,7 +628,7 @@ final class QuotationReadEndpointTest extends TestCase
             'lines' => [[
                 'supplier_id' => $line['supplier_id'], 'supplier_name' => 'Alpha Supplies',
                 'catalog_item_id' => $line['catalog_item_id'], 'product_name' => 'Widget', 'unit_code' => 'piece',
-                'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000', 'quantity' => '3.0000',
+                'entered_unit_price' => '100.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000', 'quantity' => '3.0000',
             ]],
         ], $entry);
     }

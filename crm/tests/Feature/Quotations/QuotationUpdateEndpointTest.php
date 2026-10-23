@@ -300,8 +300,8 @@ final class QuotationUpdateEndpointTest extends TestCase
     // ───────────────────────────────────────────────────── what the edit does
 
     /**
-     * §5 re-priced on the backend from what was typed (`D-156`): a `tax_exempt` Draft (example 3) edited into
-     * example 1 — 114 incl. 14 % → 100 net → 120.00 × 3, 10 % off before tax (`D-64`), the line's 14 % on
+     * §5 re-priced on the backend from what was typed (`D-167`): a `tax_exempt` Draft (example 3) edited into
+     * example 1 — cost 100 → 120.00 × 3, 10 % off before tax (`D-64`), the line's 14 % added on
      * 324.00 = 45.36, the 50 delivery untaxed (`D-62`) → 419.36; no quotation margin (`D-156`).
      */
     public function test_that_an_edit_is_repriced_and_answered_in_full(): void
@@ -338,8 +338,8 @@ final class QuotationUpdateEndpointTest extends TestCase
     // ─────────────────────────────────────── QS.2a · a legacy Draft (D-165)
 
     /**
-     * `D-165` (`D-152`'s U-8): a legacy taxed Draft opens converted — example 4's entry is 100 × 1.14 = 114
-     * including 14 %, at its two margins summed, 10 + 5 = 15 % — and saved through the new body it becomes
+     * `D-165` (`D-152`'s U-8): a legacy taxed Draft opens converted — example 4's entry is its cost, 100, with
+     * 14 % beside it (`D-167`), at its two margins summed, 10 + 5 = 15 % — and saved through the new body it becomes
      * `tax_included`, with no quotation margin and no quotation tax rate, at the same 403.97.
      */
     public function test_that_a_legacy_taxed_draft_converts_at_its_next_save_to_the_same_total(): void
@@ -349,7 +349,7 @@ final class QuotationUpdateEndpointTest extends TestCase
 
         self::assertSame('tax_included', $entry['pricing_mode'] ?? null);
         $line = $this->entryLine($entry);
-        self::assertSame('114.000000', $line['entered_unit_price'] ?? null);
+        self::assertSame('100.000000', $line['entered_unit_price'] ?? null);
         self::assertDecimal('14', $line['tax_percent'] ?? null);
         self::assertDecimal('15', $line['margin_percent'] ?? null);
 

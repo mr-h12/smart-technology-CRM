@@ -198,7 +198,6 @@ final readonly class CustomerQuotationViewMapper
 
         $discountPercent = Decimal::of($quotation->discountPercent, 'discount_percent');
         $legacy = $quotation->pricingMode === PricingMode::Legacy;
-        $included = $quotation->pricingMode === PricingMode::TaxIncluded;
 
         $lines = [];
         $undescribed = [];
@@ -214,23 +213,15 @@ final readonly class CustomerQuotationViewMapper
 
             // D-157: a line is taxed at its own rate; a legacy one at the quotation's (D-165).
             $rate = $legacy ? $quotation->taxPercent : $line->taxPercent;
-            $unitPrice = $line->unitPrice;
-            $lineTotal = $line->lineTotal;
-
-            // QS.2a: a tax-included PDF prints gross prices; the VAT is taken from the net line first.
             $vat = $rate === null ? null : CustomerLineFigures::vat(Decimal::of($line->lineTotal, 'line_total'), $discountPercent, Decimal::of($rate, 'tax_percent'));
-            if ($included && $rate !== null) {
-                $unitPrice = CustomerLineFigures::grossUnitPrice(Decimal::of($line->unitPrice, 'unit_price'), Decimal::of($rate, 'tax_percent'));
-                $lineTotal = CustomerLineFigures::grossLineTotal($unitPrice, Decimal::of($line->quantity, 'quantity'));
-            }
 
             $unit = $line->unitCode === null ? null : ($units[$line->unitCode] ?? null);
             $lines[] = new CustomerQuotationLine(
                 lineNo: $line->lineNo,
                 description: $description,
                 quantity: $line->quantity,
-                unitPrice: $unitPrice,
-                lineTotal: $lineTotal,
+                unitPrice: $line->unitPrice,
+                lineTotal: $line->lineTotal,
                 unitEn: $unit['en'] ?? null,
                 unitAr: $unit['ar'] ?? null,
                 vatAmount: $vat,

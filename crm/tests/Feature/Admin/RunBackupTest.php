@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Admin;
 
-use App\Modules\Admin\Application\Backups\RunBackup;
-use App\Modules\Admin\Domain\Backups\BackupFailed;
-use App\Modules\Admin\Domain\Backups\BackupSucceeded;
+use App\Modules\Admin\Application\Backup\RunBackup;
+use App\Modules\Admin\Domain\Backup\BackupFailed;
+use App\Modules\Admin\Domain\Backup\BackupSucceeded;
 use App\Modules\Admin\Presentation\RunBackupJob;
 use App\Support\Queue\QueueName;
 use Illuminate\Console\Scheduling\Schedule;

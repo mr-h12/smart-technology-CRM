@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Application;
 
-use App\Modules\Admin\Domain\Backups\BackupFailed;
-use App\Modules\Admin\Domain\Backups\BackupSucceeded;
+use App\Modules\Admin\Domain\Backup\BackupFailed;
+use App\Modules\Admin\Domain\Backup\BackupSucceeded;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Notifications\Domain\Contracts\AlertLedgerInterface;

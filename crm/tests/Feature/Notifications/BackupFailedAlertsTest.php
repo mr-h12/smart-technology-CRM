@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Notifications;
 
-use App\Modules\Admin\Domain\Backups\BackupFailed;
-use App\Modules\Admin\Domain\Backups\BackupSucceeded;
+use App\Modules\Admin\Domain\Backup\BackupFailed;
+use App\Modules\Admin\Domain\Backup\BackupSucceeded;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
 use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admin\Presentation;
 
-use App\Modules\Admin\Application\Backups\RunBackup;
+use App\Modules\Admin\Application\Backup\RunBackup;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Modules\Admin\Domain\Backups\BackupFailed;
-use App\Modules\Admin\Domain\Backups\BackupSucceeded;
+use App\Modules\Admin\Domain\Backup\BackupFailed;
+use App\Modules\Admin\Domain\Backup\BackupSucceeded;
 use App\Modules\Admin\Domain\Contracts\BackupRunsInterface;
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;

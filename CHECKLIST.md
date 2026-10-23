@@ -102,7 +102,7 @@ from fighting over the same eleven files.
 | **9 — PDF Generation** | second developer | **finished** — 24 of 30 boxes (6 `[~]`; 5.2, Module 7's line, on #268), Steps 1–5 on #116–#268, closed 2026-09-29, archived in `checklist/module-09.md` |
 | **10 — Customer Response & POs** | Yousef | **finished** — 20 of 20 boxes, Steps 1–4 on #206–#223, closed 2026-09-24, archived in `checklist/module-10.md` |
 | **14 — Dashboard** | mohanadmm | **finished** — 27 of 27 boxes, Steps 0–7 on #406–#417, closed 2026-10-22, archived in `checklist/module-14.md` |
-| **16 — Alerts** | mohanadmm | **in progress** — claimed 2026-10-22 under `D-153` |
+| **16 — Alerts** | mohanadmm | **finished** — 13 of 13 boxes, Steps 0–6 on #421–#431, closed 2026-10-23, archived in `checklist/module-16.md` |
 
 Claim a module here **before** the first commit in it, not by whoever pushes first. A module not
 listed above is unowned, and picking it up means adding a row.
@@ -2016,6 +2016,16 @@ would hide them behind `OD-03` indefinitely.
       dump is recorded as a failure (and alerts) rather than killed and handed out twice. Dev's dump takes under
       a second. **Trigger:** the first `backup_runs` row failing on the timeout — then give `maintenance` its own
       connection with a longer `retry_after`, and the job a longer `$timeout`.
+- [ ] **A new scheduled job can run before its migration** — *Module 16 · 6, 2026-10-23, seen on dev.* Recreating
+      the containers on the new image started the `scheduler`, whose `schedule:catch-up` dispatched `J-10` before
+      `backup_runs` existed: two failed runs (`failed_jobs`), and the job-failed alert reached the bell — the alert
+      worked; the order did not. Nothing makes `migrate` run before the scheduler and workers start. **Owner:
+      mohanadmm**, with `P-02`'s deployment order: run migrations first, or have the `scheduler` wait on them.
+- [ ] **An alert clears on the next run of its job, not the moment its cause is fixed** — *Module 16, 2026-10-23
+      (`D-153`).* An answered quotation's alert stays until the next daily `J-16`; an ended lock's or a retried job's
+      until the next hourly `J-17`; storage until the next `J-14`. Only a backup clears at once (the next good run
+      announces it). **Trigger:** the owner finding a stale alert worth a fix — then Quotations would announce an
+      answer or a new version, and Notifications would clear on it.
 - [ ] **No test sets a company time zone for J-09** — *Module 14 · 2.1b/3.2/4.2, 2026-10-21.* Every J-09 grouping reads
       `CompanyToday::zone()`; the J-09 tests run with `locale.timezone` unset (UTC). The list filters of 6.1 are tested
       in Africa/Cairo; J-09's day boundaries are not yet.
@@ -5481,29 +5491,12 @@ rule written twice, no company-time-zone test for J-09, untyped additional items
 
 ## Module 16 — Alerts
 
-> As a user, I want to be told when something of mine needs attention, so that nothing expires or breaks unnoticed.
+**Closed 13 of 13 boxes** · full point history: [checklist/module-16.md](checklist/module-16.md) ·
+Arabic manual test list handed over 2026-10-23.
 
-**Tables** `alerts` — one open row per kind and record, addressed to a user · `backup_runs` (`J-10`'s record) · jobs `J-10`, `J-14`, `J-16`
-
-**Acceptance criteria**
-- [ ] A user never sees an alert addressed to someone else
-- [ ] A quotation inside the window raises one alert for its owner and one for the owner's Team Leader; running `J-16` again adds none
-- [ ] Each alert clears itself when its cause is fixed
-- [ ] Marking an alert read lowers the bell's count; nothing is ever deleted
-- [ ] A failed backup, a locked account, a failed job or storage over its limit each reaches every Super Admin
-- [ ] ❌ Not in this module: push, email, priorities, the daily budget, quiet hours (`D-33`, §18.3)
-
-### Point list — approved 2026-10-22 (mohanadmm, in chat; `D-153`)
-
-Each point is a red turn, then a green turn, on its own branch.
-
-- [x] **0** `D-153` written; this section and the ownership row; the agent guides' next action *(2026-10-22, #421 — `D-153` and `J-16` in the master, this section, the guides and their Arabic twins; the 53 test files reading them 1420 passed)*
-- [x] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en *(2026-10-22, #422 — `alerts` with D-153's kinds and one open alert per user, kind and record; four endpoints, auth only, no delete; the bell on the context bar's first row; full PHP suite 4391 passed alone, vitest 1590; browser ar/en × 1280/375 × light/dark: a long job name ran under its button and Escape stopped closing after «تعليم كمقروء» — both fixed, the second with a test)*
-- [x] **2** Quotation expiring soon: `quotations.expiry_alert_days`, `J-16` with its catch-up, owner + Team Leader, clearing *(2026-10-22, #424 — raised once (§18.3), cleared on the run after the quotation leaves the window; `ExpiringQuotationsInterface`, `teamLeadersOf`; the setting on the limits screen; full PHP suite 4422 passed alone, vitest 1593; browser: the limits intro's fixed "five of the seven" now counts (test added); on dev the scheduler's catch-up ran J-01 then J-16)*
-- [x] **3** Account locked and job failed, to every Super Admin *(2026-10-22, #425 — on Identity's `AccountLocked` and Laravel's `JobFailed`, per account and per job class, a repeat counted and unread again; `J-17` hourly clears them (approved by the owner 2026-10-22, §15 row); full PHP suite 4433 passed alone; dev workers restarted onto the listener)*
-- [x] **4** Storage over limit: `J-14` and its limit setting *(2026-10-23, #430 — `limits.storage_alert_percent` (percent, 1–99, 80 unset; the owner's reading of "the limit"), `StorageUsageInterface` on the files volume, raised once and cleared back under; full PHP suite 4452 passed alone; dev: 8.7 % in use, nothing raised; browser: the «٪» unit and «7 من 9»)*
-- [ ] **5** Minimal backups (`J-10`: database + files, checksum, success/failure record) and the backup-failed alert
-- [ ] **6** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-16.md`
+Still open (not boxes — owner items): `D-33` stands, so push, email and the rest of §18.3 stay post-MVP; the
+backups leave out `BK-02`, `BK-03`, `BK-06`…`BK-08` (retention first — the volume only grows); the debt rows above
+on J-10's 80-second window, deploy order (a job before its migration), and alerts clearing on their job's next run.
 
 ---
 

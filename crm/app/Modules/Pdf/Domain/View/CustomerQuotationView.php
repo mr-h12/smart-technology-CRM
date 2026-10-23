@@ -111,6 +111,8 @@ final readonly class CustomerQuotationView
         public string $finalTotal,
         public string $roundingDiff,
         public array $terms,
+        /** QS.2a: `tax_included` — the line prices printed are gross and there is no VAT column. */
+        public bool $pricesIncludeTax = false,
     ) {
         // A line with a label and nothing after it is a rendering defect, so
         // present-but-blank is refused here rather than left to the template.

@@ -82,6 +82,14 @@ const QUOTATION = {
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
     created_by: 'u1', updated_by: 'u1',
+    // The server's `entry` for a cost viewer, a legacy Draft included (contract §4/§8): the lines as typed, margin = default + line extra.
+    pricing_mode: 'legacy',
+    entry: {
+        pricing_mode: 'tax_included',
+        lines: [
+            { supplier_id: 's1', supplier_name: 'Nile Pumps Co', catalog_item_id: 'ci1', product_name: 'Split unit 1.5HP', unit_code: 'pcs', entered_unit_price: '400.000000', tax_percent: '14.000', margin_percent: '25.000', quantity: '2.000' },
+        ],
+    },
 };
 
 /**
@@ -325,17 +333,8 @@ function id(suffix: string): string {
     return `[data-testid="quotation-builder-${suffix}"]`;
 }
 
-/** One supplier block on `sq1`, its first line at `quantity`. */
-async function pickFirstLine(wrapper: Awaited<ReturnType<typeof render>>['wrapper'], quantity = '2'): Promise<void> {
-    await wrapper.find(id('add-supplier')).trigger('click');
-    await wrapper.find(id('supplier-0-pick')).setValue('sq1');
-    await flushPromises();
-    await wrapper.find(id('line-0-0-quantity')).setValue(quantity);
-}
-
 async function fillHeader(wrapper: Awaited<ReturnType<typeof render>>['wrapper']): Promise<void> {
     await wrapper.find(id('currency')).setValue('EGP');
-    await wrapper.find(id('default_margin')).setValue('25');
     await wrapper.find(id('discount_percent')).setValue('10');
 }
 
@@ -700,7 +699,7 @@ describe('the quotation builder (create)', () => {
         const { wrapper, router } = await render(fetchMock);
 
         await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -727,7 +726,7 @@ describe('the quotation builder (create)', () => {
         const fetchMock = respond({ saves: [refusal(422, 'validation_failed', [{ field: 'currency', code: 'required', message: 'required' }]), json(201, envelope(CREATED))] });
         const { wrapper, router } = await render(fetchMock);
 
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -752,7 +751,7 @@ describe('the quotation builder (create)', () => {
 
         await fillHeader(wrapper);
         await wrapper.find(id('discount_percent')).setValue('100');
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -1124,7 +1123,7 @@ describe('the builder\'s currency control', () => {
         expect(control.findAll('option').map((option) => option.text())).toEqual([en.quotations.builder.currencyNone, 'EGP', 'USD']);
 
         await control.setValue('USD');
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -1140,7 +1139,7 @@ describe('the builder\'s currency control', () => {
         expect(control.element.tagName).toBe('INPUT');
 
         await control.setValue('egp');
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -1189,7 +1188,7 @@ describe('the builder\'s delivery-terms control', () => {
 
     async function save(wrapper: Rendered): Promise<void> {
         await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
     }
@@ -1499,7 +1498,7 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         const { wrapper } = await render(fetchMock);
 
         await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('term-0-remove')).trigger('click');
         await wrapper.find(id('term-0-title')).setValue('Guarantee');
         await wrapper.find(id('term-0-body')).setValue('Two years');
@@ -1557,7 +1556,7 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         const { wrapper } = await render(fetchMock);
 
         await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
+        await enterLine(wrapper);
         await wrapper.find(id('add-term')).trigger('click');
         await wrapper.find(id('term-3-body')).setValue('Six months');
         await wrapper.find(id('form')).trigger('submit');

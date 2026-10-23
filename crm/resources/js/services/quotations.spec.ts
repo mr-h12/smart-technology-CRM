@@ -213,12 +213,6 @@ describe('the quotation API catalogue', () => {
         expect(read.quotation.etag).toBe(DETAIL.etag);
     });
 
-    it('reads no warnings as an empty list, not undefined', async () => {
-        fetchMock.mockResolvedValue(json(200, envelope(DETAIL)));
-
-        expect((await readQuotation(DETAIL.id)).warnings).toEqual([]);
-    });
-
     // ─────────────────────────────────────────────────────────────── the writes
 
     // D-161: the over-quantity warning retired with D-81; the create answers the id and the code.

@@ -67,12 +67,11 @@ final class CustomerLineFiguresTest extends TestCase
         }
 
         $row = QuotationTotals::from(
-            array_map(static fn (string $amount): PricedLine => PricedLine::from(
-                unitCostBase: $amount, marginPercent: '0', defaultMargin: '0', quantity: '1',
+            array_map(static fn (string $amount): PricedLine => PricedLine::fromEntered(
+                enteredUnitPrice: $amount, taxPercent: '10', marginPercent: '0', quantity: '1',
             ), $lines),
             [],
             '0',
-            '10',
         )->taxAmount();
 
         self::assertSame('0.015000', $row);

@@ -197,7 +197,7 @@ final class QuotationNewVersionEndpointTest extends TestCase
     public function test_that_a_copy_carries_the_lines_product(): void
     {
         $parentId = $this->answered($this->deal(null), 'partial');
-        $product = DB::table('supplier_quotation_items')->where('id', $this->lineId)->value('catalog_item_id');
+        $product = DB::table('quotation_items')->where('quotation_id', $parentId)->value('catalog_item_id');
         self::assertIsString($product);
         DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['deleted_at' => now()]);
 
@@ -421,9 +421,9 @@ final class QuotationNewVersionEndpointTest extends TestCase
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
             'terms' => [
                 ['key' => 'payment_terms', 'title' => null, 'body' => '50% advance'],

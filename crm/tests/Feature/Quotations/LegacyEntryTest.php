@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
+use App\Modules\Quotations\Domain\Pricing\IncludedTax;
 use App\Modules\Quotations\Domain\Pricing\LegacyEntry;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Pricing\PricingMode;
@@ -42,6 +43,14 @@ final class LegacyEntryTest extends TestCase
         );
     }
 
+    public function test_a_taxed_line_converts_back_to_the_same_net_cost(): void
+    {
+        // D-165: the legacy Draft "keeps its price" — typed price ÷ (1 + t) must land on the cost, to the last place.
+        $entered = LegacyEntry::line(unitCostBase: '33.333333', lineMargin: null, defaultMargin: '0', taxPercent: '14.000')['entered_unit_price'];
+
+        self::assertSame('33.333333', IncludedTax::net($entered, '14.000'));
+    }
+
     public function test_an_exempt_line_is_typed_at_its_cost_with_no_tax(): void
     {
         self::assertSame(
@@ -60,9 +69,9 @@ final class LegacyEntryTest extends TestCase
 
     public function test_the_typed_price_is_truncated_to_the_money_scale(): void
     {
-        // 1234.567891 × 1.14 = 1407.40739574 → 1407.407395 (`D-68`'s truncation).
+        // 1234.567891 × 1.14 = 1407.40739574 → 1407.407396: rounded up, so `IncludedTax::net`'s truncation returns the cost (`D-165`).
         self::assertSame(
-            '1407.407395',
+            '1407.407396',
             LegacyEntry::line(unitCostBase: '1234.567891', lineMargin: null, defaultMargin: '0.000', taxPercent: '14.000')['entered_unit_price'],
         );
     }
@@ -101,7 +110,8 @@ final class LegacyEntryTest extends TestCase
             quantity: '10',
         );
 
-        self::assertSame('30000.000000', $entry['entered_unit_price']);
+        // 26315.789474 × 1.14 = 30000.00000036 → rounded up, so 30000.000001 ÷ 1.14 truncates back to the cost.
+        self::assertSame('30000.000001', $entry['entered_unit_price']);
         self::assertSame('26315.790000', $line->unitPrice());
         self::assertSame('263157.900000', $line->lineTotal());
     }

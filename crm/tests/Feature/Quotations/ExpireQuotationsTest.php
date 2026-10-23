@@ -35,6 +35,7 @@ use Tests\TestCase;
  */
 final class ExpireQuotationsTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const PASSWORD = 'Passw0rd123';
@@ -42,8 +43,6 @@ final class ExpireQuotationsTest extends TestCase
     private ?string $token = null;
 
     private string $customerId;
-
-    private string $lineId;
 
     protected function setUp(): void
     {
@@ -53,7 +52,6 @@ final class ExpireQuotationsTest extends TestCase
 
         $this->currency();
         $this->customerId = $this->customer();
-        $this->lineId = $this->supplierLine();
 
         // 2026-09-23 22:30 UTC is 2026-09-24 01:30 in Cairo (UTC+3 in September).
         Carbon::setTestNow('2026-09-23 22:30:00');
@@ -251,9 +249,9 @@ final class ExpireQuotationsTest extends TestCase
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearer())->assertStatus(201)->json('data.id');
         self::assertIsString($id);
 
@@ -321,37 +319,6 @@ final class ExpireQuotationsTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    /** §4.1's chain in EGP; returns the `supplier_quotation_items` id a line points at. */
-    private function supplierLine(): string
-    {
-        $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
-        $offerId = Uuid::uuid4()->toString();
-        $lineId = Uuid::uuid4()->toString();
-        $egp = DB::table('currencies')->where('code', 'EGP')->value('id');
-
-        DB::table('suppliers')->insert(['id' => $supplierId, 'name' => 'Alpha Supplies', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('catalog_items')->insert(['id' => $catalogItemId, 'kind' => 'product', 'name' => 'Widget', 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('supplier_quotations')->insert([
-            'id' => $offerId,
-            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
-            'supplier_id' => $supplierId,
-            'total_price' => '1',
-            'currency_id' => $egp,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotation_items')->insert([
-            'id' => $lineId,
-            'supplier_quotation_id' => $offerId,
-            'catalog_item_id' => $catalogItemId,
-            'unit_price' => '10',
-            'quantity' => '5',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $lineId;
     }
 
     /** @return array<string, string> one login per test — the login limit counts every call */

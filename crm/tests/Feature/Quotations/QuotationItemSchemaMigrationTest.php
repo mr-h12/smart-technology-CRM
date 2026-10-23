@@ -37,6 +37,8 @@ final class QuotationItemSchemaMigrationTest extends TestCase
 
     private string $quotationId;
 
+    private string $supplierId;
+
     private string $supplierLineId;
 
     private string $catalogItemId;
@@ -48,7 +50,7 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         $customerId = Uuid::uuid4()->toString();
         $dealId = Uuid::uuid4()->toString();
         $currencyId = Uuid::uuid4()->toString();
-        $supplierId = Uuid::uuid4()->toString();
+        $supplierId = $this->supplierId = Uuid::uuid4()->toString();
         $this->catalogItemId = Uuid::uuid4()->toString();
         $supplierQuotationId = Uuid::uuid4()->toString();
 
@@ -401,7 +403,9 @@ final class QuotationItemSchemaMigrationTest extends TestCase
             'id' => Uuid::uuid4()->toString(),
             'quotation_id' => $this->quotationId,
             'supplier_quotation_item_id' => $this->supplierLineId,
+            'supplier_id' => $this->supplierId,
             'catalog_item_id' => $this->catalogItemId,
+            'entered_unit_price' => '48500.000000',
             'line_no' => 1,
             'unit_cost' => '1000.000000',
             'unit_cost_currency' => 'USD',

@@ -178,6 +178,26 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->postJson(self::ENDPOINT, $this->payload(), $this->bearerFor(RoleName::Manager))->assertStatus(403);
     }
 
+    /** §3.5 `edit margin` / `edit tax` are their own cells: a create that sets a line's margin or tax asks for them. */
+    public function test_that_a_create_with_a_line_margin_needs_the_edit_margin_grant(): void
+    {
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->postBody($this->e3Body())->assertStatus(403);
+    }
+
+    public function test_that_a_create_with_a_line_tax_needs_the_edit_tax_grant(): void
+    {
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
+
+        $this->postBody($this->e1Body($this->lineBody(margin: '0')))->assertStatus(403);
+    }
+
+    public function test_that_a_create_with_a_margin_and_a_tax_succeeds_with_the_grants(): void
+    {
+        $this->postBody($this->e1Body())->assertStatus(201);
+    }
+
     // ────────────────────────────────────────────────── what a 201 carries
 
     /** `OpenAPI §4.1`'s example, to the field: `{id, code}` and `meta.request_id`. */
@@ -307,6 +327,24 @@ final class QuotationWriteEndpointTest extends TestCase
     public function test_that_sixteen_terms_are_refused_on_create(): void
     {
         $this->post422(['terms' => array_fill(0, 16, ['key' => null, 'title' => 'Note', 'body' => 'Text'])], 'terms');
+    }
+
+    /** D-166 (proposed, owner 2026-10-23): a quotation takes up to 25 distinct suppliers. */
+    public function test_that_a_twenty_sixth_supplier_is_refused_on_create(): void
+    {
+        $lines = array_map(fn (): array => $this->lineBody(), range(1, 26));
+
+        $this->postBody([...$this->e1Body(), 'lines' => $lines])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonFragment(['field' => 'lines', 'code' => 'invalid']);
+    }
+
+    public function test_that_twenty_five_suppliers_are_accepted_on_create(): void
+    {
+        $lines = array_map(fn (): array => $this->lineBody(), range(1, 25));
+
+        $this->postBody([...$this->e1Body(), 'lines' => $lines])->assertStatus(201);
     }
 
     // ──────────────────────────────── the boundary mirrors the table's CHECKs
@@ -487,7 +525,7 @@ final class QuotationWriteEndpointTest extends TestCase
         $headers = $this->bearerFor(RoleName::Manager);
 
         $this->postJson(self::ENDPOINT, $this->payload(), $headers)->assertStatus(201);
-        $this->postJson(self::ENDPOINT, $this->payload(['default_margin' => '25']), $headers)
+        $this->postJson(self::ENDPOINT, $this->payload(['discount_percent' => '5']), $headers)
             ->assertStatus(409)
             ->assertJsonPath('error.code', IdempotencyRefused::CONFLICT);
 
@@ -577,7 +615,7 @@ final class QuotationWriteEndpointTest extends TestCase
             'deal_id' => $this->dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
             'lines' => [],
             'additional_items' => [],

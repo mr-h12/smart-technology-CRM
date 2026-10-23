@@ -29,8 +29,8 @@ final readonly class CatalogLineDescriptions implements LineDescriptionsInterfac
         return $this->labels->labelsOf($catalogItemIds);
     }
 
-    public function unitsOf(array $catalogItemIds): array
+    public function unitsOf(array $unitCodes): array
     {
-        return $this->labels->unitsOf($catalogItemIds);
+        return $this->labels->unitsOf($unitCodes);
     }
 }

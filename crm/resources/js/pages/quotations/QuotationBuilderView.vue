@@ -9,51 +9,35 @@
  * the confirmation once it exists (Step 6 Q3). Money travels as the strings
  * the person typed (`DB-07`), never through `Number`.
  *
- * ── Suppliers ──────────────────────────────────────────────────────────────
- * §6.2: "1 → 10 suppliers via (+)". A block is one supplier quotation; its
- * lines are what `GET /supplier-quotations/{id}` lists, and a line is sent
- * only when a quantity was typed for it, as `supplier_quotation_item_id`
- * (Point 3.3). The picker lists the deal's own offers first, then every other
- * (`listSupplierQuotations({dealId})`, then any) — an offer may be standalone
- * (`D-51`). The button beside the picker opens Module 6's own form and adds
- * what it saved as a block (owner's ruling 2026-09-11, the debt row Point 3.3
- * parked).
+ * ── Lines (QS.2a, D-155) ───────────────────────────────────────────────────
+ * A line is typed in one entry row — an existing supplier, product and unit,
+ * the entered price, tax, margin and quantity — and Enter (or Add) moves it
+ * into the table. Supplier, tax and margin stay for the next product; a row
+ * can be removed or sent back to the entry fields. Typing a new supplier,
+ * product or unit is slice 3. The «Prices include tax» toggle is the preparer's
+ * (`D-157`): off hides the tax field and the column and sends no line tax.
+ * The table shows what was typed; the server prices it (`D-67`, QS.2b previews).
  *
- * ── Refusals and warnings ───────────────────────────────────────────────────
- * `ApiExceptionRenderer::quotationNotPriceable()` names the line for both of
- * `QuotationNotPriceable`'s codes. `supplier_price_missing` lands on that
- * line — the save is blocked (`§5.6`). `fx_rate_missing` is a currency
- * problem, not a line's, so it is shown at the form. A 422 `validation_failed`
- * lands on the field it names, Module 6's `applyServerErrors` pattern.
- *
- * `quantity_exceeds_recorded` rides the **201**: the draft exists. `§5.6`
- * wants it red on the line and `Design System §7.2` says "without blocking",
- * so on a 201 that carries warnings the form stays, with the red line and a
- * link to the saved draft — and **stays editable** (F-03, owner 2026-09-16:
- * the earlier read-only freeze was itself a block). The next save is a
- * `PATCH` on the draft just created, with its token; a second `POST` under
- * the same key would be a 409. A clean 201 goes straight to the detail. A
- * `GET` never repeats this warning (Point 4.5 reads `supplier_price_changed`
- * only), so navigating away would lose it. Edit-and-approve keeps the freeze:
- * the quotation is `approved` and nothing on it may change any more.
+ * ── Refusals ───────────────────────────────────────────────────────────────
+ * A 422 `validation_failed` lands on the field it names, Module 6's
+ * `applyServerErrors` pattern: `lines.N.<field>` on the table's row N, `lines`
+ * (the cap) on the table. `fx_rate_missing` is a currency problem, shown at the
+ * form. No warning rides a save any more (`D-161`), so a clean save goes
+ * straight to the detail.
  *
  * ── Idempotency ────────────────────────────────────────────────────────────
  * `OpenAPI §9.1`: one `Idempotency-Key` per form open. A retry after a
  * failure replays the same key; a fresh form mints a fresh one.
  *
  * ── Edit (6.7) ─────────────────────────────────────────────────────────────
- * The form is loaded from `GET /quotations/{id}`; `PATCH` carries the
+ * The form is loaded from `GET /quotations/{id}`'s `entry`; `PATCH` carries the
  * detail's `etag` as `If-Match` (`API-12`) and both lists always — an edit
- * replaces every editable field (Point 3.6). A 409 `concurrency_conflict` is
- * a banner naming the newer version's total with a reload, never a retry; a
- * 422 `quotation_not_draft` sends the person back to the quotation's page.
- * Leaving with unsaved changes asks first (`Design System §5.2`).
- *
- * A quotation line names its `supplier_quotation_item_id` and nothing about
- * the offer it came from (`quotation_items` has no `supplier_quotation_id`),
- * so existing lines are edited as the flat list Point 6.5 shows — line
- * number, product name (F-16 · 1.1), cost, quantity, margin, remove — and new
- * lines still come through a supplier block.
+ * replaces every editable field (Point 3.6). A caller without the cost grant
+ * gets no `entry`: the builder refuses to open rather than save `lines: []`.
+ * A 409 `concurrency_conflict` is a banner naming the newer version's total
+ * with a reload, never a retry; a 422 `quotation_not_draft` sends the person
+ * back to the quotation's page. Leaving with unsaved changes asks first
+ * (`Design System §5.2`).
  *
  * ── Terms (D-103) ──────────────────────────────────────────────────────────
  * A list built like the additional items, up to 15, sent as `terms` in row
@@ -71,9 +55,8 @@
  * stored value is the text either way, so the API and the PDF never learn there
  * is a list. With no entries, or the list refused, it is the text area it was.
  *
- * Stated ceilings, all Module 6's: suppliers, catalog items and supplier
- * quotations are each read as one page of 100. The delivery terms are one page
- * of 25, as the catalog's lists are.
+ * Stated ceilings: the units and the delivery terms are each one page of 25,
+ * as the catalog's lists are.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -84,7 +67,7 @@ import SearchCombobox from '@/components/SearchCombobox.vue';
 import ErrorState from '@/components/states/ErrorState.vue';
 import LoadingState from '@/components/states/LoadingState.vue';
 import PermissionDeniedState from '@/components/states/PermissionDeniedState.vue';
-import SupplierQuotationFormModal from '@/pages/supplier-quotations/SupplierQuotationFormModal.vue';
+import { SUPPLIER_KEYS, supplierDetail } from '@/components/suppliers/supplierOptions';
 import { listCatalogItems, type CatalogItem } from '@/services/catalog';
 import { readCustomer, type Customer } from '@/services/customers';
 import { readDeal, type Deal } from '@/services/deals';
@@ -94,64 +77,43 @@ import {
     listTermSuggestions,
     readQuotation,
     updateQuotation,
+    type PricingMode,
     type QuotationDetail,
     type QuotationDraft,
-    type QuotationRead,
-    type QuotationWarning,
     type TermField,
 } from '@/services/quotations';
-import {
-    listSupplierQuotations,
-    readSupplierQuotation,
-    type SupplierQuotation,
-    type SupplierQuotationDetail,
-} from '@/services/supplier-quotations';
 import { listSuppliers, type Supplier } from '@/services/suppliers';
 import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
-import { MAX_TAXES } from '@/domain/taxRates';
-import { useAuth } from '@/stores/auth';
 import { focusFirstInvalid } from '@/components/focusFirstInvalid';
 import { displayTimestamp } from '@/domain/displayDate';
 
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
-const { hasPermission } = useAuth();
 
-/** §6.2's cap. */
-const MAX_SUPPLIERS = 10;
-
-const HEADER_FIELDS = ['currency', 'default_margin', 'discount_percent', 'quotation_date', 'valid_until'] as const;
+const HEADER_FIELDS = ['currency', 'discount_percent', 'quotation_date', 'valid_until'] as const;
 
 type HeaderField = (typeof HEADER_FIELDS)[number];
 
-interface Block {
-    supplierQuotationId: string;
-    detail: SupplierQuotationDetail | null;
-    /** Per line of `detail.items`, what was typed. Empty means "not on this quotation". */
-    quantities: string[];
-    margins: string[];
-    /** A-41: the offer is on its way, or why it never came — said in the block, not at the page top. */
-    loading: boolean;
-    error: string;
+/** A picked supplier or product: the id the payload needs and the name the table shows. */
+interface Picked {
+    id: string;
+    name: string;
 }
 
-/** An existing line (edit only): its supplier item, what was typed, and the cost the detail carried (Q7). */
-interface ExistingLine {
-    supplier_quotation_item_id: string;
-    line_no: number;
-    product_name: string | null;
-    quantity: string;
+/** One table row — what was typed (`D-155`), plus the two names its cells show. */
+interface Line {
+    supplier: Picked;
+    product: Picked;
+    unit: string;
+    price: string;
+    tax: string;
     margin: string;
-    /** D-148: the cost converted into the quotation's currency, and that currency as loaded. */
-    unit_cost_base: string | null;
-    currency: string;
+    quantity: string;
 }
 
-/** D-148: the offer's currency code from `GET /currencies`; undefined when the list or the offer's currency is absent. */
-function offerCurrency(block: Block): string | undefined {
-    return currencies.value.find((currency) => currency.id === block.detail?.currency_id)?.code;
-}
+type LineField = 'supplier_id' | 'catalog_item_id' | 'unit_code' | 'entered_unit_price' | 'tax_percent' | 'margin_percent' | 'quantity';
+const LINE_FIELDS: LineField[] = ['supplier_id', 'catalog_item_id', 'unit_code', 'entered_unit_price', 'tax_percent', 'margin_percent', 'quantity'];
 
 /** Module 8 · 3.2: the approver's route — the same form, saved through 1.3. */
 const approving = computed(() => route.name === 'quotation-edit-and-approve');
@@ -162,12 +124,9 @@ const dealId = ref(String(route.query.deal ?? ''));
 
 const deal = ref<Deal | null>(null);
 const customer = ref<Customer | null>(null);
-const suppliers = ref<Supplier[]>([]);
-const catalog = ref<CatalogItem[]>([]);
 
 /** D-80's list; empty when it could not be read, and the code is typed instead. */
 const currencies = ref<Currency[]>([]);
-const offers = ref<SupplierQuotation[]>([]);
 
 const loading = ref(true);
 const failed = ref(false);
@@ -175,12 +134,12 @@ const denied = ref(false);
 const missing = ref(false);
 
 function blankHeader(): Record<HeaderField, string> {
-    return { currency: '', default_margin: '', discount_percent: '0', quotation_date: '', valid_until: '' };
+    return { currency: '', discount_percent: '0', quotation_date: '', valid_until: '' };
 }
 
 const header = ref<Record<HeaderField, string>>(blankHeader());
-/** D-118: the tax rates as typed; an empty field is no rate, and none at all is no tax (D-63). */
-const taxes = ref<string[]>(['']);
+/** `D-157`: the preparer's toggle; on by default (owner, 2026-10-22). */
+const taxIncluded = ref(true);
 /** The three ready terms' keys; Point 6.8's recent terms are read per key, and a chip copies one into that term's text. */
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 /** `D-103`'s cap. */
@@ -236,8 +195,11 @@ function oneLine(text: string): string {
 /** The list is local, so only "no match" can ever show: its sentence stands in for the states a server-searched picker adds. */
 const TERM_NO_MATCH = 'quotations.builder.deliveryTermNoMatch';
 const TERM_KEYS = { more: TERM_NO_MATCH, forbidden: TERM_NO_MATCH, failed: TERM_NO_MATCH, empty: TERM_NO_MATCH, noMatch: TERM_NO_MATCH, retry: 'state.retry' };
-const existing = ref<ExistingLine[]>([]);
-const blocks = ref<Block[]>([]);
+const lines = ref<Line[]>([]);
+/** `D-155`: the entry row. Supplier, tax and margin stay after Enter; the rest clears. */
+const entry = ref(blankEntry());
+/** The `units` managed list — an entry's unit is picked from it by code. */
+const units = ref<ListEntry[]>([]);
 const items = ref<Array<{ description: string; amount: string }>>([]);
 
 /** `OpenAPI §9.2`'s token, as the detail carried it; what the next `PATCH` sends. */
@@ -262,69 +224,38 @@ const formError = ref('');
 /** The server's sentence per request field — `discount_percent`, `lines.1.quantity`, `additional_items.0.amount`. */
 const fieldErrors = ref<Map<string, string>>(new Map());
 const form = ref<HTMLFormElement | null>(null);
-/** Which input each sent `lines[i]` came from — `existing-3` or `line-1-2` — so a server index maps back. */
-let sent: string[] = [];
-/** The save that carried warnings: the draft is saved, the link is on, the form stays (F-03). */
-const saved = ref<{ id: string; code: string } | null>(null);
-/** A create that answered with warnings: from here on the form saves by `PATCH` on this id. */
-const createdId = ref<string | null>(null);
-/** After a warned save nothing may change on an approved quotation; a draft goes on being edited. */
-const frozen = computed(() => saved.value !== null && approving.value);
-const lineWarnings = ref<Map<string, string>>(new Map());
 
-const offerFormOpen = ref(false);
-
-const canAddSupplier = computed(() => blocks.value.length < MAX_SUPPLIERS);
-const canCreateOffer = computed(() => hasPermission('supplier_quotation.create'));
-
-function supplierName(id: string): string {
-    return suppliers.value.find((supplier) => supplier.id === id)?.name ?? id;
+function blankEntry() {
+    return { supplier: null as Picked | null, product: null as Picked | null, unit: '', price: '', tax: '', margin: '', quantity: '' };
 }
 
-/** §7.3 keeps a service's label in `service_type` and a product's in `name`; the id is the last resort. */
-function catalogLabel(id: string): string {
-    const item = catalog.value.find((candidate) => candidate.id === id);
+/** `D-155`: a unit is a code; the list names it, the code stands in until (or unless) the list is read. */
+function unitLabel(code: string): string {
+    const found = units.value.find((unit) => unit.code === code);
 
-    return item?.name ?? item?.service_type ?? id;
+    return found === undefined ? code : entryLabel(found, locale.value);
 }
 
-/** A-36: a block's Remove names its supplier once an offer is picked, its number before. */
-function removeBlockLabel(block: Block, b: number): string {
-    const offer = offers.value.find((candidate) => candidate.id === block.supplierQuotationId);
+/** A table row's refusal: the first of its seven fields the server named. `lines.N` is the table's row N. */
+function lineError(index: number): string | null {
+    for (const field of LINE_FIELDS) {
+        const message = fieldErrors.value.get(`lines.${index}.${field}`);
 
-    return offer === undefined
-        ? t('quotations.builder.removeSupplierNo', { no: b + 1 })
-        : t('quotations.builder.removeNamed', { name: supplierName(offer.supplier_id) });
-}
-
-function offerLabel(offer: SupplierQuotation): string {
-    return `${offer.code} — ${supplierName(offer.supplier_id)}`;
-}
-
-/** The request's index of an input's line, or null when it was not sent. */
-function sentIndex(key: string): number | null {
-    const index = sent.indexOf(key);
-
-    return index === -1 ? null : index;
-}
-
-function lineError(key: string): string | null {
-    const index = sentIndex(key);
-
-    if (index === null) {
-        return null;
+        if (message !== undefined) {
+            return message;
+        }
     }
 
-    return fieldErrors.value.get(`lines.${index}.quantity`)
-        ?? fieldErrors.value.get(`lines.${index}.supplier_quotation_item_id`)
-        ?? fieldErrors.value.get(`lines.${index}.margin_percent`)
-        ?? null;
+    return null;
 }
 
-function lineWarning(key: string): string | null {
-    const index = sentIndex(key);
-
-    return index === null ? null : (lineWarnings.value.get(String(index)) ?? null);
+/** A row moved, so the indexes the server named no longer point at the same rows. */
+function dropLineErrors(): void {
+    for (const key of [...fieldErrors.value.keys()]) {
+        if (key === 'lines' || key.startsWith('lines.')) {
+            fieldErrors.value.delete(key);
+        }
+    }
 }
 
 /** The form as typed — the dirty check compares this against `opened`. */
@@ -332,8 +263,8 @@ function snapshot(): string {
     return JSON.stringify({
         header: header.value,
         terms: terms.value,
-        existing: existing.value,
-        blocks: blocks.value.map((block) => [block.supplierQuotationId, block.quantities, block.margins]),
+        taxIncluded: taxIncluded.value,
+        lines: lines.value,
         items: items.value,
     });
 }
@@ -341,29 +272,34 @@ function snapshot(): string {
 /** Nothing to lose before the form opened (a refused load, a redirect) or since it last saved. */
 const dirty = computed(() => opened.value !== '' && snapshot() !== opened.value);
 
+/** The server sends `entry` to every cost viewer, a legacy Draft included (contract §8); without it, saving would send `lines: []` over real lines. */
+function lacksEntry(quotation: QuotationDetail): boolean {
+    return quotation.entry === undefined;
+}
+
 /** Fill the form from the detail (edit): header, lines, items, and the token the next write needs. */
 function applyDetail(quotation: QuotationDetail): void {
     header.value = {
         currency: quotation.currency,
         // D-112: a percentage is offered without its trailing zeros — the same number.
-        default_margin: displayPercent(quotation.default_margin) ?? '',
         discount_percent: displayPercent(quotation.discount_percent),
         quotation_date: quotation.quotation_date ?? '',
         valid_until: quotation.valid_until ?? '',
     };
-    taxes.value = quotation.tax_percents.length > 0 ? quotation.tax_percents.map((rate) => displayPercent(rate) ?? rate) : [''];
+    // D-165: a legacy Draft's `entry` is the server's conversion, so the toggle follows `entry`, not the header.
+    taxIncluded.value = (quotation.entry?.pricing_mode ?? quotation.pricing_mode) !== 'tax_exempt';
     terms.value = quotation.terms.map((term) => ({ key: term.key, title: term.title ?? '', body: term.body ?? '' }));
-    // U-5: a stored quantity or amount is offered without its trailing zeros — trimmed, never rounded.
-    existing.value = quotation.items.map((line) => ({
-        supplier_quotation_item_id: line.supplier_quotation_item_id,
-        line_no: line.line_no,
-        product_name: line.product_name,
+    // U-5: a stored figure is offered without its trailing zeros — trimmed, never rounded.
+    lines.value = (quotation.entry?.lines ?? []).map((line) => ({
+        supplier: { id: line.supplier_id, name: line.supplier_name },
+        product: { id: line.catalog_item_id, name: line.product_name },
+        unit: line.unit_code,
+        price: displayQuantity(line.entered_unit_price),
+        tax: displayPercent(line.tax_percent) ?? '',
+        margin: displayPercent(line.margin_percent),
         quantity: displayQuantity(line.quantity),
-        margin: displayPercent(line.margin_percent) ?? '',
-        unit_cost_base: line.unit_cost_base ?? null,
-        currency: quotation.currency,
     }));
-    blocks.value = [];
+    entry.value = blankEntry();
     items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: displayQuantity(item.amount) }));
     etag.value = quotation.etag;
     quotationCode.value = quotation.code;
@@ -403,6 +339,14 @@ async function load(): Promise<void> {
                 return;
             }
 
+            // A-03's neighbour: no `entry` means no cost grant, and the form could not keep the lines.
+            if (lacksEntry(quotation)) {
+                denied.value = true;
+                loading.value = false;
+
+                return;
+            }
+
             applyDetail(quotation);
         } catch (error) {
             refused(error);
@@ -431,12 +375,11 @@ async function load(): Promise<void> {
     // lookup leaves an identifier on screen, not an error page over a form.
     await Promise.all([
         readCustomer(deal.value.customer_id).then((found) => { customer.value = found; }, () => {}),
-        listSuppliers({ perPage: 100 }).then((page) => { suppliers.value = page.items; }, () => {}),
         // D-80: the builder's roles hold `currency.view`. Refused or failed,
         // the list stays empty and the code is typed, as before F-02.
         listCurrencies().then((list) => { currencies.value = list; }, () => {}),
-        listCatalogItems({ perPage: 100, isActive: true }).then((page) => { catalog.value = page.items; }, () => {}),
-        loadOffers(),
+        // QS.2a: the entry row's unit is picked from this list; the table names a stored code from it.
+        listEntries('units', 1).then((page) => { units.value = page.items; }, () => {}),
         ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
         // F-32: best-effort too — without the list the delivery field is the text area it was.
         listEntries('delivery_terms', 1).then((page) => { termEntries.value = page.items; }, () => {}),
@@ -453,21 +396,6 @@ async function reload(): Promise<void> {
     applyDetail(quotation);
     conflict.value = null;
     opened.value = snapshot();
-}
-
-/** The deal's own offers first, then any other — one list, no offer twice. */
-async function loadOffers(): Promise<void> {
-    try {
-        const [own, all] = await Promise.all([
-            listSupplierQuotations({ dealId: dealId.value, perPage: 100 }),
-            listSupplierQuotations({ perPage: 100 }),
-        ]);
-        const seen = new Set(own.items.map((offer) => offer.id));
-
-        offers.value = [...own.items, ...all.items.filter((offer) => !seen.has(offer.id))];
-    } catch {
-        offers.value = [];
-    }
 }
 
 /** A-17: focus the first of these fields that exists, once the DOM has caught up. */
@@ -523,75 +451,91 @@ function restoreRemoved(): void {
     }
 }
 
-function addBlock(supplierQuotationId = ''): void {
-    if (!canAddSupplier.value) {
+/** `SearchCombobox` over the suppliers (`SupplierPicker`'s search and states, one pick). */
+function pickSupplier(supplier: Supplier | null): void {
+    entry.value.supplier = supplier === null ? null : { id: supplier.id, name: supplier.name };
+}
+
+type ProductOption = CatalogItem & { name: string };
+
+const PRODUCT_KEYS = {
+    more: 'catalog.picker.more',
+    forbidden: 'catalog.picker.forbidden',
+    failed: 'catalog.picker.failed',
+    empty: 'catalog.picker.empty',
+    noMatch: 'catalog.picker.noMatch',
+    retry: 'state.retry',
+};
+
+/** §7.3 keeps a service's label in `service_type` and a product's in `name`; the id is the last resort. */
+async function searchProducts(query: { perPage: number; q: string | null }): Promise<Page<ProductOption>> {
+    const page = await listCatalogItems({ ...query, isActive: true });
+
+    return { ...page, items: page.items.map((item) => ({ ...item, name: item.name ?? item.service_type ?? item.id })) };
+}
+
+function pickProduct(product: ProductOption | null): void {
+    entry.value.product = product === null ? null : { id: product.id, name: product.name };
+}
+
+/**
+ * Enter (or Add) moves the entry row into the table (`D-155`). Supplier, tax
+ * and margin stay for the next product; product, price, quantity and unit
+ * clear. A row without the five things `D-155` blocks saving on is not moved —
+ * focus goes to the first one missing, and the server still refuses the rest.
+ */
+function addLine(): void {
+    const e = entry.value;
+    const absent: Array<[string, boolean]> = [
+        ['supplier', e.supplier === null],
+        ['product', e.product === null],
+        ['unit', e.unit === ''],
+        ['price', e.price.trim() === ''],
+        ['quantity', e.quantity.trim() === ''],
+    ];
+    const missing = absent.find(([, isMissing]) => isMissing);
+
+    if (missing !== undefined || e.supplier === null || e.product === null) {
+        void focusField(`entry-${missing?.[0] ?? 'supplier'}`);
+
         return;
     }
 
-    blocks.value.push({ supplierQuotationId, detail: null, quantities: [], margins: [], loading: false, error: '' });
-    void focusField(`supplier-${blocks.value.length - 1}-pick`);
-
-    if (supplierQuotationId !== '') {
-        void pickOffer(blocks.value.length - 1);
-    }
+    dropLineErrors();
+    lines.value.push({ supplier: e.supplier, product: e.product, unit: e.unit, price: e.price.trim(), tax: e.tax.trim(), margin: e.margin.trim(), quantity: e.quantity.trim() });
+    Object.assign(e, { product: null, unit: '', price: '', quantity: '' });
+    void focusField('entry-product');
 }
 
-function removeBlock(index: number): void {
-    const [block] = blocks.value.splice(index, 1);
-
-    removed('quotations.builder.removed', () => { blocks.value.splice(index, 0, block as Block); }, `supplier-${index}-pick`, 'add-supplier');
-}
-
-async function pickOffer(index: number): Promise<void> {
-    const block = blocks.value[index];
-
-    if (block === undefined) {
+/** A-37: Enter in the entry row moves it into the table — a combobox that took the key to pick has already handled it. */
+function entryEnter(event: KeyboardEvent): void {
+    if (event.defaultPrevented || !(event.target instanceof HTMLInputElement)) {
         return;
     }
 
-    const before = { detail: block.detail, quantities: block.quantities, margins: block.margins };
+    event.preventDefault();
+    addLine();
+}
 
-    // A-35: an offer change drops what was typed against the old one, so it can be undone too.
-    if (before.detail !== null && [...before.quantities, ...before.margins].some((value) => value.trim() !== '')) {
-        removed('quotations.builder.cleared', () => {
-            Object.assign(block, { supplierQuotationId: before.detail?.id ?? '', ...before });
-        }, `supplier-${index}-pick`, 'add-supplier');
-    }
+function removeLine(index: number): void {
+    const [line] = lines.value.splice(index, 1);
 
-    block.detail = null;
-    block.quantities = [];
-    block.margins = [];
-    block.error = '';
+    dropLineErrors();
+    removed('quotations.builder.removed', () => { lines.value.splice(index, 0, line as Line); }, 'entry-product', 'entry-product');
+}
 
-    if (block.supplierQuotationId === '') {
+/** The row goes back to the entry fields, its own values winning over the sticky ones. */
+function sendBack(index: number): void {
+    const [line] = lines.value.splice(index, 1);
+
+    if (line === undefined) {
         return;
     }
 
-    block.loading = true;
-
-    try {
-        const detail = await readSupplierQuotation(block.supplierQuotationId);
-
-        block.detail = detail;
-        block.quantities = detail.items.map(() => '');
-        block.margins = detail.items.map(() => '');
-    } catch (error) {
-        block.error = error instanceof ApiError ? error.message : t('state.error.network');
-    } finally {
-        block.loading = false;
-    }
+    dropLineErrors();
+    entry.value = { supplier: line.supplier, product: line.product, unit: line.unit, price: line.price, tax: line.tax, margin: line.margin, quantity: line.quantity };
+    void focusField('entry-price');
 }
-
-/** Module 6's form saved an offer: it becomes the next block, already picked. */
-function onOfferSaved(offer: SupplierQuotation): void {
-    offerFormOpen.value = false;
-    offers.value = [offer, ...offers.value.filter((candidate) => candidate.id !== offer.id)];
-    addBlock(offer.id);
-}
-
-/** D-118: the first refusal among the rates — the list's own, or one rate's. */
-const taxError = computed(() => fieldErrors.value.get('tax_percents')
-    ?? taxes.value.map((_, i) => fieldErrors.value.get(`tax_percents.${i}`)).find((message) => message !== undefined));
 
 function addItem(): void {
     items.value.push({ description: '', amount: '' });
@@ -626,13 +570,7 @@ function orNull(value: string): string | null {
     return value.trim() === '' ? null : value;
 }
 
-function removeExisting(index: number): void {
-    const [line] = existing.value.splice(index, 1);
-
-    removed('quotations.builder.removed', () => { existing.value.splice(index, 0, line as ExistingLine); }, `existing-${index}-quantity`, 'add-supplier');
-}
-
-/** A-37: Enter in a line's field steps to the next field; only Save submits. */
+/** A-37: Enter in an additional item's field steps to the next field; only Save submits. The entry row has its own Enter. */
 function nextField(event: KeyboardEvent): void {
     const target = event.target;
 
@@ -648,48 +586,26 @@ function nextField(event: KeyboardEvent): void {
 }
 
 function draft(): QuotationDraft {
-    const lines: QuotationDraft['lines'] = [];
-
-    sent = [];
-
-    existing.value.forEach((line, i) => {
-        lines.push({
-            supplier_quotation_item_id: line.supplier_quotation_item_id,
-            quantity: line.quantity,
-            ...(line.margin.trim() === '' ? {} : { margin_percent: line.margin }),
-        });
-        sent.push(`existing-${i}`);
-    });
-
-    blocks.value.forEach((block, b) => {
-        (block.detail?.items ?? []).forEach((item, l) => {
-            const quantity = block.quantities[l] ?? '';
-
-            if (quantity.trim() === '') {
-                return;
-            }
-
-            const margin = block.margins[l] ?? '';
-
-            lines.push({
-                supplier_quotation_item_id: item.id,
-                quantity,
-                ...(margin.trim() === '' ? {} : { margin_percent: margin }),
-            });
-            sent.push(`line-${b}-${l}`);
-        });
-    });
+    const mode: PricingMode = taxIncluded.value ? 'tax_included' : 'tax_exempt';
 
     return {
         currency: header.value.currency.trim().toUpperCase(),
-        default_margin: header.value.default_margin,
+        pricing_mode: mode,
         discount_percent: header.value.discount_percent,
-        tax_percents: taxes.value.map((rate) => rate.trim()).filter((rate) => rate !== ''),
         quotation_date: orNull(header.value.quotation_date),
         valid_until: orNull(header.value.valid_until),
         // The owner, 2026-10-08: an empty ready term is kept, its body null.
         terms: terms.value.map((term) => ({ key: term.key, title: orNull(term.title), body: orNull(term.body) })),
-        lines,
+        // D-157: off is no tax at all, so a line names no rate.
+        lines: lines.value.map((line) => ({
+            supplier_id: line.supplier.id,
+            catalog_item_id: line.product.id,
+            unit_code: line.unit,
+            entered_unit_price: line.price,
+            ...(taxIncluded.value ? { tax_percent: line.tax } : {}),
+            margin_percent: line.margin,
+            quantity: line.quantity,
+        })),
         additional_items: items.value.map((item) => ({ description: item.description, amount: item.amount })),
     };
 }
@@ -721,18 +637,6 @@ function applyServerErrors(error: unknown): void {
     }
 }
 
-function onWarnings(warnings: QuotationWarning[]): void {
-    lineWarnings.value = new Map();
-
-    for (const warning of warnings) {
-        const match = /^lines\.(\d+)\./.exec(warning.field);
-
-        if (match !== null) {
-            lineWarnings.value.set(match[1] as string, warning.message);
-        }
-    }
-}
-
 async function save(): Promise<void> {
     if (saving.value || deal.value === null) {
         return;
@@ -746,29 +650,12 @@ async function save(): Promise<void> {
         const current = deal.value;
         const result = approving.value
             ? await editAndApproveQuotation(quotationId.value, etag.value, draft())
-            : editing.value || createdId.value !== null
-                ? await updateQuotation(createdId.value ?? quotationId.value, etag.value, draft())
+            : editing.value
+                ? await updateQuotation(quotationId.value, etag.value, draft())
                 : await createQuotation({ ...draft(), deal_id: current.id, customer_id: current.customer_id }, idempotencyKey);
 
-        saved.value = { id: result.quotation.id, code: result.quotation.code };
         opened.value = snapshot();
-
-        if (result.warnings.length === 0) {
-            await router.push({ name: 'quotation-detail', params: { id: result.quotation.id } });
-
-            return;
-        }
-
-        onWarnings(result.warnings);
-
-        if (editing.value) {
-            etag.value = (result as QuotationRead).quotation.etag;
-        } else {
-            // A 201 carries no etag (`QuotationPayload::of()`); the next save is
-            // a PATCH on the draft, so its token is read once, here.
-            createdId.value = result.quotation.id;
-            etag.value = (await readQuotation(result.quotation.id)).quotation.etag;
-        }
+        await router.push({ name: 'quotation-detail', params: { id: result.quotation.id } });
     } catch (error) {
         if (error instanceof ApiError && error.status < 500) {
             idempotencyKey = crypto.randomUUID();
@@ -837,18 +724,16 @@ function reset(): void {
     customer.value = null;
     header.value = blankHeader();
     terms.value = readyTerms();
-    existing.value = [];
-    blocks.value = [];
+    taxIncluded.value = true;
+    lines.value = [];
+    entry.value = blankEntry();
     items.value = [];
     etag.value = '';
     quotationCode.value = '';
     conflict.value = null;
     opened.value = '';
-    saved.value = null;
-    createdId.value = null;
     formError.value = '';
     fieldErrors.value = new Map();
-    lineWarnings.value = new Map();
     idempotencyKey = crypto.randomUUID();
     clearTimeout(undoTimer);
     undo.value = null;
@@ -918,16 +803,8 @@ onMounted(load);
                 </button>
             </div>
 
-            <!-- Q3: the draft is saved; the quotation's own page is the confirmation. -->
-            <p v-if="saved !== null" class="form-saved rounded-lg p-3" role="status" data-testid="quotation-builder-saved">
-                {{ t('quotations.builder.saved', { code: saved.code }) }}
-                <RouterLink :to="{ name: 'quotation-detail', params: { id: saved.id } }" class="row-link" data-testid="quotation-builder-saved-link">
-                    {{ t('quotations.builder.open') }}
-                </RouterLink>
-            </p>
-
-            <fieldset class="contents" :disabled="saving || frozen">
-                <!-- `Design System §7.2`: margin, discount and tax in their own group; §4.3 grid. -->
+            <fieldset class="contents" :disabled="saving">
+                <!-- `Design System §7.2`: currency, discount and the tax toggle in their own group; §4.3 grid. -->
                 <div class="detail-grid rounded-xl p-4">
                     <label class="flex flex-col gap-1.5" :for="fieldId('currency')">
                         <span>{{ t('quotations.builder.currency') }} <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></span>
@@ -964,48 +841,30 @@ onMounted(load);
                         </span>
                     </label>
 
-                    <label v-for="field in (['default_margin', 'discount_percent'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
-                        <span>{{ t(`quotations.builder.${field}`) }} <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></span>
+                    <label class="flex flex-col gap-1.5" :for="fieldId('discount_percent')">
+                        <span>{{ t('quotations.builder.discount_percent') }} <span class="text-[var(--color-danger)]">{{ t('form.required') }}</span></span>
                         <input
-                            :id="fieldId(field)"
-                            v-model="header[field]"
+                            :id="fieldId('discount_percent')"
+                            v-model="header.discount_percent"
                             type="text"
                             inputmode="decimal"
                             autocomplete="off"
                             required
-                            :aria-invalid="fieldErrors.has(field)"
-                            :aria-describedby="fieldErrors.has(field) ? fieldId(`${field}-error`) : undefined"
+                            :aria-invalid="fieldErrors.has('discount_percent')"
+                            :aria-describedby="fieldErrors.has('discount_percent') ? fieldId('discount_percent-error') : undefined"
                             class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                            :data-testid="fieldId(field)"
+                            :data-testid="fieldId('discount_percent')"
                         />
-                        <span v-if="fieldErrors.has(field)" :id="fieldId(`${field}-error`)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
-                            {{ fieldErrors.get(field) }}
+                        <span v-if="fieldErrors.has('discount_percent')" :id="fieldId('discount_percent-error')" class="text-[var(--color-danger)]" :data-testid="fieldId('discount_percent-error')">
+                            {{ fieldErrors.get('discount_percent') }}
                         </span>
                     </label>
 
-                    <div class="flex flex-col gap-1.5" role="group" :aria-labelledby="fieldId('tax-label')">
-                        <span :id="fieldId('tax-label')">{{ t('quotations.builder.tax_percent') }}</span>
-                        <div v-for="(_, i) in taxes" :key="i" class="flex gap-2">
-                            <input
-                                :id="fieldId(`tax-${i}`)"
-                                v-model="taxes[i]"
-                                type="text"
-                                inputmode="decimal"
-                                autocomplete="off"
-                                :aria-label="t('quotations.builder.taxNo', { no: i + 1 })"
-                                :aria-invalid="fieldErrors.has(`tax_percents.${i}`)"
-                                :aria-describedby="fieldId('tax-help')"
-                                class="form-field min-h-11 min-w-0 flex-1 rounded-lg px-3 py-2 tabular-nums"
-                                :data-testid="fieldId(`tax-${i}`)"
-                            />
-                            <button v-if="taxes.length > 1" type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTaxNo', { no: i + 1 })" :data-testid="fieldId(`tax-${i}-remove`)" @click="taxes.splice(i, 1)">
-                                {{ t('quotations.builder.removeItem') }}
-                            </button>
-                        </div>
-                        <button v-if="taxes.length < MAX_TAXES" type="button" class="row-action min-h-11 min-w-11 self-start rounded-lg px-3" :aria-label="t('quotations.builder.addTax')" :data-testid="fieldId('add-tax')" @click="taxes.push('')">+</button>
-                        <span :id="fieldId('tax-help')" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.taxExempt') }}</span>
-                        <span v-if="taxError" class="text-[var(--color-danger)]">{{ taxError }}</span>
-                    </div>
+                    <!-- D-157: the preparer's decision, outside the fields; off means no tax at all. -->
+                    <label class="flex min-h-11 items-center gap-2 self-end">
+                        <input v-model="taxIncluded" type="checkbox" :data-testid="fieldId('tax-included')" />
+                        <span>{{ t('quotations.builder.taxIncluded') }}</span>
+                    </label>
 
                     <label v-for="field in (['quotation_date', 'valid_until'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
                         <span>{{ t(`quotations.builder.${field}`) }}</span>
@@ -1024,163 +883,6 @@ onMounted(load);
                     </label>
                 </div>
 
-                <!-- Edit: the lines the draft already has, as 6.5 lists them — no offer is named on a line. -->
-                <section v-if="editing" class="flex flex-col gap-3">
-                    <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
-                    <p v-if="existing.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noExisting') }}</p>
-                    <div v-for="(line, i) in existing" :key="line.supplier_quotation_item_id + i" class="line-grid line-row rounded-lg p-3">
-                        <p class="flex flex-col gap-1">
-                            <span>{{ t('quotations.builder.lineNo', { no: line.line_no }) }}</span>
-                            <span v-if="line.product_name" class="font-medium" :data-testid="fieldId(`existing-${i}-product`)">{{ line.product_name }}</span>
-                            <span v-if="line.unit_cost_base !== null" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`existing-${i}-cost`)">
-                                {{ t('quotations.detail.unitCost') }} <bdi dir="ltr">{{ displayDecimals(line.unit_cost_base) }} {{ line.currency }}</bdi>
-                            </span>
-                        </p>
-                        <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-quantity`)">
-                            <span>{{ t('quotations.detail.quantity') }}</span>
-                            <input
-                                :id="fieldId(`existing-${i}-quantity`)"
-                                v-model="line.quantity"
-                                type="text"
-                                inputmode="decimal"
-                                autocomplete="off"
-                                :aria-invalid="lineError(`existing-${i}`) !== null"
-                                :aria-describedby="lineError(`existing-${i}`) !== null ? fieldId(`existing-${i}-error`) : undefined"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                                :data-testid="fieldId(`existing-${i}-quantity`)"
-                            />
-                        </label>
-                        <label class="flex flex-col gap-1.5" :for="fieldId(`existing-${i}-margin_percent`)">
-                            <span>{{ t('quotations.builder.lineMargin') }}</span>
-                            <!-- A-62: text with no inputmode — a margin may be negative (D-106), and a decimal keypad has no minus on iOS. -->
-                            <input
-                                :id="fieldId(`existing-${i}-margin_percent`)"
-                                v-model="line.margin"
-                                type="text"
-                                dir="ltr"
-                                autocomplete="off"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                                :data-testid="fieldId(`existing-${i}-margin_percent`)"
-                            />
-                        </label>
-                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeLine', { no: line.line_no })" :data-testid="fieldId(`existing-${i}-remove`)" @click="removeExisting(i)">
-                            {{ t('quotations.builder.removeItem') }}
-                        </button>
-                        <p v-if="lineError(`existing-${i}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`existing-${i}-error`)" :data-testid="fieldId(`existing-${i}-error`)">
-                            {{ lineError(`existing-${i}`) }}
-                        </p>
-                        <p v-else-if="lineWarning(`existing-${i}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`existing-${i}-warning`)">
-                            {{ lineWarning(`existing-${i}`) }}
-                        </p>
-                    </div>
-                </section>
-
-                <!-- Suppliers: one block per supplier quotation, up to ten (§6.2). -->
-                <section class="flex flex-col gap-3">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h2 class="text-card-title">{{ t('quotations.builder.suppliers') }}</h2>
-                        <div class="flex flex-wrap gap-2">
-                            <button
-                                v-if="canCreateOffer"
-                                type="button"
-                                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                                data-testid="quotation-builder-new-supplier-quotation"
-                                @click="offerFormOpen = true"
-                            >
-                                {{ t('quotations.builder.newSupplierQuotation') }}
-                            </button>
-                            <button
-                                type="button"
-                                class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="!canAddSupplier"
-                                :title="canAddSupplier ? undefined : t('quotations.builder.supplierCap', { max: MAX_SUPPLIERS })"
-                                :id="fieldId('add-supplier')"
-                                data-testid="quotation-builder-add-supplier"
-                                @click="addBlock()"
-                            >
-                                + {{ t('quotations.builder.addSupplier') }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <p v-if="blocks.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noSuppliers') }}</p>
-
-                    <div v-for="(block, b) in blocks" :key="b" class="line-row flex flex-col gap-3 rounded-xl p-4" :data-testid="`quotation-builder-supplier-${b}`">
-                        <div class="flex flex-wrap items-end gap-2">
-                            <label class="flex min-w-[16rem] flex-1 flex-col gap-1.5" :for="fieldId(`supplier-${b}-pick`)">
-                                <span>{{ t('quotations.builder.supplierQuotation') }}</span>
-                                <select
-                                    :id="fieldId(`supplier-${b}-pick`)"
-                                    v-model="block.supplierQuotationId"
-                                    class="form-field min-h-11 rounded-lg px-3 py-2"
-                                    :data-testid="fieldId(`supplier-${b}-pick`)"
-                                    @change="pickOffer(b)"
-                                >
-                                    <option value="">{{ t('quotations.builder.supplierQuotationNone') }}</option>
-                                    <option v-for="offer in offers" :key="offer.id" :value="offer.id">{{ offerLabel(offer) }}</option>
-                                </select>
-                            </label>
-                            <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="removeBlockLabel(block, b)" :data-testid="fieldId(`supplier-${b}-remove`)" @click="removeBlock(b)">
-                                {{ t('quotations.builder.removeSupplier') }}
-                            </button>
-                        </div>
-
-                        <p v-if="block.loading" role="status" class="text-[var(--color-text-muted)]" :data-testid="fieldId(`supplier-${b}-loading`)">{{ t('state.loading') }}</p>
-                        <p v-if="block.error !== ''" class="form-alert rounded-lg p-3" role="alert" :data-testid="fieldId(`supplier-${b}-error`)">{{ block.error }}</p>
-
-                        <template v-if="block.detail !== null">
-                            <p v-if="block.detail.items.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</p>
-
-                            <div v-for="(item, l) in block.detail.items" :key="item.id" class="line-grid rounded-lg p-3" :data-testid="fieldId(`line-${b}-${l}`)">
-                                <p class="flex flex-col gap-1">
-                                    <span :data-testid="fieldId(`line-${b}-${l}-label`)">{{ catalogLabel(item.catalog_item_id) }}</span>
-                                    <!-- The supplier's own figures — internal cost, never a customer price (§7.2).
-                                         The quantity is what is left of the offer, not what it recorded (D-81). -->
-                                    <!-- D-148: the price in the offer's currency; ponytail: GET /currencies refused → the price without a code, until the offer payload carries its code. -->
-                                    <i18n-t keypath="quotations.builder.recorded" tag="span" class="text-[var(--color-text-muted)] tabular-nums" :data-testid="fieldId(`line-${b}-${l}-recorded`)">
-                                        <template #price><bdi dir="ltr">{{ [displayDecimals(item.unit_price), offerCurrency(block)].filter(Boolean).join(' ') }}</bdi></template>
-                                        <template #quantity>{{ displayQuantity(item.available_quantity) }}</template>
-                                    </i18n-t>
-                                </p>
-                                <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-quantity`)">
-                                    <span>{{ t('quotations.detail.quantity') }}</span>
-                                    <input
-                                        :id="fieldId(`line-${b}-${l}-quantity`)"
-                                        v-model="block.quantities[l]"
-                                        type="text"
-                                        inputmode="decimal"
-                                        autocomplete="off"
-                                        :aria-invalid="lineError(`line-${b}-${l}`) !== null"
-                                        :aria-describedby="lineError(`line-${b}-${l}`) !== null ? fieldId(`line-${b}-${l}-error`) : undefined"
-                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                                        :data-testid="fieldId(`line-${b}-${l}-quantity`)"
-                                    />
-                                </label>
-                                <label class="flex flex-col gap-1.5" :for="fieldId(`line-${b}-${l}-margin_percent`)">
-                                    <span>{{ t('quotations.builder.lineMargin') }}</span>
-                                    <!-- A-62: as on an existing line — no inputmode, so a minus can be typed. -->
-                                    <input
-                                        :id="fieldId(`line-${b}-${l}-margin_percent`)"
-                                        v-model="block.margins[l]"
-                                        type="text"
-                                        dir="ltr"
-                                        autocomplete="off"
-                                        class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                                        :data-testid="fieldId(`line-${b}-${l}-margin_percent`)"
-                                    />
-                                </label>
-                                <!-- §5.6: a missing price blocks; an excess quantity is red and does not. -->
-                                <p v-if="lineError(`line-${b}-${l}`) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`line-${b}-${l}-error`)" :data-testid="fieldId(`line-${b}-${l}-error`)">
-                                    {{ lineError(`line-${b}-${l}`) }}
-                                </p>
-                                <p v-else-if="lineWarning(`line-${b}-${l}`) !== null" class="line-note warning-line rounded-lg p-2" :data-testid="fieldId(`line-${b}-${l}-warning`)">
-                                    {{ lineWarning(`line-${b}-${l}`) }}
-                                </p>
-                            </div>
-                        </template>
-                    </div>
-                </section>
-
                 <!-- Additional items: never taxed (`D-62`) — the server knows, this form only lists them. -->
                 <section class="flex flex-col gap-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -1189,6 +891,8 @@ onMounted(load);
                             + {{ t('quotations.builder.addItem') }}
                         </button>
                     </div>
+                    <!-- D-159 -->
+                    <p class="text-[var(--color-text-muted)]" :data-testid="fieldId('items-note')">{{ t('quotations.builder.itemsNote') }}</p>
 
                     <div v-for="(item, i) in items" :key="i" class="line-grid line-row rounded-lg p-3">
                         <label class="flex flex-col gap-1.5" :for="fieldId(`item-${i}-description`)">
@@ -1225,6 +929,130 @@ onMounted(load);
                         <p v-if="itemError(i) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
                             {{ itemError(i) }}
                         </p>
+                    </div>
+                </section>
+
+                <!-- Lines (QS.2a, D-155): the entry row, then the table it fills. -->
+                <section class="flex flex-col gap-3">
+                    <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
+
+                    <div class="entry-grid line-row rounded-xl p-3" :data-testid="fieldId('entry')" @keydown.enter="entryEnter">
+                        <div class="flex flex-col gap-1.5">
+                            <label :for="fieldId('entry-supplier')">{{ t('quotations.detail.supplier') }}</label>
+                            <SearchCombobox
+                                :id="fieldId('entry-supplier')"
+                                :test-id="fieldId('entry-supplier')"
+                                :search="listSuppliers"
+                                :keys="SUPPLIER_KEYS"
+                                :selected="(supplier: Supplier) => supplier.id === entry.supplier?.id"
+                                :display="entry.supplier?.name ?? ''"
+                                :placeholder="t('suppliers.picker.placeholder')"
+                                floating
+                                @pick="pickSupplier"
+                            >
+                                <template #option="{ item }">
+                                    <span>
+                                        <span class="block">{{ item.name }}</span>
+                                        <span v-if="supplierDetail(item, t) !== ''" class="block text-sm text-[var(--color-text-muted)]">{{ supplierDetail(item, t) }}</span>
+                                    </span>
+                                </template>
+                            </SearchCombobox>
+                        </div>
+
+                        <div class="flex flex-col gap-1.5">
+                            <label :for="fieldId('entry-product')">{{ t('quotations.detail.product') }}</label>
+                            <SearchCombobox
+                                :id="fieldId('entry-product')"
+                                :test-id="fieldId('entry-product')"
+                                :search="searchProducts"
+                                :keys="PRODUCT_KEYS"
+                                :selected="(product: ProductOption) => product.id === entry.product?.id"
+                                :display="entry.product?.name ?? ''"
+                                :placeholder="t('catalog.picker.placeholder')"
+                                floating
+                                @pick="pickProduct"
+                            >
+                                <template #option="{ item }">{{ item.name }}</template>
+                            </SearchCombobox>
+                        </div>
+
+                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-unit')">
+                            <span>{{ t('quotations.detail.unit') }}</span>
+                            <select :id="fieldId('entry-unit')" v-model="entry.unit" class="form-field min-h-11 rounded-lg px-3 py-2" :data-testid="fieldId('entry-unit')">
+                                <option value="">{{ t('quotations.builder.unitNone') }}</option>
+                                <option v-for="unit in units" :key="unit.code" :value="unit.code">{{ entryLabel(unit, locale) }}</option>
+                            </select>
+                        </label>
+
+                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-price')">
+                            <span>{{ t('quotations.detail.enteredPrice') }}</span>
+                            <input :id="fieldId('entry-price')" v-model="entry.price" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-price')" />
+                        </label>
+
+                        <label v-if="taxIncluded" class="flex flex-col gap-1.5" :for="fieldId('entry-tax')">
+                            <span>{{ t('quotations.builder.tax_percent') }}</span>
+                            <input :id="fieldId('entry-tax')" v-model="entry.tax" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-tax')" />
+                        </label>
+
+                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-margin')">
+                            <span>{{ t('quotations.builder.margin_percent') }}</span>
+                            <!-- A-62: text with no inputmode — a margin may be negative (D-106), and a decimal keypad has no minus on iOS. -->
+                            <input :id="fieldId('entry-margin')" v-model="entry.margin" type="text" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-margin')" />
+                        </label>
+
+                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-quantity')">
+                            <span>{{ t('quotations.detail.quantity') }}</span>
+                            <input :id="fieldId('entry-quantity')" v-model="entry.quantity" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-quantity')" />
+                        </label>
+
+                        <button type="button" class="row-action min-h-11 rounded-lg px-4" :data-testid="fieldId('entry-add')" @click="addLine">
+                            + {{ t('quotations.builder.addLine') }}
+                        </button>
+                    </div>
+
+                    <p v-if="fieldErrors.has('lines')" class="text-[var(--color-danger)]" role="alert" :data-testid="fieldId('lines-error')">{{ fieldErrors.get('lines') }}</p>
+                    <p v-if="lines.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</p>
+
+                    <div v-else class="table-frame overflow-x-auto rounded-xl">
+                        <table class="card-table w-full text-table" :data-testid="fieldId('lines')">
+                            <thead>
+                                <tr class="table-head">
+                                    <th scope="col" class="p-3 text-start">{{ t('quotations.detail.supplier') }}</th>
+                                    <th scope="col" class="p-3 text-start">{{ t('quotations.detail.product') }}</th>
+                                    <th scope="col" class="p-3 text-start">{{ t('quotations.detail.unit') }}</th>
+                                    <th scope="col" class="p-3 text-end">{{ t('quotations.detail.enteredPrice') }}</th>
+                                    <th v-if="taxIncluded" scope="col" class="p-3 text-end">{{ t('quotations.builder.tax_percent') }}</th>
+                                    <th scope="col" class="p-3 text-end">{{ t('quotations.builder.margin_percent') }}</th>
+                                    <th scope="col" class="p-3 text-end">{{ t('quotations.detail.quantity') }}</th>
+                                    <th scope="col" class="p-3 text-end"><span class="sr-only">{{ t('quotations.builder.lineActions') }}</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(line, i) in lines" :key="i" class="table-row">
+                                    <td :data-label="t('quotations.detail.supplier')" class="p-3" :data-testid="fieldId(`line-${i}-supplier`)">
+                                        {{ line.supplier.name }}
+                                        <!-- OpenAPI §5: `lines.N.<field>` names the table's row N. -->
+                                        <span v-if="lineError(i) !== null" class="mt-1 block text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`line-${i}-error`)">{{ lineError(i) }}</span>
+                                    </td>
+                                    <td :data-label="t('quotations.detail.product')" class="p-3" :data-testid="fieldId(`line-${i}-product`)">{{ line.product.name }}</td>
+                                    <td :data-label="t('quotations.detail.unit')" class="p-3" :data-testid="fieldId(`line-${i}-unit`)">{{ unitLabel(line.unit) }}</td>
+                                    <td :data-label="t('quotations.detail.enteredPrice')" class="p-3 text-end tabular-nums" :data-testid="fieldId(`line-${i}-price`)"><bdi dir="ltr">{{ line.price }}</bdi></td>
+                                    <td v-if="taxIncluded" :data-label="t('quotations.builder.tax_percent')" class="p-3 text-end tabular-nums" :data-testid="fieldId(`line-${i}-tax`)"><bdi dir="ltr">{{ line.tax === '' ? '—' : `${line.tax}%` }}</bdi></td>
+                                    <td :data-label="t('quotations.builder.margin_percent')" class="p-3 text-end tabular-nums" :data-testid="fieldId(`line-${i}-margin`)"><bdi dir="ltr">{{ line.margin === '' ? '—' : `${line.margin}%` }}</bdi></td>
+                                    <td :data-label="t('quotations.detail.quantity')" class="p-3 text-end tabular-nums" :data-testid="fieldId(`line-${i}-quantity`)"><bdi dir="ltr">{{ line.quantity }}</bdi></td>
+                                    <td :data-label="t('quotations.builder.lineActions')" class="p-3 text-end">
+                                        <span class="inline-flex flex-wrap justify-end gap-2">
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.sendBackLine', { no: i + 1 })" :data-testid="fieldId(`line-${i}-send-back`)" @click="sendBack(i)">
+                                                {{ t('quotations.detail.edit') }}
+                                            </button>
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeLine', { no: i + 1 })" :data-testid="fieldId(`line-${i}-remove`)" @click="removeLine(i)">
+                                                {{ t('quotations.builder.removeItem') }}
+                                            </button>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -1348,7 +1176,7 @@ onMounted(load);
                         </div>
                     </div>
 
-                    <div v-if="!frozen" class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <button
                             type="submit"
                             class="save-action min-h-11 rounded-lg px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60"
@@ -1365,17 +1193,10 @@ onMounted(load);
                         </RouterLink>
                     </div>
                     <!-- A-15: the server prices the draft (D-67); nothing here computes a figure. -->
-                    <p v-if="!frozen" class="text-[var(--color-text-muted)]" data-testid="quotation-builder-total-note">{{ t('quotations.builder.totalAfterSave') }}</p>
+                    <p class="text-[var(--color-text-muted)]" data-testid="quotation-builder-total-note">{{ t('quotations.builder.totalAfterSave') }}</p>
                 </div>
             </fieldset>
         </form>
-
-        <SupplierQuotationFormModal
-            :open="offerFormOpen"
-            :editing="null"
-            @saved="onOfferSaved"
-            @cancel="offerFormOpen = false"
-        />
     </section>
 </template>
 
@@ -1388,7 +1209,7 @@ onMounted(load);
     border: 1px solid var(--color-border);
 }
 
-/* One line: label, quantity, margin, Remove (A-60); its note spans the row. `§4.3`: one column under 640px. */
+/* The additional items' row: label, amount, Remove (A-60); its note spans the row. `§4.3`: one column under 640px. */
 .line-grid {
     display: grid;
     gap: 0.75rem;
@@ -1406,6 +1227,14 @@ onMounted(load);
     }
 }
 
+/* The entry row wraps on its own: nine fields fit a desktop line, and a phone gets one column (`§4.3`). */
+.entry-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    align-items: end;
+}
+
 .line-row {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
@@ -1418,18 +1247,6 @@ onMounted(load);
 }
 
 .form-alert {
-    background-color: var(--color-surface-muted);
-    border: 1px solid var(--color-danger);
-    color: var(--color-danger);
-}
-
-.form-saved {
-    background-color: var(--color-surface-muted);
-    border: 1px solid var(--color-border-strong);
-}
-
-/* `Design System §6.4`: red, and the words beside it carry the meaning. */
-.warning-line {
     background-color: var(--color-surface-muted);
     border: 1px solid var(--color-danger);
     color: var(--color-danger);

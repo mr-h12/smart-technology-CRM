@@ -46,6 +46,33 @@ final class CustomerLineFigures
     }
 
     /**
+     * The unit price a tax-included PDF prints (QS.2a): the selling unit price plus the line's own
+     * tax, rounded to 2 places half away from zero (`D-142`) so the printed unit × quantity is the
+     * printed line.
+     *
+     * @param  numeric-string  $unitPrice
+     * @param  numeric-string  $taxPercent
+     * @return numeric-string
+     */
+    public static function grossUnitPrice(string $unitPrice, string $taxPercent): string
+    {
+        $scale = self::SCALE;
+        $rate = bcadd('1', bcdiv($taxPercent, '100', $scale + 2), $scale + 2);
+
+        return bcadd(bcround(bcmul($unitPrice, $rate, $scale + 2), 2), '0', $scale);
+    }
+
+    /**
+     * @param  numeric-string  $grossUnitPrice
+     * @param  numeric-string  $quantity
+     * @return numeric-string
+     */
+    public static function grossLineTotal(string $grossUnitPrice, string $quantity): string
+    {
+        return bcadd(bcround(bcmul($grossUnitPrice, $quantity, self::SCALE), 2), '0', self::SCALE);
+    }
+
+    /**
      * `D-107`'s *Total Amount Excl. VAT*: the items plus the additional items (`D-62`, never taxed).
      *
      * @param  numeric-string  $subtotal

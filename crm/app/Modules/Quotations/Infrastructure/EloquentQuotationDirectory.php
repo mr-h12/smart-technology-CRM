@@ -21,6 +21,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Quotations\Infrastructure\Eloquent\PurchaseOrder;
@@ -117,6 +118,7 @@ final readonly class EloquentQuotationDirectory implements ExpiringQuotationsInt
             status: $row->status,
             currencyId: $row->currency_id,
             currency: $this->currencyCode($row->currency_id),
+            pricingMode: PricingMode::from($row->pricing_mode),
             defaultMargin: $row->default_margin,
             discountPercent: $row->discount_percent,
             taxPercent: $row->tax_percent,
@@ -681,8 +683,12 @@ final readonly class EloquentQuotationDirectory implements ExpiringQuotationsInt
             $lines[] = new QuotationLine(
                 id: self::text($row, 'id'),
                 lineNo: self::int($row, 'line_no'),
-                supplierQuotationItemId: self::text($row, 'supplier_quotation_item_id'),
+                supplierQuotationItemId: self::nullableText($row, 'supplier_quotation_item_id'),
+                supplierId: self::text($row, 'supplier_id'),
                 catalogItemId: self::text($row, 'catalog_item_id'),
+                unitCode: self::nullableText($row, 'unit_code'),
+                enteredUnitPrice: self::text($row, 'entered_unit_price'),
+                taxPercent: self::nullableText($row, 'tax_percent'),
                 unitCost: self::text($row, 'unit_cost'),
                 unitCostCurrency: self::text($row, 'unit_cost_currency'),
                 unitCostFxRateAtTime: self::text($row, 'unit_cost_fx_rate_at_time'),

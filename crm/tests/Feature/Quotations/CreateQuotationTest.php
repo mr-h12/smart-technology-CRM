@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature\Quotations;
 
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
+use App\Modules\Identity\Domain\Rbac\Role as RoleName;
+use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\QuotationCreated;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -39,17 +42,17 @@ final class CreateQuotationTest extends TestCase
 
     private string $dealId;
 
-    private string $egpId;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $actorId = User::factory()->create()->getKey();
+        // §3.5: a line's margin and tax are `edit margin` / `edit tax`, which the use case asks of the actor.
+        $this->seed(RolePermissionSeeder::class);
+        $actorId = User::factory()->create(['role_id' => Role::query()->where('slug', RoleName::Manager->value)->value('id')])->getKey();
         self::assertIsString($actorId);
         $this->actorId = $actorId;
 
-        $this->egpId = $this->currency('EGP', '1', true, true);
+        $this->currency('EGP', '1', true, true);
         $this->customerId = $this->customer(false);
         $this->dealId = $this->deal($this->customerId);
     }
@@ -126,12 +129,11 @@ final class CreateQuotationTest extends TestCase
     /** Rounding on: the final total alone rounds to the unit, and the difference is stored. */
     public function test_that_rounding_applies_to_the_final_total_only(): void
     {
-        $line = $this->supplierLine('100.75', '1', $this->egpId);
 
         $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            lines: [$this->lineBody(entered: '100.75', tax: null, margin: '0', quantity: '1')],
             additional: [],
-            overrides: ['default_margin' => '0', 'discount_percent' => '0'],
+            overrides: ['discount_percent' => '0'],
         ));
 
         $row = $this->stored($result->quotation->id);
@@ -148,13 +150,12 @@ final class CreateQuotationTest extends TestCase
      */
     public function test_that_rounding_off_leaves_the_total_unrounded(): void
     {
-        $eur = $this->currency('EUR', '0.01', false, false);
-        $line = $this->supplierLine('100.755', '1', $eur);
+        $this->currency('EUR', '0.01', false, false);
 
         $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            lines: [$this->lineBody(entered: '100.755', tax: null, margin: '0', quantity: '1')],
             additional: [],
-            overrides: ['currency' => 'EUR', 'default_margin' => '0', 'discount_percent' => '0.5'],
+            overrides: ['currency' => 'EUR', 'discount_percent' => '0.5'],
         ));
 
         $row = $this->stored($result->quotation->id);
@@ -173,12 +174,11 @@ final class CreateQuotationTest extends TestCase
      */
     public function test_that_the_stored_unit_price_is_rounded_to_two_places_before_the_quantity(): void
     {
-        $line = $this->supplierLine('26315.789474', '10', $this->egpId);
 
         $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '10', 'margin_percent' => null]],
+            lines: [$this->lineBody(entered: '26315.789474', tax: null, margin: '0', quantity: '10')],
             additional: [],
-            overrides: ['default_margin' => '0', 'discount_percent' => '0'],
+            overrides: ['discount_percent' => '0'],
         ));
 
         $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
@@ -201,10 +201,9 @@ final class CreateQuotationTest extends TestCase
     public function test_that_an_own_scoped_caller_can_quote_their_own_deal(): void
     {
         $dealId = $this->deal($this->customerId, $this->actorId);
-        $line = $this->supplierLine('100', '1', $this->egpId);
 
         $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            lines: [$this->lineBody(entered: '100', tax: null, margin: '0', quantity: '1')],
             additional: [],
             overrides: ['deal_id' => $dealId],
         ), ['own']);
@@ -218,11 +217,10 @@ final class CreateQuotationTest extends TestCase
         $otherId = User::factory()->create()->getKey();
         self::assertIsString($otherId);
         $dealId = $this->deal($this->customerId, $otherId);
-        $line = $this->supplierLine('100', '1', $this->egpId);
 
         try {
             $this->create($this->payload(
-                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+                lines: [$this->lineBody(entered: '100', tax: null, margin: '0', quantity: '1')],
                 additional: [],
                 overrides: ['deal_id' => $dealId],
             ), ['own']);
@@ -319,10 +317,9 @@ final class CreateQuotationTest extends TestCase
     public function test_that_a_quotation_walks_its_deal_to_supplier_quotation_one_line_per_step(): void
     {
         DB::table('deals')->where('id', $this->dealId)->update(['status' => 'contacted']);
-        $line = $this->supplierLine('100', '1', $this->egpId);
 
         $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            lines: [$this->lineBody(entered: '100', tax: null, margin: '0', quantity: '1')],
             additional: [],
             overrides: [],
         ));
@@ -412,42 +409,6 @@ final class CreateQuotationTest extends TestCase
         return $id;
     }
 
-    /** Seeds §4.1's chain and returns the `supplier_quotation_items` id a line points at. */
-    private function supplierLine(string $unitPrice, string $quantity, string $currencyId): string
-    {
-        $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
-        $offerId = Uuid::uuid4()->toString();
-        $lineId = Uuid::uuid4()->toString();
-
-        DB::table('suppliers')->insert([
-            'id' => $supplierId, 'name' => 'Alpha Supplies',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('catalog_items')->insert([
-            'id' => $catalogItemId, 'kind' => 'product', 'name' => 'Widget',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotations')->insert([
-            'id' => $offerId,
-            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
-            'supplier_id' => $supplierId,
-            'total_price' => '1',
-            'currency_id' => $currencyId,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotation_items')->insert([
-            'id' => $lineId,
-            'supplier_quotation_id' => $offerId,
-            'catalog_item_id' => $catalogItemId,
-            'unit_price' => $unitPrice,
-            'quantity' => $quantity,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $lineId;
-    }
-
     /**
      * @param  list<array<string, mixed>>  $lines
      * @param  list<array<string, mixed>>  $additional
@@ -460,7 +421,7 @@ final class CreateQuotationTest extends TestCase
             'deal_id' => $this->dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
             'lines' => $lines,
             'additional_items' => $additional,

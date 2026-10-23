@@ -30,6 +30,7 @@ use Tests\TestCase;
  */
 final class UserTermSuggestionsTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/user-term-suggestions';
@@ -238,7 +239,7 @@ final class UserTermSuggestionsTest extends TestCase
             'deal_id' => $this->dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
             'lines' => [],
             'additional_items' => [],

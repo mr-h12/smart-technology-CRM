@@ -40,8 +40,10 @@ final class QuotationReadEndpointTest extends TestCase
 
     private string $customerId;
 
-    /** @var array<string, string> deal id => its customer, for `quotation()`'s POST */
+    /** @var array<string, string> deal id => its customer, for the quotations a test saves */
     private array $dealCustomers = [];
+
+    private int $legacyCodes = 0;
 
     protected function setUp(): void
     {
@@ -633,7 +635,8 @@ final class QuotationReadEndpointTest extends TestCase
 
     /**
      * §3.5 `view cost & margin`, withdrawn: the line still says its unit and the quotation its pricing mode
-     * — what the customer's document shows — but not the supplier, the price typed or its tax, and no `entry`.
+     * — what the customer's document shows — and the line's tax rate (the PDF prints it; owner, 2026-10-23), but not the
+     * supplier or the price typed, and no `entry`.
      */
     public function test_that_without_the_cost_grant_a_line_keeps_its_unit_and_hides_what_was_typed(): void
     {
@@ -648,9 +651,10 @@ final class QuotationReadEndpointTest extends TestCase
             ->json('data.items.0');
 
         self::assertIsArray($line);
-        foreach (['supplier_id', 'supplier_name', 'entered_unit_price', 'tax_percent'] as $hidden) {
+        foreach (['supplier_id', 'supplier_name', 'entered_unit_price'] as $hidden) {
             self::assertArrayNotHasKey($hidden, $line);
         }
+        self::assertSame('14.000', $line['tax_percent'] ?? null);
     }
 
     /**
@@ -694,20 +698,42 @@ final class QuotationReadEndpointTest extends TestCase
         ]);
     }
 
-    /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus a 5 delivery item. */
+    /**
+     * A `legacy` quotation, stored as one saved before QS.2a: quotation margin 20 %, one line of 2 × 10 → 12.00,
+     * plus a 5 delivery item — the figures the `D-106` / `D-148` reads below describe. `legacyQuotation()` is the
+     * same row at example 4's figures; the line-owned body is `lineOwned()`.
+     */
     private function quotation(string $dealId): string
     {
-        $id = $this->postJson(self::ENDPOINT, [
-            'deal_id' => $dealId,
-            'customer_id' => $this->dealCustomers[$dealId],
-            'currency' => 'EGP',
-            'default_margin' => '20',
-            'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']],
-            'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
-        ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+        $offerLine = $this->supplierLine('10', '5');
+        $offer = DB::table('supplier_quotation_items')
+            ->join('supplier_quotations', 'supplier_quotations.id', '=', 'supplier_quotation_items.supplier_quotation_id')
+            ->where('supplier_quotation_items.id', $offerLine)
+            ->first(['supplier_quotations.supplier_id', 'supplier_quotation_items.catalog_item_id']);
+        self::assertNotNull($offer);
 
-        self::assertIsString($id);
+        $id = Uuid::uuid4()->toString();
+
+        DB::table('quotations')->insert([
+            'id' => $id, 'code' => sprintf('QT-2026-%04d', 9000 + ++$this->legacyCodes), 'deal_id' => $dealId,
+            'customer_id' => $this->dealCustomers[$dealId], 'currency_id' => $this->currencyId('EGP'),
+            'pricing_mode' => 'legacy', 'default_margin' => '20', 'discount_percent' => '0', 'tax_percents' => '[]',
+            'rounding_unit' => '1', 'rounding_enabled' => false,
+            'subtotal' => '24', 'additional_total' => '5', 'discount_amount' => '0', 'tax_base' => '24', 'net_amount' => '29',
+            'total_before_round' => '29', 'final_total' => '29', 'rounding_diff' => '0',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('quotation_items')->insert([
+            'id' => Uuid::uuid4()->toString(), 'quotation_id' => $id, 'line_no' => 1, 'supplier_quotation_item_id' => $offerLine,
+            'supplier_id' => $offer->supplier_id, 'catalog_item_id' => $offer->catalog_item_id, 'entered_unit_price' => '10',
+            'unit_cost' => '10', 'unit_cost_currency' => 'EGP', 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => '10',
+            'unit_price' => '12', 'quantity' => '2', 'line_total' => '24', 'line_cost' => '20',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('quotation_additional_items')->insert([
+            'id' => Uuid::uuid4()->toString(), 'quotation_id' => $id, 'line_no' => 1, 'description' => 'Delivery', 'amount' => '5',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
 
         return $id;
     }

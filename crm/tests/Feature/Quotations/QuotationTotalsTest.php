@@ -150,6 +150,22 @@ final class QuotationTotalsTest extends TestCase
         self::assertSame('45.360000', $totals->taxAmount());
     }
 
+    public function test_a_tax_included_quotation_whose_lines_are_all_zero_percent_has_no_tax_line(): void
+    {
+        // The exempt rule (CLAUDE.md): no line with a rate above zero means no tax line, not a zero one.
+        $totals = QuotationTotals::from(
+            [
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '0', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '50', taxPercent: '0', marginPercent: '10', quantity: '1'),
+            ],
+            [],
+            '10',
+        );
+
+        self::assertNull($totals->taxAmount());
+        self::assertSame($totals->netAmount(), $totals->totalBeforeRound());
+    }
+
     // ───────────────────────────────── the acceptance row
 
     public function test_the_documented_discount_and_tax_base_row(): void

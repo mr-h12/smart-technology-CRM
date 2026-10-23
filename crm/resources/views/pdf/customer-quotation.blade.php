@@ -30,7 +30,10 @@
 --}}
 {{-- D-63 / D-107: an exempt quotation prints no VAT column, row or term. --}}
 @php($rtl = $direction === 'rtl')
-@php($taxed = $view->taxPercent !== null && $view->taxAmount !== null)
+{{-- QS.2a: keyed on the VAT figure — the header rate is null on a tax-included quotation (D-165). --}}
+@php($taxed = $view->taxAmount !== null)
+{{-- D-157: a tax-included page prints gross prices, so it has no VAT column; it says so under the table instead. --}}
+@php($vatColumn = $taxed && ! $view->pricesIncludeTax)
 <!doctype html>
 <html lang="{{ $locale }}" dir="{{ $direction }}">
 <head>
@@ -83,6 +86,8 @@
         .items tr { break-inside: avoid; page-break-inside: avoid; }
         .items thead { display: table-header-group; }
         .items-next { break-before: page; }
+
+        .note { margin-top: 2mm; }
 
         .totals { margin: {{ $rtl ? '5mm auto 0 0' : '5mm 0 0 auto' }}; break-inside: avoid; }
         .totals td { padding: {{ $rtl ? '1.2mm 10mm 1.2mm 0' : '1.2mm 0 1.2mm 10mm' }}; text-align: end; white-space: nowrap; font-size: {{ $rtl ? '10.5pt' : '9.5pt' }}; }
@@ -148,8 +153,8 @@
 
 {{-- Each row's cells: description, unit, quantity, unit price, VAT (null when exempt), total (D-142: the stored line amount).
      D-107: an additional item is a row after the lines — no unit, one of it, untaxed (D-62). --}}
-@php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $taxed ? $money($line->vatAmount) : null, $money($line->lineTotal)])
-@php($additionalCells = fn ($additional) => [$additional->description, '—', '1', $money($additional->amount), $taxed ? $money('0') : null, $money($additional->amount)])
+@php($lineCells = fn ($line) => [$line->description, ($rtl ? $line->unitAr : $line->unitEn) ?? '—', $plain($line->quantity), $money($line->unitPrice), $vatColumn ? $money($line->vatAmount) : null, $money($line->lineTotal)])
+@php($additionalCells = fn ($additional) => [$additional->description, '—', '1', $money($additional->amount), $vatColumn ? $money('0') : null, $money($additional->amount)])
 @php($rows = [...array_map($lineCells, $view->lines), ...array_map($additionalCells, $view->additionalItems)])
 {{-- F-40 · 1.6b (the owner, 2026-10-11): six rows on page one, at most eight on each later page, each page its own table.
      1.6c: page one may keep fewer, and when it keeps none it prints no empty table. --}}
@@ -164,7 +169,7 @@
         <th>{{ $t('table.unit') }}</th>
         <th>{{ $t('table.quantity') }}</th>
         <th>{{ $t('table.unit_price') }}</th>
-        @if ($taxed)
+        @if ($vatColumn)
             <th>{{ $t('table.vat') }}</th>
         @endif
         <th>{{ $t('table.total') }}</th>
@@ -177,7 +182,7 @@
             <td>{{ $row[1] }}</td>
             <td>{{ $row[2] }}</td>
             <td>{{ $row[3] }}</td>
-            @if ($taxed)
+            @if ($vatColumn)
                 <td>{{ $row[4] }}</td>
             @endif
             <td>{{ $row[5] }}</td>
@@ -186,6 +191,10 @@
     </tbody>
 </table>
 @endforeach
+
+@if ($view->pricesIncludeTax && $taxed)
+    <div id="prices-include-tax" class="note">{{ $t('conditions.vat_included') }}</div>
+@endif
 
 <table class="totals">
     <tr><td class="h">{{ $t('totals.excl_vat') }}</td><td>{{ $money($view->totalExcludingVat) }}</td></tr>

@@ -31,6 +31,7 @@ use Tests\TestCase;
  */
 final class PurchaseOrderDocumentEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
     use RemovesOnlyFilesItStored;
 
@@ -53,8 +54,6 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
 
     private string $customerId;
 
-    private string $lineId;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -65,7 +64,6 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
 
         $this->currency('EGP');
         $this->customerId = $this->customer();
-        $this->lineId = $this->supplierLine();
     }
 
     protected function tearDown(): void
@@ -341,9 +339,9 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
         self::assertIsString($id);
 
@@ -406,43 +404,6 @@ final class PurchaseOrderDocumentEndpointTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    /** Seeds §4.1's chain in EGP and returns the `supplier_quotation_items` id a line points at. */
-    private function supplierLine(): string
-    {
-        $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
-        $offerId = Uuid::uuid4()->toString();
-        $lineId = Uuid::uuid4()->toString();
-        $egp = DB::table('currencies')->where('code', 'EGP')->value('id');
-
-        DB::table('suppliers')->insert([
-            'id' => $supplierId, 'name' => 'Alpha Supplies',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('catalog_items')->insert([
-            'id' => $catalogItemId, 'kind' => 'product', 'name' => 'Widget',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotations')->insert([
-            'id' => $offerId,
-            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
-            'supplier_id' => $supplierId,
-            'total_price' => '1',
-            'currency_id' => $egp,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotation_items')->insert([
-            'id' => $lineId,
-            'supplier_quotation_id' => $offerId,
-            'catalog_item_id' => $catalogItemId,
-            'unit_price' => '10',
-            'quantity' => '100',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $lineId;
     }
 
     private function userWith(RoleName $role): User

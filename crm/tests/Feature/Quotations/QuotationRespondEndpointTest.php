@@ -861,14 +861,14 @@ final class QuotationRespondEndpointTest extends TestCase
     {
         $lines = [];
         foreach ($quantities as $quantity) {
-            $lines[] = ['supplier_quotation_item_id' => $this->lineId, 'quantity' => $quantity];
+            $lines[] = $this->lineBody(entered: '10', tax: null, margin: '20', quantity: $quantity);
         }
 
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
             'lines' => $lines,
             'terms' => [['key' => null, 'title' => 'Installation', 'body' => 'On site, two days']],

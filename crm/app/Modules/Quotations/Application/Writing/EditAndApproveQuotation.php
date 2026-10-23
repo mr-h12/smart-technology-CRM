@@ -59,7 +59,7 @@ final readonly class EditAndApproveQuotation
             // The edit moved the token; the approval guards on the one it left.
             $approved = $this->approve->approve($quotationId, QuotationEtag::of($edited->quotation), $heldScopes, $actorId);
 
-            return new QuotationUpdated($approved, $edited->quantityWarnings);
+            return new QuotationUpdated($approved);
         });
     }
 }

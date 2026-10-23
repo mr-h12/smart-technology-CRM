@@ -57,7 +57,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $valid_until
  * @property string $status
  * @property string $currency_id
- * @property string $default_margin
+ * @property string $pricing_mode
+ * @property string|null $default_margin
  * @property string $discount_percent
  * @property string|null $tax_percent
  * @property list<string> $tax_percents
@@ -99,6 +100,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'quotation_date',
     'valid_until',
     'currency_id',
+    'pricing_mode',
     'default_margin',
     'discount_percent',
     'tax_percent',

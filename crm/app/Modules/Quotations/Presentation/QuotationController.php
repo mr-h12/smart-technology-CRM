@@ -26,6 +26,7 @@ use App\Modules\Quotations\Application\Writing\TermSuggestions;
 use App\Modules\Quotations\Application\Writing\UpdateQuotation;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderListCriteria;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderRecord;
+use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationListCriteria;
 use App\Support\Http\ApiEnvelope;
 use Illuminate\Http\JsonResponse;
@@ -76,33 +77,14 @@ final class QuotationController
         $actorId = self::actorId($request);
         $detail = $quotations->one($quotation, self::heldScopes($request), $actorId);
 
-        // Point 4.5 — `D-36`'s warning rides in `meta`, absent when nothing
-        // moved, on `store()`'s convention.
-        $warnings = QuotationPayload::warnings($quotations->movedLines($detail), 'supplier_price_changed', 'unit_cost');
-
-        return ApiEnvelope::single(
-            $request,
-            QuotationPayload::detail($detail, $quotations->revealsCosts($actorId), $this->waiting, $quotations->lineNames($detail)),
-            200,
-            $warnings === [] ? [] : ['warnings' => $warnings],
-        );
+        return ApiEnvelope::single($request, $this->detail($quotations, $detail, $actorId));
     }
 
     public function store(SaveQuotationRequest $request, CreateQuotation $quotations): JsonResponse
     {
         $created = $quotations->create($request->validated(), self::heldScopes($request), self::actorId($request));
 
-        // The key is absent rather than an empty list when nothing is over:
-        // a client checking `meta.warnings` for truthiness and one checking for
-        // the key both get the same answer (`CustomerController::saved()`).
-        $warnings = QuotationPayload::warnings($created->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
-
-        return ApiEnvelope::single(
-            $request,
-            QuotationPayload::of($created->quotation),
-            201,
-            $warnings === [] ? [] : ['warnings' => $warnings],
-        );
+        return ApiEnvelope::single($request, QuotationPayload::of($created->quotation), 201);
     }
 
     /**
@@ -124,14 +106,7 @@ final class QuotationController
             $actorId,
         );
 
-        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
-
-        return ApiEnvelope::single(
-            $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($updated->quotation)),
-            200,
-            $warnings === [] ? [] : ['warnings' => $warnings],
-        );
+        return ApiEnvelope::single($request, $this->detail($reader, $updated->quotation, $actorId));
     }
 
     /**
@@ -145,7 +120,7 @@ final class QuotationController
 
         $submitted = $quotations->submit($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($submitted, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($submitted)));
+        return ApiEnvelope::single($request, $this->detail($reader, $submitted, $actorId));
     }
 
     /** Module 10 · 1.3. `submit()`'s shape; the answer's `status` is `sent` (`D-90`). */
@@ -155,7 +130,7 @@ final class QuotationController
 
         $sent = $quotations->send($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($sent, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($sent)));
+        return ApiEnvelope::single($request, $this->detail($reader, $sent, $actorId));
     }
 
     /**
@@ -182,7 +157,7 @@ final class QuotationController
         );
 
         $answered = $recorded->quotation;
-        $payload = QuotationPayload::detail($answered, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($answered));
+        $payload = $this->detail($reader, $answered, $actorId);
 
         if ($recorded->newVersion !== null) {
             $payload['new_version'] = [...QuotationPayload::of($recorded->newVersion), 'version' => $recorded->newVersion->version];
@@ -253,11 +228,11 @@ final class QuotationController
 
         $approved = $quotations->approve($quotation, $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($approved, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($approved)));
+        return ApiEnvelope::single($request, $this->detail($reader, $approved, $actorId));
     }
 
     /**
-     * Module 8 Point 1.3. `update()`'s body and answer (warnings included),
+     * Module 8 Point 1.3. `update()`'s body and answer,
      * `approve()`'s route permission; the re-read quotation is `approved`.
      */
     public function editAndApprove(SaveQuotationRequest $request, string $quotation, EditAndApproveQuotation $quotations, ShowQuotation $reader): JsonResponse
@@ -266,14 +241,7 @@ final class QuotationController
 
         $updated = $quotations->approve($quotation, $request->validated(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        $warnings = QuotationPayload::warnings($updated->quantityWarnings, 'quantity_exceeds_recorded', 'quantity');
-
-        return ApiEnvelope::single(
-            $request,
-            QuotationPayload::detail($updated->quotation, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($updated->quotation)),
-            200,
-            $warnings === [] ? [] : ['warnings' => $warnings],
-        );
+        return ApiEnvelope::single($request, $this->detail($reader, $updated->quotation, $actorId));
     }
 
     /**
@@ -287,7 +255,7 @@ final class QuotationController
 
         $returned = $quotations->return($quotation, $request->note(), $request->headers->get('If-Match'), self::heldScopes($request), $actorId);
 
-        return ApiEnvelope::single($request, QuotationPayload::detail($returned, $reader->revealsCosts($actorId), $this->waiting, $reader->lineNames($returned)));
+        return ApiEnvelope::single($request, $this->detail($reader, $returned, $actorId));
     }
 
     /**
@@ -343,6 +311,28 @@ final class QuotationController
     public function badges(Request $request, BadgeCounts $badges): JsonResponse
     {
         return ApiEnvelope::single($request, $badges->for(self::actorId($request)));
+    }
+
+    /**
+     * `GET /{id}`'s body, whichever action answers with the quotation: the cost viewer's extras
+     * (the supplier names and the builder's `entry`) are read only for a caller who may see them.
+     *
+     * @return array<string, mixed>
+     */
+    private function detail(ShowQuotation $reader, QuotationDetail $quotation, string $actorId): array
+    {
+        $costs = $reader->revealsCosts($actorId);
+        $lineNames = $reader->lineNames($quotation);
+        $supplierNames = $costs ? $reader->supplierNames($quotation) : [];
+
+        return QuotationPayload::detail(
+            $quotation,
+            $costs,
+            $this->waiting,
+            $lineNames,
+            $supplierNames,
+            $costs ? $reader->entry($quotation, $lineNames, $supplierNames) : null,
+        );
     }
 
     /**

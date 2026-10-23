@@ -11,7 +11,6 @@ return [
         'additional_item_description' => 'وصف البند الإضافي',
         'additional_item_amount' => 'مبلغ البند الإضافي',
         'tax_percents' => 'مجموع نسب الضريبة',
-        'tax_percent_item' => 'نسبة الضريبة',
     ],
     'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 
@@ -71,6 +70,7 @@ return [
     'validation' => [
         'unknown_deal' => 'لم يُعثر على هذه الصفقة.',
         'customer_not_the_deals' => 'يجب أن يكون العميل هو عميل الصفقة.',
+        'too_many_suppliers' => 'لا يمكن أن يضم عرض السعر أكثر من :max مورّدًا.',
         'note_not_blank' => 'لا يمكن أن تكون ملاحظة الإرجاع مسافات فقط.',
     ],
 ];

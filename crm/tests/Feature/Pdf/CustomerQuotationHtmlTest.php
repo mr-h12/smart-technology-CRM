@@ -285,6 +285,18 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
+    /** The exempt rule: a tax-included quotation whose lines are all 0 % has no tax figure, so no VAT row, note or term. */
+    public function test_that_a_tax_included_page_with_only_zero_percent_lines_prints_no_vat(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...[...self::taxIncluded(), 'taxAmount' => null, 'finalTotal' => '410.000000']);
+
+            self::assertStringNotContainsString('id="tax-row"', $html, "The {$locale} page has a VAT row.");
+            self::assertStringNotContainsString('id="prices-include-tax"', $html, "The {$locale} page has the note.");
+            self::assertStringNotContainsString('id="vat-included"', $html, "The {$locale} page has the VAT term.");
+        }
+    }
+
     /** `D-157` toggle off (`D-156`'s third example) and `D-165`'s legacy page: neither carries the note under the table. */
     public function test_that_only_a_tax_included_page_carries_the_note_under_the_table(): void
     {
@@ -372,8 +384,8 @@ final class CustomerQuotationHtmlTest extends TestCase
         // A fractional quantity, priced by the real engine rather than typed:
         // 13.65 × 2.5 twice. The view takes `PricedLine`'s line amounts and
         // `QuotationTotals`' subtotal, as the stored row would carry them.
-        $priced = PricedLine::from('13.65', null, '0', '2.5');
-        $totals = QuotationTotals::from([$priced, $priced], [], '0', null);
+        $priced = PricedLine::fromEntered(enteredUnitPrice: '13.65', taxPercent: null, marginPercent: '0', quantity: '2.5');
+        $totals = QuotationTotals::from([$priced, $priced], [], '0');
         $fractional = [
             'lines' => [
                 new CustomerQuotationLine(1, 'Formatter M428dw', '2.5000', $priced->unitPrice(), $priced->lineTotal(), 'Pcs', 'قطعة', null),

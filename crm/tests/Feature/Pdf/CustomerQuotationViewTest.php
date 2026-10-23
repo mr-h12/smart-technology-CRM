@@ -62,7 +62,7 @@ final class CustomerQuotationViewTest extends TestCase
         );
 
         self::assertSame(
-            ['unitCost', 'unitCostCurrency', 'unitCostFxRateAtTime', 'unitCostBase', 'marginPercent', 'lineCost'],
+            ['unitCost', 'unitCostCurrency', 'unitCostFxRateAtTime', 'unitCostBase', 'marginPercent', 'lineCost', 'supplierId', 'supplierName', 'enteredUnitPrice'],
             $forbidden,
             'Module 7 changed COST_FIELDS; this test converted it to something unexpected.',
         );

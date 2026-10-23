@@ -145,7 +145,7 @@ final class QuotationUpdateEndpointTest extends TestCase
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
         $this->edit($id, $etag, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2', 'margin_percent' => '30']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '30', quantity: '2')],
         ]), RoleName::Manager)->assertStatus(403);
     }
 
@@ -156,7 +156,7 @@ final class QuotationUpdateEndpointTest extends TestCase
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
         $this->edit($id, $etag, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2', 'margin_percent' => '-20']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '-20', quantity: '2')],
         ]), RoleName::Manager)->assertStatus(403);
     }
 
@@ -183,6 +183,53 @@ final class QuotationUpdateEndpointTest extends TestCase
             ->assertStatus(403)
             ->assertJsonPath('error.code', 'permission_denied');
         $this->edit($id, $etag, $this->e1Body($line), RoleName::Manager)->assertStatus(200);
+    }
+
+    /** §3.5: a line's first margin is an edit of the margin — appending one is not a free way around the grant. */
+    public function test_that_appending_a_line_with_a_margin_needs_the_edit_margin_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2'), $this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(403);
+    }
+
+    /** … and a line's first tax is an edit of the tax. */
+    public function test_that_appending_a_line_with_a_tax_needs_the_edit_tax_grant(): void
+    {
+        $line = $this->lineBody(margin: '0');
+        [$id, $etag] = $this->quotation($this->deal(null), $this->e1Body($line));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
+
+        $this->edit($id, $etag, [...$this->e1Body($line), 'lines' => [$line, $this->lineBody(margin: '0')]], RoleName::Manager)
+            ->assertStatus(403);
+    }
+
+    /** Emptying the list and re-adding in two saves leaves no stored line to compare with — still the guarded edit. */
+    public function test_that_emptying_then_refilling_the_lines_needs_the_edit_margin_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->edit($id, $etag, $this->payload(['lines' => []]), RoleName::Manager)->assertStatus(200);
+        $etag = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.etag');
+        self::assertIsString($etag);
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(403);
+    }
+
+    /** With the grants held, the appended line saves. */
+    public function test_that_appending_a_line_with_a_margin_succeeds_with_the_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2'), $this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(200);
     }
 
     // ─────────────────────────────────────────────────────── optimistic lock
@@ -219,7 +266,7 @@ final class QuotationUpdateEndpointTest extends TestCase
             ->assertJsonPath('error.details.0.current_etag', $etag);
 
         // Nothing was written.
-        self::assertSame('20.000', DB::table('quotations')->where('id', $id)->value('default_margin'));
+        self::assertSame('20.000', DB::table('quotation_items')->where('quotation_id', $id)->whereNull('deleted_at')->value('margin_percent'));
     }
 
     /** `DB-12`: the write advances the token, so the token that just succeeded is stale on the next try. */
@@ -549,9 +596,9 @@ final class QuotationUpdateEndpointTest extends TestCase
     {
         return array_merge([
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
         ], $overrides);
     }

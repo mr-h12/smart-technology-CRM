@@ -11,7 +11,6 @@ return [
         'additional_item_description' => 'additional item description',
         'additional_item_amount' => 'additional item amount',
         'tax_percents' => 'tax rates',
-        'tax_percent_item' => 'tax rate',
     ],
     'purchase_order_not_found' => 'This purchase order was not found.',
 
@@ -71,6 +70,7 @@ return [
     'validation' => [
         'unknown_deal' => 'This deal was not found.',
         'customer_not_the_deals' => 'The customer must be the deal\'s customer.',
+        'too_many_suppliers' => 'A quotation can name at most :max suppliers.',
         'note_not_blank' => 'A return note cannot be only spaces.',
     ],
 ];

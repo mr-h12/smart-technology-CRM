@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Application\Listing;
 
-use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
@@ -13,9 +12,11 @@ use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
 use App\Modules\Quotations\Domain\Contracts\QuotationDirectoryInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
+use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
-use App\Modules\Quotations\Domain\Pricing\PricedLine;
-use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
+use App\Modules\Quotations\Domain\Pricing\LegacyEntry;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
+use App\Modules\Suppliers\Domain\Contracts\SupplierLookupInterface;
 
 /**
  * `GET /quotations/{id}` — Module 7 Point 3.5. Reads one quotation inside
@@ -43,16 +44,12 @@ use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface
  */
 final readonly class ShowQuotation
 {
-    /** §10.3's first row: the statuses whose captured prices are still compared with the supplier's. */
-    private const DRIFT_STATUSES = ['draft', 'pending'];
-
     public function __construct(
         private QuotationDirectoryInterface $quotations,
         private DealFactsInterface $deals,
         private AuthorizeAction $authorize,
-        private SupplierItemPricingInterface $supplierPrices,
-        private CurrencyRepositoryInterface $currencies,
         private CatalogItemLabelsInterface $catalogLabels,
+        private SupplierLookupInterface $suppliers,
         private UserFactsInterface $users,
     ) {}
 
@@ -95,36 +92,57 @@ final readonly class ShowQuotation
     }
 
     /**
-     * `D-36` / §10.3 (Point 4.5): the lines whose supplier price moved since
-     * the quotation captured it — the same seam 3.3 prices through, read the
-     * same way (`priceFor()`, then the currency's code). The quotation keeps
-     * its price; this only says which lines to review. `sent` and beyond
-     * compare nothing: the document is a fixed snapshot. A line whose supplier
-     * price is gone (`null`) or whose currency the offer never recorded counts
-     * as moved — the captured price no longer matches anything current.
+     * `D-155`: each line's supplier, by its name — Suppliers' port. A supplier it cannot name is left out.
      *
-     * @return list<int> 1-based line numbers, as `QuotationCreated::$quantityWarnings` reports them
+     * @return array<string, string> supplier id => name
      */
-    public function movedLines(QuotationDetail $quotation): array
+    public function supplierNames(QuotationDetail $quotation): array
     {
-        if (! in_array($quotation->status, self::DRIFT_STATUSES, true)) {
-            return [];
-        }
+        return $this->suppliers->namesFor(array_values(array_unique(array_map(
+            static fn (QuotationLine $line): string => $line->supplierId,
+            $quotation->items,
+        ))));
+    }
 
-        $moved = [];
+    /**
+     * What the builder loads (cost viewers only): the quotation as entry values. A `legacy` one is converted
+     * (`D-165`) — typed including its tax, with its whole margin — so the next save prices it the new way.
+     *
+     * @param  array<string, string>  $lineNames  {@see self::lineNames()}
+     * @param  array<string, string>  $supplierNames  {@see self::supplierNames()}
+     * @return array{pricing_mode: string, lines: list<array<string, string|null>>}
+     */
+    public function entry(QuotationDetail $quotation, array $lineNames, array $supplierNames): array
+    {
+        $legacy = $quotation->pricingMode === PricingMode::Legacy;
+        $legacyTax = $quotation->taxPercent === null ? null : Decimal::of($quotation->taxPercent, 'tax_percent');
+        $lines = [];
 
         foreach ($quotation->items as $line) {
-            $price = $this->supplierPrices->priceFor($line->supplierQuotationItemId);
-            $currency = $price?->currencyId === null ? null : $this->currencies->findById($price->currencyId);
+            $typed = $legacy
+                ? LegacyEntry::line(
+                    Decimal::of($line->unitCostBase, 'unit_cost_base'),
+                    $line->marginPercent === null ? null : Decimal::of($line->marginPercent, 'margin_percent'),
+                    Decimal::of($quotation->defaultMargin ?? '0', 'default_margin'),
+                    $legacyTax,
+                )
+                : ['entered_unit_price' => $line->enteredUnitPrice, 'tax_percent' => $line->taxPercent, 'margin_percent' => $line->marginPercent];
 
-            if ($price === null || $currency === null
-                || $currency->code()->value !== $line->unitCostCurrency
-                || bccomp(Decimal::of($price->unitPrice, 'unit_price'), Decimal::of($line->unitCost, 'unit_cost'), PricedLine::SCALE) !== 0) {
-                $moved[] = $line->lineNo;
-            }
+            $lines[] = [
+                'supplier_id' => $line->supplierId,
+                'supplier_name' => $supplierNames[$line->supplierId] ?? null,
+                'catalog_item_id' => $line->catalogItemId,
+                'product_name' => $lineNames[$line->id] ?? null,
+                'unit_code' => $line->unitCode,
+                ...$typed,
+                'quantity' => $line->quantity,
+            ];
         }
 
-        return $moved;
+        return [
+            'pricing_mode' => ($legacy ? LegacyEntry::mode($legacyTax) : $quotation->pricingMode)->value,
+            'lines' => $lines,
+        ];
     }
 
     /**

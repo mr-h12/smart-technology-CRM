@@ -933,77 +933,81 @@ onMounted(load);
                     <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
 
                     <div class="entry-grid line-row rounded-xl p-3" @keydown.enter="entryEnter">
-                        <div class="flex flex-col gap-1.5">
-                            <label :for="fieldId('entry-supplier')">{{ t('quotations.detail.supplier') }}</label>
-                            <SearchCombobox
-                                :id="fieldId('entry-supplier')"
-                                :test-id="fieldId('entry-supplier')"
-                                :search="listSuppliers"
-                                :keys="SUPPLIER_KEYS"
-                                :selected="(supplier: Supplier) => supplier.id === entry.supplier?.id"
-                                :display="entry.supplier?.name ?? ''"
-                                :placeholder="t('suppliers.picker.placeholder')"
-                                floating
-                                @pick="pickSupplier"
-                            >
-                                <template #option="{ item }">
-                                    <span>
-                                        <span class="block">{{ item.name }}</span>
-                                        <span v-if="supplierDetail(item, t) !== ''" class="block text-sm text-[var(--color-text-muted)]">{{ supplierDetail(item, t) }}</span>
-                                    </span>
-                                </template>
-                            </SearchCombobox>
+                        <div class="entry-what">
+                            <div class="flex flex-col gap-1.5">
+                                <label :for="fieldId('entry-supplier')">{{ t('quotations.detail.supplier') }}</label>
+                                <SearchCombobox
+                                    :id="fieldId('entry-supplier')"
+                                    :test-id="fieldId('entry-supplier')"
+                                    :search="listSuppliers"
+                                    :keys="SUPPLIER_KEYS"
+                                    :selected="(supplier: Supplier) => supplier.id === entry.supplier?.id"
+                                    :display="entry.supplier?.name ?? ''"
+                                    :placeholder="t('suppliers.picker.placeholder')"
+                                    floating
+                                    @pick="pickSupplier"
+                                >
+                                    <template #option="{ item }">
+                                        <span>
+                                            <span class="block">{{ item.name }}</span>
+                                            <span v-if="supplierDetail(item, t) !== ''" class="block text-sm text-[var(--color-text-muted)]">{{ supplierDetail(item, t) }}</span>
+                                        </span>
+                                    </template>
+                                </SearchCombobox>
+                            </div>
+
+                            <div class="flex flex-col gap-1.5">
+                                <label :for="fieldId('entry-product')">{{ t('quotations.detail.product') }}</label>
+                                <SearchCombobox
+                                    :id="fieldId('entry-product')"
+                                    :test-id="fieldId('entry-product')"
+                                    :search="searchProducts"
+                                    :keys="PRODUCT_KEYS"
+                                    :selected="(product: ProductOption) => product.id === entry.product?.id"
+                                    :display="entry.product?.name ?? ''"
+                                    :placeholder="t('catalog.picker.placeholder')"
+                                    floating
+                                    @pick="pickProduct"
+                                >
+                                    <template #option="{ item }">{{ item.name }}</template>
+                                </SearchCombobox>
+                            </div>
+
+                            <label class="flex flex-col gap-1.5" :for="fieldId('entry-unit')">
+                                <span>{{ t('quotations.detail.unit') }}</span>
+                                <select :id="fieldId('entry-unit')" v-model="entry.unit" class="form-field min-h-11 rounded-lg px-3 py-2" :data-testid="fieldId('entry-unit')">
+                                    <option value="">{{ t('quotations.builder.unitNone') }}</option>
+                                    <option v-for="unit in units" :key="unit.code" :value="unit.code">{{ entryLabel(unit, locale) }}</option>
+                                </select>
+                            </label>
                         </div>
 
-                        <div class="flex flex-col gap-1.5">
-                            <label :for="fieldId('entry-product')">{{ t('quotations.detail.product') }}</label>
-                            <SearchCombobox
-                                :id="fieldId('entry-product')"
-                                :test-id="fieldId('entry-product')"
-                                :search="searchProducts"
-                                :keys="PRODUCT_KEYS"
-                                :selected="(product: ProductOption) => product.id === entry.product?.id"
-                                :display="entry.product?.name ?? ''"
-                                :placeholder="t('catalog.picker.placeholder')"
-                                floating
-                                @pick="pickProduct"
-                            >
-                                <template #option="{ item }">{{ item.name }}</template>
-                            </SearchCombobox>
+                        <div class="entry-figures">
+                            <label class="flex flex-col gap-1.5" :for="fieldId('entry-price')">
+                                <span>{{ t('quotations.detail.enteredPrice') }}</span>
+                                <input :id="fieldId('entry-price')" v-model="entry.price" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-price')" />
+                            </label>
+
+                            <label v-if="taxIncluded" class="flex flex-col gap-1.5" :for="fieldId('entry-tax')">
+                                <span>{{ t('quotations.builder.tax_percent') }}</span>
+                                <input :id="fieldId('entry-tax')" v-model="entry.tax" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-tax')" />
+                            </label>
+
+                            <label class="flex flex-col gap-1.5" :for="fieldId('entry-margin')">
+                                <span>{{ t('quotations.builder.margin_percent') }}</span>
+                                <!-- A-62: text with no inputmode — a margin may be negative (D-106), and a decimal keypad has no minus on iOS. -->
+                                <input :id="fieldId('entry-margin')" v-model="entry.margin" type="text" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-margin')" />
+                            </label>
+
+                            <label class="flex flex-col gap-1.5" :for="fieldId('entry-quantity')">
+                                <span>{{ t('quotations.detail.quantity') }}</span>
+                                <input :id="fieldId('entry-quantity')" v-model="entry.quantity" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-quantity')" />
+                            </label>
+
+                            <button type="button" class="row-action min-h-11 rounded-lg px-4" :data-testid="fieldId('entry-add')" @click="addLine">
+                                + {{ t('quotations.builder.addLine') }}
+                            </button>
                         </div>
-
-                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-unit')">
-                            <span>{{ t('quotations.detail.unit') }}</span>
-                            <select :id="fieldId('entry-unit')" v-model="entry.unit" class="form-field min-h-11 rounded-lg px-3 py-2" :data-testid="fieldId('entry-unit')">
-                                <option value="">{{ t('quotations.builder.unitNone') }}</option>
-                                <option v-for="unit in units" :key="unit.code" :value="unit.code">{{ entryLabel(unit, locale) }}</option>
-                            </select>
-                        </label>
-
-                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-price')">
-                            <span>{{ t('quotations.detail.enteredPrice') }}</span>
-                            <input :id="fieldId('entry-price')" v-model="entry.price" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-price')" />
-                        </label>
-
-                        <label v-if="taxIncluded" class="flex flex-col gap-1.5" :for="fieldId('entry-tax')">
-                            <span>{{ t('quotations.builder.tax_percent') }}</span>
-                            <input :id="fieldId('entry-tax')" v-model="entry.tax" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-tax')" />
-                        </label>
-
-                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-margin')">
-                            <span>{{ t('quotations.builder.margin_percent') }}</span>
-                            <!-- A-62: text with no inputmode — a margin may be negative (D-106), and a decimal keypad has no minus on iOS. -->
-                            <input :id="fieldId('entry-margin')" v-model="entry.margin" type="text" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-margin')" />
-                        </label>
-
-                        <label class="flex flex-col gap-1.5" :for="fieldId('entry-quantity')">
-                            <span>{{ t('quotations.detail.quantity') }}</span>
-                            <input :id="fieldId('entry-quantity')" v-model="entry.quantity" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('entry-quantity')" />
-                        </label>
-
-                        <button type="button" class="row-action min-h-11 rounded-lg px-4" :data-testid="fieldId('entry-add')" @click="addLine">
-                            + {{ t('quotations.builder.addLine') }}
-                        </button>
                     </div>
 
                     <p v-if="fieldErrors.has('lines')" class="text-[var(--color-danger)]" role="alert" :data-testid="fieldId('lines-error')">{{ fieldErrors.get('lines') }}</p>
@@ -1205,11 +1209,11 @@ onMounted(load);
     border: 1px solid var(--color-border);
 }
 
-/* The additional items' row: label, amount, Remove (A-60); its note spans the row. `§4.3`: one column under 640px. */
+/* The additional items' row: label, amount, Remove at its own width (A-60); one track per child, and its note spans the row. `§4.3`: one column under 640px. */
 .line-grid {
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: minmax(10rem, 2fr) minmax(7rem, 1fr) minmax(7rem, 1fr) auto;
+    grid-template-columns: minmax(10rem, 2fr) minmax(7rem, 1fr) auto;
     align-items: end;
 }
 
@@ -1223,12 +1227,42 @@ onMounted(load);
     }
 }
 
-/* The entry row wraps on its own: nine fields fit a desktop line, and a phone gets one column (`§4.3`). */
+/*
+ * The entry row is two rows, `§7.2`'s distinct groups: what is sold (supplier, product, unit),
+ * then its figures (price, tax when on, margin, quantity) with Add at its own width on the last track.
+ * A phone gets one column (`§4.3`).
+ */
 .entry-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.entry-what {
     display: grid;
     gap: 0.75rem;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    grid-template-columns: 2fr 2fr 1fr;
     align-items: end;
+}
+
+.entry-figures {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(3, minmax(7rem, 1fr)) auto;
+    align-items: end;
+}
+
+/* The tax label makes a fourth when the toggle is on. */
+.entry-figures:has(> label:nth-of-type(4)) {
+    grid-template-columns: repeat(4, minmax(7rem, 1fr)) auto;
+}
+
+@media (max-width: 639px) {
+    .entry-what,
+    .entry-figures,
+    .entry-figures:has(> label:nth-of-type(4)) {
+        grid-template-columns: 1fr;
+    }
 }
 
 .line-row {

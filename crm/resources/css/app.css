@@ -195,6 +195,27 @@ dialog:not([open]) {
     color: var(--color-text);
 }
 
+/*
+ * A select as tall as an input (owner, 2026-10-23: the builder's selects are
+ * shorter than its inputs in Safari): Safari ignores min-height on a native
+ * select, so the menulist look goes and the height is set. The open list stays
+ * native (A-42's color-scheme in tokens.css).
+ * ponytail: gradient chevron in the text colour, swap for an SVG mask if a designer wants a different glyph.
+ */
+select.form-field {
+    appearance: none;
+    block-size: 2.75rem;
+    padding-inline-end: 2.25rem;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-size: 0.4rem 0.4rem, 0.4rem 0.4rem;
+    background-repeat: no-repeat;
+    background-position: calc(100% - 1.15rem) 50%, calc(100% - 0.75rem) 50%;
+}
+
+select.form-field:dir(rtl) {
+    background-position: 0.75rem 50%, 1.15rem 50%;
+}
+
 .row-action {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border-strong);

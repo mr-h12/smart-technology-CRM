@@ -5006,10 +5006,13 @@ resumes at 8.3 after the redesign unless the owner reorders.
 - [ ] **QS.2c** The builder's layout (owner, 2026-10-23, in chat; approved the same day) — the lines table always
       shows its column headers, with one empty row before the first line; the additional items move **under** the
       table as a small table (description · amount · remove) with their note (`D-159`) and an empty row of their own;
-      a divider and clear space separate them from the terms; a new quotation opens on **one empty term with no
-      key** instead of three ready ones (`D-169`, proposed, amending `D-103` ruling 1) — so its chips (6.8) and the
-      delivery combobox (F-32) appear only on stored keyed terms. An empty term prints nothing (`D-103` ruling 3)
-      and saves without a name (`needsName`). The API, the pricing and the PDF do not change.
+      each section is its own card, 32px apart, and the tables carry a frame, a header and row lines (owner,
+      2026-10-23). The additional items and the terms work like the lines (owner, 2026-10-24): an entry row
+      (description · amount · «+ إضافة بند»; name · text · «+ إضافة شرط») moves a row into its table, each row
+      with Edit (back to the entry row) and Remove (with undo); a new quotation opens on **an empty terms table
+      under one entry row** (`D-169`, proposed, amending `D-103` ruling 1). A stored keyed term sent back to the entry
+      row brings its chips (6.8) and the delivery combobox (F-32). An empty term prints nothing (`D-103` ruling 3).
+      The API, the pricing and the PDF do not change.
 - [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
       with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
       and the totals block shows before Save.

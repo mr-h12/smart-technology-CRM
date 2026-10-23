@@ -898,6 +898,22 @@ describe('the quotation builder (edit)', () => {
         }
     });
 
+    // A legacy line backfilled from a catalog item without a unit carries `unit_code: null`; sent back, the unit is left to choose (D-155).
+    it('sends a line with no unit back with the unit on its empty choice, and will not move it again without one', async () => {
+        const noUnit = { ...PRICED, entry: { pricing_mode: 'tax_included', lines: [{ ...ENTRY_LINES[0], unit_code: null }] } };
+        const { wrapper } = await render(respond({ quotations: [noUnit] }), EDIT);
+
+        await wrapper.get(id('line-0-send-back')).trigger('click');
+        await flushPromises();
+
+        expect((wrapper.get(id('entry-unit')).element as HTMLSelectElement).selectedIndex).toBe(0);
+
+        await wrapper.get(id('entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(rows(wrapper)).toHaveLength(0);
+    });
+
     it('loads a tax-exempt Draft with the toggle off and no tax column, and keeps it exempt on save (D-157, E3)', async () => {
         const fetchMock = respond({ quotations: [EXEMPT] });
         const { wrapper } = await render(fetchMock, EDIT);

@@ -54,9 +54,9 @@ export interface QuotationLine {
     line_no: number;
     /** Null on a line typed under the new pricing (`D-154`); set on a legacy line. */
     supplier_quotation_item_id: string | null;
-    unit_code: string;
+    unit_code: string | null;
     supplier_id?: string;
-    supplier_name?: string;
+    supplier_name?: string | null;
     entered_unit_price?: string;
     tax_percent?: string | null;
     /** F-16 · 1.1: the catalog item's name (a service's `service_type`); null when its supplier line is archived. */
@@ -91,7 +91,7 @@ export interface QuotationEntryLine {
     supplier_name: string;
     catalog_item_id: string;
     product_name: string;
-    unit_code: string;
+    unit_code: string | null;
     entered_unit_price: string;
     tax_percent: string | null;
     margin_percent: string;

@@ -125,7 +125,7 @@ Any change to a screen, component, or stylesheet must be verified in a real brow
 ## Financial and Quotation Rules
 
 - Calculate all prices in the backend. The UI may preview but never be the source of truth.
-- Line pricing (`D-156`): `net = entered ÷ (1 + line tax / 100)` truncated to 6 places, `unit_price = round2(net × (1 + line margin / 100))` (`D-142`), `line_amount = round2(unit_price × quantity)`; the margin is per line only, with no quotation margin.
+- Line pricing (`D-167`, proposed 2026-10-23, superseding `D-156`'s division): the entered price is the supplier's cost before tax — `unit_cost_base = entered`, `unit_price = round2(entered × (1 + line margin / 100))` (`D-142`), `line_amount = round2(unit_price × quantity)`; the line's tax is added on top of its discounted amount (`D-157`), never taken out of the entered price; the margin is per line only, with no quotation margin.
 - Discount is a percentage of the subtotal only, and it is subtracted **before** tax so it reduces the tax base (`D-64`). Additional items are never taxed (`D-62`).
 - Tax is per line (`D-157`). The *Prices include tax* toggle is the preparer's decision, not forced from the customer's exemption: off means no tax at all and the typed price used as-is; on means the discount is spread over the lines in proportion to their amounts, each line is taxed at its own rate (0% allowed) on its discounted amount, and the sum is the VAT line. An exempt quotation renders **no tax line at all**, not a zero line.
 - Rounding is **optional per currency** (`D-65`). When it is on, apply it to the final total only, using that currency's configured unit. Store `rounding_diff` — it is `0` when rounding is off.

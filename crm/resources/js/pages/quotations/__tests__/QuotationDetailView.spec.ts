@@ -992,6 +992,14 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('قطعة');
     });
 
+    // A legacy line backfilled from a catalog item without a unit carries `unit_code: null` (`QuotationLine::$unitCode`).
+    it('prints the dash for a line with no unit', async () => {
+        const noUnit = { ...PRICED, items: [{ ...PRICED_LINE, unit_code: null }] };
+        const { wrapper } = await render(respond({ quotation: noUnit }));
+
+        expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('—');
+    });
+
     // §3.5 / Q7: without `view cost & margin` the server strips supplier and entered price; the unit and the
     // tax rate stay — the customer PDF prints the rate, so it is no cost field (owner, 2026-10-23).
     it('shows the unit and the tax rate and none of the supplier or entered price when the payload strips them', async () => {

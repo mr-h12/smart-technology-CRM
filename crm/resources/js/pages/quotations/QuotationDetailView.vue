@@ -200,10 +200,10 @@ function roundingUnit(unit: string): string {
 }
 
 /** `D-155`: a line's unit is a code; the list names it, the code stands in until (or unless) the list is read. */
-function unitLabel(code: string): string {
+function unitLabel(code: string | null): string {
     const entry = units.value.find((candidate) => candidate.code === code);
 
-    return entry === undefined ? code : entryLabel(entry, locale.value);
+    return entry === undefined ? text(code) : entryLabel(entry, locale.value);
 }
 
 function percent(value: string | null | undefined): string {

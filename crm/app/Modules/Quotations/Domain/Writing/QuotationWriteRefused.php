@@ -9,8 +9,8 @@ use RuntimeException;
 /**
  * The ways a write to one quotation refuses a well-formed request — Module 7
  * Points 3.6 and 4.1 — each mapped to the `OpenAPI §5.1` row it belongs to.
- * One class with a reason, as `QuotationNotPriceable` is, because they share
- * a renderer and differ only in status, code and the detail entry.
+ * One class with a reason, because the reasons share a renderer and differ
+ * only in status, code and the detail entry.
  *
  * | reason | HTTP | `error.code` | why |
  * |---|---|---|---|

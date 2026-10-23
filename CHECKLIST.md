@@ -2048,6 +2048,15 @@ would hide them behind `OD-03` indefinitely.
       review, 2026-10-23 (the rule predates the point: `d04fc626:95,100`).* The pricing uses the full value while PostgreSQL
       rounds it half-up on write, so an amount of `10.0000005` is stored as `10.000001` beside an `additional_total` of
       `10.000000`. The `{1,3}`/`{1,4}` decimal limit the margin and tax rules carry closes it.
+- [ ] **The supplier-quotation form's «recorded / consumed / available» balance freezes for new-mode acceptances** —
+      *revealed by QS.2a's blast-radius sweep, 2026-10-23.* Since `D-155` a new line names no offer line, so
+      `RespondToQuotation` consumes nothing on accept (`D-161` retired the balance warning) — yet
+      `SupplierQuotationFormModal.vue:444` still shows `consumed_quantity` / `available_quantity`
+      (`SupplierQuotationPayload.php:82-83`) as if live. Slice 4 retires the screen; until then the balance only
+      moves for legacy quotations. The owner may prefer hiding the two figures now.
+- [ ] **`SupplierItemPricingInterface` / `EloquentSupplierItemPricing` have no consumer** — *revealed by QS.2a's
+      blast-radius sweep, 2026-10-23.* `D-164` ended the line's lookup of the supplier price, so the interface
+      (`AppServiceProvider.php:349-354` binding) is dead; it is another module's file, so it goes with slice 4.
 
 ## Agent guide revisions — owner-directed
 
@@ -4947,8 +4956,9 @@ resumes at 8.3 after the redesign unless the owner reorders.
       `D-163`…`D-165`) — migration B gives each `quotation_items` row its `supplier_id` (NOT NULL, foreign key),
       `unit_code`, `entered_unit_price` and `tax_percent`, backfilled from the line's supplier-offer line even when
       that offer line is soft-deleted, and each quotation its `pricing_mode` (`legacy` on every existing row;
-      `default_margin` only in `legacy`); `supplier_quotation_item_id` becomes nullable. A new line's tax is taken
-      out of the entered price, then its own margin is added (`D-156`); tax is per line and the «شامل الضريبة»
+      `default_margin` only in `legacy`); `supplier_quotation_item_id` becomes nullable. A new line's entered price
+      is the supplier's cost before tax: its own margin is added, then its tax on top — tax is added, never taken
+      out (owner, 2026-10-23, superseding `D-156`'s division; recorded as `D-167`, proposed); tax is per line and the «شامل الضريبة»
       toggle is the preparer's (`D-157`); no quotation margin, no quotation tax rates, no FX on a new line
       (`D-164`). The builder's line section becomes an entry row (an existing supplier, product and unit only;
       typing a new one is slice 3) and a table with remove and send-back, the supplier, tax and margin kept after
@@ -4959,9 +4969,11 @@ resumes at 8.3 after the redesign unless the owner reorders.
       picker). The detail shows each line's tax and unit to every viewer and its supplier and entered price to cost
       viewers (owner, 2026-10-23: the customer PDF prints the rate and the unit, so neither is a cost field), and the note under
       «إرسال للاعتماد» (`D-163`). The PDF taxes each
-      line at its own rate and reads the unit from the line; in `tax_included` mode it prints unit and line prices
-      including tax, **no VAT column**, and «السعر شامل الضريبة» under the table as well as in the terms (owner,
-      2026-10-23); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
+      line at its own rate and reads the unit from the line; the per-line VAT column follows the toggle — on
+      (`tax_included`) it prints net unit and line prices **with the VAT column**, the VAT row and «السعر شامل
+      الضريبة» under the table as well as in the terms; off (`tax_exempt`) prints no column, no row and no note
+      (owner, 2026-10-23, second ruling that day, reversing the morning's «no VAT column»; recorded as `D-168`,
+      proposed); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
       product or unit (slice 3).
 - [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
       with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,

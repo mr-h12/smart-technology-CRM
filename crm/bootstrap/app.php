@@ -32,7 +32,6 @@ use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
-use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Reports\Domain\ReportNotFound;
 use App\Modules\Reports\Domain\ReportWriteRefused;
@@ -281,11 +280,6 @@ return Application::configure(basePath: dirname(__DIR__))
                 : null,
         );
 
-        $exceptions->render(
-            fn (QuotationNotPriceable $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
-                ? ApiExceptionRenderer::quotationNotPriceable($e, $request)
-                : null,
-        );
         $exceptions->render(
             fn (InvalidQuotationListQuery $e, Request $request): ?JsonResponse => ApiExceptionRenderer::applies($request)
                 ? ApiExceptionRenderer::invalidQuotationListQuery($e, $request)

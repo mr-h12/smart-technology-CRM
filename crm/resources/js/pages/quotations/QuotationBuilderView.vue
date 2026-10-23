@@ -21,9 +21,8 @@
  * ── Refusals ───────────────────────────────────────────────────────────────
  * A 422 `validation_failed` lands on the field it names, Module 6's
  * `applyServerErrors` pattern: `lines.N.<field>` on the table's row N, `lines`
- * (the cap) on the table. `fx_rate_missing` is a currency problem, shown at the
- * form. No warning rides a save any more (`D-161`), so a clean save goes
- * straight to the detail.
+ * (the cap) on the table. No warning rides a save any more (`D-161`), so a
+ * clean save goes straight to the detail.
  *
  * ── Idempotency ────────────────────────────────────────────────────────────
  * `OpenAPI §9.1`: one `Idempotency-Key` per form open. A retry after a
@@ -293,7 +292,8 @@ function applyDetail(quotation: QuotationDetail): void {
     lines.value = (quotation.entry?.lines ?? []).map((line) => ({
         supplier: { id: line.supplier_id, name: line.supplier_name },
         product: { id: line.catalog_item_id, name: line.product_name },
-        unit: line.unit_code,
+        // A legacy line backfilled from a catalog item without a unit has none; the unit is left to choose (D-155).
+        unit: line.unit_code ?? '',
         price: displayQuantity(line.entered_unit_price),
         tax: displayPercent(line.tax_percent) ?? '',
         margin: displayPercent(line.margin_percent),
@@ -612,7 +612,7 @@ function draft(): QuotationDraft {
     };
 }
 
-/** `OpenAPI §5` — `details[]` names the field; `fx_rate_missing` is the form's, whichever line it cites. */
+/** `OpenAPI §5` — `details[]` names the field. */
 function applyServerErrors(error: unknown): void {
     fieldErrors.value = new Map();
 
@@ -623,12 +623,6 @@ function applyServerErrors(error: unknown): void {
     }
 
     for (const detail of error.details) {
-        if (detail.code === 'fx_rate_missing' && typeof detail.message === 'string') {
-            formError.value = detail.message;
-
-            continue;
-        }
-
         if (typeof detail.field === 'string' && typeof detail.message === 'string') {
             fieldErrors.value.set(detail.field, detail.message);
         }

@@ -8,7 +8,9 @@ namespace App\Modules\Quotations\Domain\Listing;
  * A purchase order with the accepted quotation it was written from (Module 10
  * · 2.2): §4.6's fields, and the quotation's own totals as stored — the order
  * computes nothing. Never cost, margin or suppliers (the owner's 2.2 answer).
- * `taxPercent` / `taxAmount` are null on an exempt quotation (`D-63`).
+ * `taxAmount` is null on an exempt quotation (`D-63`); `taxPercent` is the quotation-level
+ * rate a `legacy` quotation carried, so it is null on every quotation priced per line (`D-157`)
+ * whatever its `taxAmount` — a reader wanting a rate reads the lines, not this field.
  */
 final readonly class PurchaseOrderRecord
 {

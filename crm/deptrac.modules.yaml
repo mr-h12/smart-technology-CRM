@@ -984,6 +984,9 @@ deptrac:
     # the Identity split exists to serve a crossing that actually happened.
     AdminContract:
       - Framework
+      # StorageContract, Module 16 · 5 (`D-153`): J-10's `RunBackup` has the backup written
+      # by Storage's `BackupWriterInterface` — filesystem access lives there (§14.2, §17).
+      - StorageContract
       # Admin implements the settings contract; Identity reads through it. See
       # App\Support\Settings\SettingReader for why the contract sits outside
       # both modules rather than inside this one.

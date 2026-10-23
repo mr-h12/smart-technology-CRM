@@ -67,7 +67,7 @@ final class DatabaseAlertLedger implements AlertLedgerInterface
         });
     }
 
-    public function occurred(string $kind, string $subjectId, array $userIds, array $details): void
+    public function occurred(string $kind, ?string $subjectId, array $userIds, array $details): void
     {
         $this->connection->transaction(function () use ($kind, $subjectId, $userIds, $details): void {
             $now = now();
@@ -75,7 +75,8 @@ final class DatabaseAlertLedger implements AlertLedgerInterface
 
             foreach (array_values(array_unique($userIds)) as $userId) {
                 $updated = $this->connection->table('alerts')
-                    ->where('user_id', $userId)->where('kind', $kind)->where('subject_id', $subjectId)->whereNull('cleared_at')
+                    ->where('user_id', $userId)->where('kind', $kind)->whereNull('cleared_at')
+                    ->when($subjectId === null, static fn (Builder $q): Builder => $q->whereNull('subject_id'), static fn (Builder $q): Builder => $q->where('subject_id', $subjectId))
                     ->update([
                         'occurrences' => $this->connection->raw('occurrences + 1'),
                         'details' => $json,

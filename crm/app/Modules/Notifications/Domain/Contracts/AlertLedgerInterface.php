@@ -25,12 +25,13 @@ interface AlertLedgerInterface
      * Something happened again (a lock, a failure): for each of `$userIds`, the open
      * alert of `$kind` on `$subjectId` takes one more occurrence, the new details, a
      * new `last_raised_at`, and is unread again — a new event is news, not a
-     * reminder; with none open, one is raised.
+     * reminder; with none open, one is raised. A `null` subject is an alert with no
+     * record of its own (a backup).
      *
      * @param  list<string>  $userIds
      * @param  array<string, string>  $details
      */
-    public function occurred(string $kind, string $subjectId, array $userIds, array $details): void;
+    public function occurred(string $kind, ?string $subjectId, array $userIds, array $details): void;
 
     /**
      * Clear the open alerts of `$kind` whose subject is not in `$stillTrue`, rows kept.

@@ -115,6 +115,22 @@ RUN set -eux; \
 COPY fonts.conf /etc/fonts/conf.d/60-crm-fonts.conf
 RUN fc-cache -f
 
+# Module 16 · 5 (`D-153`, `BK-01`): `J-10` dumps the database with `pg_dump`, and a
+# client older than the server refuses to (postgres:17.5 above). Bookworm ships 15,
+# so the client comes from PostgreSQL's own apt repository, pinned to major 17
+# (owner's approval, 2026-10-22). The key is the repository's published ASCII key;
+# apt reads it as `signed-by` directly, so no gnupg is installed.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    install -d /usr/share/postgresql-common/pgdg; \
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc; \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends postgresql-client-17; \
+    pg_dump --version | grep -q ' 17\.'; \
+    rm -rf /var/lib/apt/lists/*
+
 # Composer, copied from its official image rather than curl | php.
 COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 
@@ -225,6 +241,9 @@ RUN chown www-data:www-data /var/www /var/www/html && chmod 0755 /var/www /var/w
 # The layout underneath is §17's:
 #   /{year}/{month}/{entity_type}/{entity_id}/{uuid}.ext
 RUN mkdir -p /var/crm-files && chown www-data:www-data /var/crm-files && chmod 0750 /var/crm-files
+# Module 16 · 5 (`D-153`): J-10's backups, on the same terms — owned by www-data so the
+# crm-backups volume, mounted here empty the first time, is writable by the worker.
+RUN mkdir -p /var/crm-backups && chown www-data:www-data /var/crm-backups && chmod 0700 /var/crm-backups
 
 # ── Laravel's writable paths ─────────────────────────────────────────────────
 #

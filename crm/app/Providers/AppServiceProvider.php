@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Modules\Admin\Domain\Backups\BackupFailed;
+use App\Modules\Admin\Domain\Backups\BackupSucceeded;
+use App\Modules\Admin\Domain\Contracts\BackupRunsInterface;
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\ManagedListRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsCacheInterface;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Contracts\SystemLimitRepositoryInterface;
+use App\Modules\Admin\Infrastructure\DatabaseBackupRuns;
 use App\Modules\Admin\Infrastructure\DatabaseSettingReader;
 use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
 use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
@@ -123,6 +127,7 @@ use App\Modules\Reports\Infrastructure\DatabaseReportDirectory;
 use App\Modules\Storage\Application\ParentAwareAttachmentPermission;
 use App\Modules\Storage\Domain\AttachmentParent;
 use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
+use App\Modules\Storage\Domain\Contracts\BackupWriterInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
@@ -136,6 +141,7 @@ use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
 use App\Modules\Storage\Infrastructure\LocalStorageUsage;
+use App\Modules\Storage\Infrastructure\PgDumpBackupWriter;
 use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemQuantityInterface;
@@ -276,6 +282,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FailedJobsInterface::class, DatabaseFailedJobs::class);
         // Module 16 · 4: how full the files volume is, for J-14.
         $this->app->bind(StorageUsageInterface::class, LocalStorageUsage::class);
+        // Module 16 · 5 (`D-153`): J-10's record and its writer (pg_dump + the files archive).
+        $this->app->bind(BackupRunsInterface::class, DatabaseBackupRuns::class);
+        $this->app->bind(BackupWriterInterface::class, PgDumpBackupWriter::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 
@@ -700,6 +709,15 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(
             AccountLocked::class,
             fn (AccountLocked $event): null => $this->app->make(RaiseSystemAlerts::class)->accountLocked($event),
+        );
+        // Module 16 · 5 (`BK-05`): J-10's outcome, as the backup-failed alert and its clearing.
+        Event::listen(
+            BackupFailed::class,
+            fn (BackupFailed $event): null => $this->app->make(RaiseSystemAlerts::class)->backupFailed($event),
+        );
+        Event::listen(
+            BackupSucceeded::class,
+            fn (BackupSucceeded $event): null => $this->app->make(RaiseSystemAlerts::class)->backupSucceeded($event),
         );
         // Module 16 · 3: a job whose retries are spent, as an alert to every Super Admin.
         Event::listen(

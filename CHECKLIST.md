@@ -2005,6 +2005,17 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **The won-chain rule is written twice in the Dashboard's adapter** — *revealed by Module 14 · 5.2's waste audit, 2026-10-21.*
       `DatabaseDashboardAggregates::moneyBetween` spells `D-141`'s "latest version sent in the period, won when
       accepted or partial" in its own CTE; `wonChains()` (5.2) is the same CTE, scoped. `moneyBetween` can use it.
+- [ ] **J-10's backup leaves out what `D-153` deferred** — *Module 16 · 5, 2026-10-23.* The nightly backup is the
+      database (`pg_dump -Fc`) and the stored files, with checksums (`BK-01` without the search index, `BK-04`).
+      Not built: a manual backup (`BK-02`), retention of 7 daily + 4 weekly (`BK-03` — today every backup is kept
+      and the `crm-backups` volume only grows), a monthly restore test (`BK-06`), the restore runbook (`BK-07`),
+      and a copy off this machine (`BK-08` — a backup on the same disk does not survive the disk). **Owner:
+      mohanadmm.** Retention is the first to need doing; `J-14` will say when the disk is filling.
+- [ ] **J-10 must finish within 80 seconds** — *Module 16 · 5, 2026-10-23.* The redis queue's `retry_after` is
+      90 s and the worker's default timeout 60 s, so `RunBackupJob` sets 85 s and `pg_dump` gets 80 s; a slower
+      dump is recorded as a failure (and alerts) rather than killed and handed out twice. Dev's dump takes under
+      a second. **Trigger:** the first `backup_runs` row failing on the timeout — then give `maintenance` its own
+      connection with a longer `retry_after`, and the job a longer `$timeout`.
 - [ ] **No test sets a company time zone for J-09** — *Module 14 · 2.1b/3.2/4.2, 2026-10-21.* Every J-09 grouping reads
       `CompanyToday::zone()`; the J-09 tests run with `locale.timezone` unset (UTC). The list filters of 6.1 are tested
       in Africa/Cairo; J-09's day boundaries are not yet.
@@ -5490,7 +5501,7 @@ Each point is a red turn, then a green turn, on its own branch.
 - [x] **1** The `Alerts` module and its `alerts` table; `GET /alerts`, the unread count, mark read; the bell and its list in ar/en *(2026-10-22, #422 — `alerts` with D-153's kinds and one open alert per user, kind and record; four endpoints, auth only, no delete; the bell on the context bar's first row; full PHP suite 4391 passed alone, vitest 1590; browser ar/en × 1280/375 × light/dark: a long job name ran under its button and Escape stopped closing after «تعليم كمقروء» — both fixed, the second with a test)*
 - [x] **2** Quotation expiring soon: `quotations.expiry_alert_days`, `J-16` with its catch-up, owner + Team Leader, clearing *(2026-10-22, #424 — raised once (§18.3), cleared on the run after the quotation leaves the window; `ExpiringQuotationsInterface`, `teamLeadersOf`; the setting on the limits screen; full PHP suite 4422 passed alone, vitest 1593; browser: the limits intro's fixed "five of the seven" now counts (test added); on dev the scheduler's catch-up ran J-01 then J-16)*
 - [x] **3** Account locked and job failed, to every Super Admin *(2026-10-22, #425 — on Identity's `AccountLocked` and Laravel's `JobFailed`, per account and per job class, a repeat counted and unread again; `J-17` hourly clears them (approved by the owner 2026-10-22, §15 row); full PHP suite 4433 passed alone; dev workers restarted onto the listener)*
-- [ ] **4** Storage over limit: `J-14` and its limit setting
+- [x] **4** Storage over limit: `J-14` and its limit setting *(2026-10-23, #430 — `limits.storage_alert_percent` (percent, 1–99, 80 unset; the owner's reading of "the limit"), `StorageUsageInterface` on the files volume, raised once and cleared back under; full PHP suite 4452 passed alone; dev: 8.7 % in use, nothing raised; browser: the «٪» unit and «7 من 9»)*
 - [ ] **5** Minimal backups (`J-10`: database + files, checksum, success/failure record) and the backup-failed alert
 - [ ] **6** Every criterion ticked with its test; the manual test list; the debt rows; the browser check ar/en × 1280/375 × light/dark; the module archived to `checklist/module-16.md`
 

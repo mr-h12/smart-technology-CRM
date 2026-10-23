@@ -112,8 +112,9 @@ final class RunBackupTest extends TestCase
         $path = DB::table('backup_runs')->value('files_path');
 
         $names = [];
+        /** @var \PharFileInfo $file */
         foreach (new \RecursiveIteratorIterator(new PharData($this->backups.'/'.$path)) as $file) {
-            $names[] = str_replace('\\', '/', (string) $file);
+            $names[] = str_replace('\\', '/', $file->getPathname());
         }
 
         self::assertNotEmpty(array_filter($names, static fn (string $name): bool => str_ends_with($name, 'customers/contract.pdf')));
@@ -171,7 +172,9 @@ final class RunBackupTest extends TestCase
 
         self::assertSame('failed', $this->app->make(RunBackup::class)->run());
 
-        self::assertStringContainsString('pg_dump', (string) DB::table('backup_runs')->value('error'));
+        $error = DB::table('backup_runs')->value('error');
+        self::assertIsString($error);
+        self::assertStringContainsString('pg_dump', $error);
     }
 
     /** §15: J-10 daily, catch-up ✅ — after J-16 on start. 02:00 UTC, clear of J-09's 00:30 and J-05/J-07's 01:00. */

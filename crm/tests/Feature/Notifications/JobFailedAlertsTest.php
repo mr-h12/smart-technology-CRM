@@ -104,6 +104,30 @@ final class JobFailedAlertsTest extends TestCase
         self::assertNotNull(DB::table('alerts')->where('kind', 'job_failed')->value('cleared_at'));
     }
 
+    /**
+     * Module 16 · 6, found preparing the browser check: `subject_id` was 64 characters
+     * and `RaiseQuotationExpiryAlertsJob`'s class name is 68, so its failure would have
+     * lost its alert (logged, not raised). Every queued job in the application must fit.
+     */
+    public function test_that_every_queued_job_class_in_the_application_fits_as_a_subject(): void
+    {
+        $classes = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path('Modules'), \FilesystemIterator::SKIP_DOTS)) as $file) {
+            /** @var \SplFileInfo $file */
+            $source = (string) file_get_contents($file->getPathname());
+            if (str_contains($source, 'implements ShouldQueue') && preg_match('/^namespace ([^;]+);/m', $source, $ns) === 1) {
+                $classes[] = $ns[1].'\\'.$file->getBasename('.php');
+            }
+        }
+        self::assertGreaterThan(10, count($classes), 'The scan found no jobs, so it proved nothing.');
+
+        foreach ($classes as $class) {
+            $this->app->make(\App\Modules\Notifications\Application\RaiseSystemAlerts::class)->jobFailed($class, QueueName::Maintenance->value);
+        }
+
+        self::assertSame(count($classes), DB::table('alerts')->where('kind', 'job_failed')->distinct()->count('subject_id'));
+    }
+
     /** `J-17`: the sweep, hourly onto `maintenance`. No catch-up: the next hour's run is the catch-up. */
     public function test_that_j17_is_scheduled_hourly_onto_maintenance(): void
     {

@@ -123,6 +123,18 @@ final class AlertsMigrationTest extends TestCase
         }
     }
 
+    /** Module 16 · 6: the subject holds a job's full class name; 64 did not (`JobFailedAlertsTest`). */
+    public function test_that_the_subject_holds_a_class_name_and_its_widening_rolls_back_and_forward(): void
+    {
+        self::assertSame('255', $this->scalar('select character_maximum_length::text from information_schema.columns where table_name = ? and column_name = ?', ['alerts', 'subject_id']));
+
+        $path = 'database/migrations/2026_10_23_200000_widen_alerts_subject_id.php';
+        self::assertSame(0, Artisan::call('migrate:rollback', ['--path' => $path]));
+        self::assertSame('64', $this->scalar('select character_maximum_length::text from information_schema.columns where table_name = ? and column_name = ?', ['alerts', 'subject_id']));
+        self::assertSame(0, Artisan::call('migrate'));
+        self::assertSame('255', $this->scalar('select character_maximum_length::text from information_schema.columns where table_name = ? and column_name = ?', ['alerts', 'subject_id']));
+    }
+
     /** DEV-03: this point's migration, found by the table it creates, rolled back by its path. */
     public function test_that_the_migration_rolls_back_and_forward(): void
     {

@@ -33,10 +33,12 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * Pure by construction, for the reason `PricedLine` gives.
  *
  * **An exempt quotation has no tax line at all** (`D-63`) — `tax_amount` is
- * `null`, never `'0'`. Point 1.1's `quotations_tax_percent_not_zero` refuses a
- * zero percent outright and Point 1.2's `quotations_tax_amount_matches_tax_percent`
- * refuses the mixed pair, so a zero here would be unstorable as well as wrong:
- * §16's PDF decides whether to print the line by whether the amount exists.
+ * `null`, never `'0'`: each line is taxed at its own rate after the discount
+ * (`D-157`), and no line with a rate above zero means no tax line. The pair
+ * Points 1.1 and 1.2 put on the quotation's `tax_percent` and `tax_amount`
+ * binds `legacy` rows only (`D-165`); `quotations_exempt_has_no_tax_amount`
+ * keeps a `tax_exempt` row's amount null. §16's PDF decides whether to print
+ * the line by whether the amount exists.
  *
  * Note `additional_total` rejoins the arithmetic in `net_amount` after sitting
  * out of `tax_base`. It is excluded from the tax, not from the quotation — the
@@ -183,11 +185,13 @@ final readonly class QuotationTotals
     }
 
     /**
-     * `tax_base × tax_percent / 100`, or **null** when the quotation is exempt.
+     * `Σ` each taxed line's discounted amount × its own rate (`D-157`), or
+     * **null** when no line carries a rate above zero. `tax_base × tax_percent
+     * / 100` is how a `legacy` row's stored amount was made (`D-165`).
      *
      * Null and not `'0'` (`D-63`). `§16` prints a tax line only when there is
-     * an amount, and Point 1.2's CHECK pairs this with `tax_percent` so the two
-     * are null together or neither is.
+     * an amount; Point 1.2's CHECK pairing it with `tax_percent` binds `legacy`
+     * rows only.
      *
      * @return numeric-string|null
      */

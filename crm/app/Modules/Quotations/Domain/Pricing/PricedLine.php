@@ -116,7 +116,8 @@ final readonly class PricedLine
     }
 
     /**
-     * `unit_cost × fx_rate_at_time`, in the quotation's currency (`D-09`).
+     * The line's net cost, in the quotation's currency (`D-164`): the entered price with the line's own
+     * tax taken out, truncated to 6 places (`D-156`), or the entered price as typed when it has no tax.
      *
      * @return numeric-string
      */

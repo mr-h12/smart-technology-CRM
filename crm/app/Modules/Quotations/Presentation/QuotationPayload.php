@@ -136,7 +136,7 @@ final class QuotationPayload
      * @param  array<string, mixed>|null  $entry  `ShowQuotation::entry()` — cost viewers only, the values the builder loads
      * @return array<string, mixed>
      */
-    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting, array $lineNames, array $supplierNames = [], ?array $entry = null): array
+    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting, array $lineNames, array $supplierNames, ?array $entry): array
     {
         return [
             'id' => $quotation->id,
@@ -185,9 +185,9 @@ final class QuotationPayload
                     'line_no' => $line->lineNo,
                     'product_name' => $lineNames[$line->id] ?? null,
                     ...($withCosts ? $line->asRow() : array_diff_key($line->asRow(), array_flip(QuotationLine::COST_FIELDS))),
+                    ...($withCosts ? ['supplier_name' => $supplierNames[$line->supplierId] ?? null] : []),
                     // `D-148` (over `D-106`'s ruling (b)): the margin the stored price achieves, computed here, never by the SPA —
                     // a cost field, so it goes with the others; read-only, so not in `asRow()`'s audit values.
-                    ...($withCosts ? ['supplier_name' => $supplierNames[$line->supplierId] ?? null] : []),
                     ...($withCosts ? ['effective_margin_percent' => PricedLine::achievedMargin(Decimal::of($line->unitPrice, 'unit_price'), Decimal::of($line->unitCostBase, 'unit_cost_base'))] : []),
                 ],
                 $quotation->items,

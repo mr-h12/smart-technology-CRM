@@ -458,6 +458,8 @@ function pickSupplier(supplier: Supplier | null): void {
 
 type ProductOption = CatalogItem & { name: string };
 
+// ponytail: PRODUCT_KEYS and searchProducts copy CatalogItemPicker.vue:38-53 minus `supplierFirst` (D-93) and the
+// «Type a name instead» option (D-22); slice 3 (D-160, typing a new product) replaces this search.
 const PRODUCT_KEYS = {
     more: 'catalog.picker.more',
     forbidden: 'catalog.picker.forbidden',
@@ -936,7 +938,7 @@ onMounted(load);
                 <section class="flex flex-col gap-3">
                     <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
 
-                    <div class="entry-grid line-row rounded-xl p-3" :data-testid="fieldId('entry')" @keydown.enter="entryEnter">
+                    <div class="entry-grid line-row rounded-xl p-3" @keydown.enter="entryEnter">
                         <div class="flex flex-col gap-1.5">
                             <label :for="fieldId('entry-supplier')">{{ t('quotations.detail.supplier') }}</label>
                             <SearchCombobox

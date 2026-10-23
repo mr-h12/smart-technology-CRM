@@ -758,6 +758,21 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('discount_percent-error')).text()).toBe('The discount must be below 100.');
     });
 
+    // D-166: a 26th distinct supplier is a 422 on `lines` itself, drawn above the table.
+    it('lands a validation sentence on the lines list above the table', async () => {
+        const fetchMock = respond({
+            saves: [refusal(422, 'validation_failed', [{ field: 'lines', code: 'invalid', message: 'A quotation can name at most 25 suppliers.' }])],
+        });
+        const { wrapper } = await render(fetchMock);
+
+        await fillHeader(wrapper);
+        await enterLine(wrapper);
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.find(id('lines-error')).text()).toBe('A quotation can name at most 25 suppliers.');
+    });
+
     // ──────────────────────────────────────────────────────────── permission
 
     it('draws a 403 on the deal as a page refusal', async () => {

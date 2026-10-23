@@ -2039,6 +2039,15 @@ would hide them behind `OD-03` indefinitely.
       `php artisan test tests/PdfImage` in `worker-pdf` (the first local run of that directory; CI runs it in a throw-away pdf
       image) left 8 files under `/var/crm-files/2026/10/quotation/01a1555e-…/` (115 → 123). The testing environment keeps
       `FILESYSTEM_DISK=local` on the shared volume. A test-only files root, or a cleanup in the test's `tearDown`, closes it.
+- [ ] **`QuotationCreated`, `QuotationUpdated` and the SPA's `read()` wrap a single value** — *created by QS.2a, deferred, 2026-10-23.*
+      `D-161` retired the quantity and drift warnings, so the two PHP events and the TypeScript `QuotationRead` /
+      `QuotationCreated` shapes now carry only the quotation. Removing them touches three constructors, the controller, four
+      service functions and every `.quotation` reader — wider than the point's approved list; slice 5 (the legacy-code
+      deletion) takes them with the rest.
+- [ ] **`lines.*.quantity` and `additional_items.*.amount` accept any number of decimals** — *revealed by QS.2a's pricing
+      review, 2026-10-23 (the rule predates the point: `d04fc626:95,100`).* The pricing uses the full value while PostgreSQL
+      rounds it half-up on write, so an amount of `10.0000005` is stored as `10.000001` beside an `additional_total` of
+      `10.000000`. The `{1,3}`/`{1,4}` decimal limit the margin and tax rules carry closes it.
 
 ## Agent guide revisions — owner-directed
 
@@ -4947,8 +4956,8 @@ resumes at 8.3 after the redesign unless the owner reorders.
       A legacy Draft converts at its next save (`D-165`). The price-drift and over-quantity warnings retire
       (`D-161`); accepting consumes only lines that still point at an offer; a save naming more than 25 distinct
       suppliers is refused 422 on `lines` (`D-166`; owner, 2026-10-23: 25, where §6.2's 10 lived only in the old
-      picker). The detail shows each line's tax to every viewer and its supplier, unit and entered price to cost
-      viewers (owner, 2026-10-23: the customer PDF prints the rate, so it is no cost field), and the note under
+      picker). The detail shows each line's tax and unit to every viewer and its supplier and entered price to cost
+      viewers (owner, 2026-10-23: the customer PDF prints the rate and the unit, so neither is a cost field), and the note under
       «إرسال للاعتماد» (`D-163`). The PDF taxes each
       line at its own rate and reads the unit from the line; in `tax_included` mode it prints unit and line prices
       including tax, **no VAT column**, and «السعر شامل الضريبة» under the table as well as in the terms (owner,

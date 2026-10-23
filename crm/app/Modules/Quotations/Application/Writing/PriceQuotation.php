@@ -12,7 +12,6 @@ use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use App\Support\Database\Precision;
-use DateTimeImmutable;
 use InvalidArgumentException;
 
 /**
@@ -51,7 +50,7 @@ final readonly class PriceQuotation
     /**
      * @param  array<string, mixed>  $validated  the Form Request's output
      */
-    public function price(array $validated, DateTimeImmutable $at): PricedQuotation
+    public function price(array $validated): PricedQuotation
     {
         $currency = $this->quotationCurrency($validated['currency'] ?? null);
         $mode = PricingMode::from(self::string($validated['pricing_mode'] ?? null, 'pricing_mode'));

@@ -725,7 +725,7 @@ onMounted(refresh);
                                 <th scope="col" class="p-3 text-start">{{ t('quotations.detail.unit') }}</th>
                                 <th scope="col" class="p-3 text-end">{{ t('quotations.detail.quantity') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.enteredPrice') }}</th>
-                                <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.taxRate') }}</th>
+                                <th scope="col" class="p-3 text-end">{{ t('quotations.detail.taxRate') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.unitCost') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.margin') }}</th>
                                 <th scope="col" class="p-3 text-end">{{ t('quotations.detail.unitPrice') }}</th>
@@ -740,7 +740,7 @@ onMounted(refresh);
                                 <td :data-label="t('quotations.detail.unit')" class="p-3" data-testid="quotation-line-unit">{{ unitLabel(line.unit_code) }}</td>
                                 <td :data-label="t('quotations.detail.quantity')" class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayQuantity(line.quantity) }}</td>
                                 <td v-if="showsCosts" :data-label="t('quotations.detail.enteredPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-entered_unit_price"><bdi dir="ltr">{{ displayDecimals(line.entered_unit_price) }} {{ quotation.currency }}</bdi></td>
-                                <td v-if="showsCosts" :data-label="t('quotations.detail.taxRate')" class="p-3 text-end tabular-nums" data-testid="quotation-line-tax_percent"><bdi dir="ltr">{{ percent(line.tax_percent) }}</bdi></td>
+                                <td :data-label="t('quotations.detail.taxRate')" class="p-3 text-end tabular-nums" data-testid="quotation-line-tax_percent"><bdi dir="ltr">{{ percent(line.tax_percent) }}</bdi></td>
                                 <td :data-label="t('quotations.detail.unitCost')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost"><bdi dir="ltr">{{ displayDecimals(line.unit_cost_base) }} {{ quotation.currency }}</bdi></td>
                                 <td :data-label="t('quotations.detail.margin')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent"><bdi dir="ltr">{{ percent(line.effective_margin_percent) }}</bdi></td>
                                 <td :data-label="t('quotations.detail.unitPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>

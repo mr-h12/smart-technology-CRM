@@ -992,15 +992,16 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('قطعة');
     });
 
-    // §3.5 / Q7: without `view cost & margin` the server strips supplier, entered price and tax; the unit stays.
-    it('shows the unit and none of the supplier, entered price or tax when the payload strips them', async () => {
-        const stripped = { ...QUOTATION, items: [{ ...QUOTATION.items[0], unit_code: 'pcs' }] };
+    // §3.5 / Q7: without `view cost & margin` the server strips supplier and entered price; the unit and the
+    // tax rate stay — the customer PDF prints the rate, so it is no cost field (owner, 2026-10-23).
+    it('shows the unit and the tax rate and none of the supplier or entered price when the payload strips them', async () => {
+        const stripped = { ...QUOTATION, items: [{ ...QUOTATION.items[0], unit_code: 'pcs', tax_percent: '14.000' }] };
         const { wrapper } = await render(respond({ quotation: stripped }), READER);
 
         expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('Piece');
         expect(wrapper.find('[data-testid="quotation-line-supplier"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="quotation-line-entered_unit_price"]').exists()).toBe(false);
-        expect(wrapper.find('[data-testid="quotation-line-tax_percent"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="quotation-line-tax_percent"]').text()).toMatch(/^14\s*%$/);
         expect(wrapper.find('[data-testid="quotation-lines"]').text()).not.toContain('Nile Pumps Co');
     });
 

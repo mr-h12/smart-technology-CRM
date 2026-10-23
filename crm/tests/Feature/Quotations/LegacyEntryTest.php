@@ -99,9 +99,9 @@ final class LegacyEntryTest extends TestCase
 
     public function test_d142s_line_priced_again_from_its_entry_keeps_its_price(): void
     {
-        // QT-2026-0135 (`D-142`): cost 26315.789474 at 14% is typed 30000.000000;
-        // taken back out it is 26315.789473 — a millionth lower — and the
-        // selling price is still 26315.79, the line still 263157.90.
+        // QT-2026-0135 (`D-142`): cost 26315.789474 at 14% is entered rounded up,
+        // 30000.000001, so taken back out it is the cost again, 26315.789474, and
+        // the selling price is still 26315.79, the line still 263157.90.
         $entry = LegacyEntry::line(unitCostBase: '26315.789474', lineMargin: null, defaultMargin: '0.000', taxPercent: '14.000');
         $line = PricedLine::fromEntered(
             enteredUnitPrice: $entry['entered_unit_price'],

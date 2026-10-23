@@ -12,9 +12,10 @@ namespace App\Modules\Quotations\Domain\Pricing;
  *
  * `D-107` ruling (1): the discount is spread over the lines before VAT, so
  * line VAT = line total × (1 − discount/100) × tax/100. The line's *Total* is
- * the stored line amount, printed as is (`D-142`). The VAT row stays §5.2's `tax_amount`; a
- * cents difference between the column's sum and that row is accepted, not
- * corrected. Published to Pdf through `QuotationsContract` (deptrac).
+ * the stored line amount, printed as is (`D-142`). The VAT row stays §5.2's `tax_amount`: in the
+ * new modes {@see QuotationTotals} sums it from {@see self::vat()}, so the row is the column's
+ * sum (`D-157`); only a `legacy` row, taxed on the whole base, may differ from it by a cent,
+ * accepted, not corrected. Published to Pdf through `QuotationsContract` (deptrac).
  */
 final class CustomerLineFigures
 {
@@ -63,6 +64,10 @@ final class CustomerLineFigures
     }
 
     /**
+     * ponytail: repeats `PricedLine::fromEntered()`'s line-amount expression `bcadd(bcround(bcmul(` — this class
+     * is published through `QuotationsContract`, which has no deptrac ruleset entry and so cannot call
+     * `PricedLine`; share it if the contract ever gets one.
+     *
      * @param  numeric-string  $grossUnitPrice
      * @param  numeric-string  $quantity
      * @return numeric-string

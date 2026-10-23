@@ -112,6 +112,22 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $this->editAndApprove($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200);
     }
 
+    /** §3.5 `edit tax`, the same way: example 1's line moves its own rate (`D-157`) from 14 to 5, nothing else. */
+    public function test_that_changing_the_tax_needs_the_edit_tax_grant(): void
+    {
+        $line = $this->lineBody();
+        [$id, $etag] = $this->pending(RoleName::IndoorSales, $this->e1Body($line));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
+
+        $this->editAndApprove($id, $etag, $this->e1Body(['tax_percent' => '5'] + $line), RoleName::Manager)
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'), 'the approval must not commit without the edit.');
+
+        $this->editAndApprove($id, $etag, $this->e1Body($line), RoleName::Manager)->assertStatus(200);
+    }
+
     // ──────────────────────────────────────────────────── optimistic locking
 
     public function test_that_a_missing_if_match_is_a_400(): void
@@ -323,11 +339,12 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
      * A quotation `$creator` built on their own deal and submitted (4.2), so
      * `created_by` is `$creator` — the fact Q3 keys self-approval on.
      *
+     * @param  array<string, mixed>  $body  replaces `quotation()`'s default body keys
      * @return array{string, string} id and the etag after the submit
      */
-    private function pending(RoleName $creator): array
+    private function pending(RoleName $creator, array $body = []): array
     {
-        [$id, $etag] = $this->quotation($this->deal($this->userWith($creator)->id), $creator);
+        [$id, $etag] = $this->quotation($this->deal($this->userWith($creator)->id), $creator, $body);
 
         $etag = $this->patchJson(self::ENDPOINT.'/'.$id.'/submit-for-approval', [], [...$this->bearerFor($creator), 'If-Match' => $etag])
             ->assertStatus(200)
@@ -343,9 +360,10 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
      * its etag through Point 3.5's: one line of 2 × 10 at 20 % margin, plus 5
      * delivery.
      *
+     * @param  array<string, mixed>  $body  replaces the default body keys
      * @return array{string, string} id and etag
      */
-    private function quotation(string $dealId, RoleName $creator): array
+    private function quotation(string $dealId, RoleName $creator, array $body = []): array
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
@@ -355,6 +373,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
             'discount_percent' => '0',
             'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
+            ...$body,
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor($creator))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);

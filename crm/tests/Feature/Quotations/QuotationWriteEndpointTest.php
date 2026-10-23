@@ -398,6 +398,7 @@ final class QuotationWriteEndpointTest extends TestCase
             'a tax finer than three places' => [['lines.0.tax_percent' => '0.0004'], [], 'lines.0.tax_percent'],
             'a tax past its column' => [['lines.0.tax_percent' => '1000'], [], 'lines.0.tax_percent'],
             'a margin below minus a hundred' => [['lines.0.margin_percent' => '-100.001'], [], 'lines.0.margin_percent'],
+            'a margin finer than three places' => [['lines.0.margin_percent' => '20.0009'], [], 'lines.0.margin_percent'],
         ];
     }
 

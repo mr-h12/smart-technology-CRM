@@ -89,7 +89,7 @@ final readonly class UpdateQuotation
                 throw QuotationWriteRefused::notDraft();
             }
 
-            $priced = $this->pricer->price($validated, now()->toDateTimeImmutable());
+            $priced = $this->pricer->price($validated);
 
             $this->guardMarginAndTax($before, $priced, $actorId);
 

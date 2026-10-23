@@ -79,7 +79,7 @@ final readonly class CreateQuotation
             // D-119: the deal walks to `supplier_quotation`; a blocked save below rolls it back.
             $this->dealOutcome->quotationCreated(self::string($validated['deal_id'] ?? null, 'deal_id'), $actorId);
 
-            $priced = $this->pricer->price($validated, now()->toDateTimeImmutable());
+            $priced = $this->pricer->price($validated);
 
             $draft = QuotationDraft::forCreate($validated)
                 ->withComputed($priced->computed)

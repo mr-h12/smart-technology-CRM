@@ -32,7 +32,7 @@ use Illuminate\Validation\Rules\Exists;
  * ── The table's CHECKs, mirrored ───────────────────────────────────────────
  *
  * Every bound below repeats a constraint Points 1.1–1.4 put on the tables, so
- * the database never answers a bad request with a 500: each `tax_percents` rate
+ * the database never answers a bad request with a 500:
  * `entered_unit_price >= 0`, `tax_percent` in NUMERIC(6,3) and `>= 0` (`D-157`: zero is a rate on a line), `discount_percent` in
  * `[0, 100)`, `valid_until >= quotation_date`, `quantity > 0`, `amount >= 0`,
  * a non-blank additional description of at most 255.
@@ -110,7 +110,7 @@ final class SaveQuotationRequest extends FormRequest
                 ? ['prohibited']
                 : ['required', 'string', 'regex:/^\d+(\.\d{1,3})?$/', 'numeric', 'lte:999.999'],
             // The line's own margin, down to −100 % where `unit_price >= 0` would refuse it, up to the column's 999.999.
-            'lines.*.margin_percent' => ['required', 'string', 'regex:/^-?\d+(\.\d+)?$/', 'numeric', 'gte:-100', 'lte:999.999'],
+            'lines.*.margin_percent' => ['required', 'string', 'regex:/^-?\d+(\.\d{1,3})?$/', 'numeric', 'gte:-100', 'lte:999.999'],
             'lines.*.quantity' => self::decimal('required', 'gt:0'),
             // The offer line stays provenance for what was saved before; a new save never names one.
             'lines.*.supplier_quotation_item_id' => ['prohibited'],
@@ -174,7 +174,12 @@ final class SaveQuotationRequest extends FormRequest
         }
     }
 
-    /** `DB-01`: an archived row is not a row a line may name. */
+    /**
+     * `DB-01`: an archived row is not a row a line may name.
+     *
+     * ponytail: a word-for-word copy of `SaveSupplierQuotationRequest::alive()` — deptrac forbids sharing it
+     * across modules; the copy goes when slice 4 retires the supplier-quotation screen.
+     */
     private function alive(string $table): Exists
     {
         return Rule::exists($table, 'id')->whereNull('deleted_at');

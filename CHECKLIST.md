@@ -2051,6 +2051,12 @@ would hide them behind `OD-03` indefinitely.
       (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
       `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
       Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
+- [ ] **The builder spec names `/quotations/q1/edit` eight more times** — *revealed by QS.2c's waste audit, 2026-10-23.*
+      Two `describe`-scoped `EDIT` constants and six literals, beside the top-level `KEYED_EDIT` QS.2c added.
+      One top-level constant would serve them all; not folded here because the point's list did not name it.
+- [ ] **No test presses Enter in an additional item's field (A-37)** — *revealed by QS.2c's waste audit, 2026-10-23.*
+      `nextField()` steps through the items table (QS.2c moved its hook from `.line-grid` to the table's test id);
+      the A-37 tests cover only the entry row, as they did on main before the point.
 - [ ] **The offer-line-to-supplier join is written four times in the tests** — *revealed by QS.2a's waste audit, 2026-10-23.*
       `InsertsQuotationRows.php:152`, `QuotationLineFixtures.php:88`, `QuotationReadEndpointTest.php:712` and
       `EloquentQuotationDirectoryTest.php:466` each join `supplier_quotation_items` to `supplier_quotations.supplier_id` to give

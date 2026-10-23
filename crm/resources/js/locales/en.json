@@ -1362,6 +1362,7 @@
             "quotation_date": "Quotation date",
             "valid_until": "Valid until",
             "noLines": "No lines yet — fill the row above and press Enter.",
+            "noItems": "No additional items yet.",
             "addItem": "Add item",
             "removeItem": "Remove",
             "recentTerms": "Recent terms",

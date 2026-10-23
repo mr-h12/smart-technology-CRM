@@ -40,11 +40,12 @@
  *
  * ── Terms (D-103) ──────────────────────────────────────────────────────────
  * A list built like the additional items, up to 15, sent as `terms` in row
- * order. A new quotation opens on three ready terms keyed `payment_terms`,
- * `warranty` and `delivery_terms`; the key, not the row, carries the default
- * name, the chips and the combobox, so they follow a renamed or moved term. An
- * added term has no key. An empty name or text is sent as null, and an empty
- * ready term is kept (the owner, 2026-10-08).
+ * order. `D-169`: a new quotation opens on one empty term with no key. Keyed
+ * terms (`payment_terms`, `warranty`, `delivery_terms`) come only from a stored
+ * quotation; there the key, not the row, carries the default name, the chips
+ * and the combobox, so they follow a renamed or moved term. An added term has
+ * no key. An empty name or text is sent as null, and an empty term is kept
+ * (the owner, 2026-10-08).
  *
  * ── Delivery terms (F-32) ──────────────────────────────────────────────────
  * The delivery-keyed term's text, with suggestions like the other ready terms
@@ -143,9 +144,9 @@ const taxIncluded = ref(true);
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 /** `D-103`'s cap. */
 const MAX_TERMS = 15;
-/** `D-103`: the terms as typed, in their printed order; a new quotation opens on the three ready ones. */
+/** `D-103`: the terms as typed, in their printed order; `D-169`: a new quotation opens on one empty keyless term. */
 function readyTerms(): Array<{ key: TermField | null; title: string; body: string }> {
-    return TERM_FIELDS.map((key) => ({ key, title: '', body: '' }));
+    return [{ key: null, title: '', body: '' }];
 }
 
 const terms = ref(readyTerms());
@@ -380,9 +381,12 @@ async function load(): Promise<void> {
         listCurrencies().then((list) => { currencies.value = list; }, () => {}),
         // QS.2a: the entry row's unit is picked from this list; the table names a stored code from it.
         listEntries('units', 1).then((page) => { units.value = page.items; }, () => {}),
-        ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
-        // F-32: best-effort too — without the list the delivery field is the text area it was.
-        listEntries('delivery_terms', 1).then((page) => { termEntries.value = page.items; }, () => {}),
+        // D-169: only a stored quotation can hold a keyed term, so only an edit reads what one shows.
+        ...(editing.value ? [
+            ...TERM_FIELDS.map((field) => listTermSuggestions(field).then((terms) => { suggestions.value[field] = terms; }, () => {})),
+            // F-32: best-effort too — without the list the delivery field is the text area it was.
+            listEntries('delivery_terms', 1).then((page) => { termEntries.value = page.items; }, () => {}),
+        ] : []),
     ]);
 
     opened.value = snapshot();
@@ -576,7 +580,7 @@ function orNull(value: string): string | null {
 function nextField(event: KeyboardEvent): void {
     const target = event.target;
 
-    if (!(target instanceof HTMLInputElement) || target.closest('.line-grid') === null) {
+    if (!(target instanceof HTMLInputElement) || target.closest(`[data-testid="${fieldId('items')}"]`) === null) {
         return;
     }
 
@@ -879,55 +883,6 @@ onMounted(load);
                     </label>
                 </div>
 
-                <!-- Additional items: never taxed (`D-62`) — the server knows, this form only lists them. -->
-                <section class="flex flex-col gap-3">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
-                        <button :id="fieldId('add-item')" type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
-                            + {{ t('quotations.builder.addItem') }}
-                        </button>
-                    </div>
-                    <!-- D-159 -->
-                    <p class="text-[var(--color-text-muted)]" :data-testid="fieldId('items-note')">{{ t('quotations.builder.itemsNote') }}</p>
-
-                    <div v-for="(item, i) in items" :key="i" class="line-grid line-row rounded-lg p-3">
-                        <label class="flex flex-col gap-1.5" :for="fieldId(`item-${i}-description`)">
-                            <span>{{ t('quotations.detail.description') }}</span>
-                            <input
-                                :id="fieldId(`item-${i}-description`)"
-                                v-model="item.description"
-                                type="text"
-                                maxlength="255"
-                                autocomplete="off"
-                                :aria-invalid="fieldErrors.has(`additional_items.${i}.description`)"
-                                :aria-describedby="fieldErrors.has(`additional_items.${i}.description`) ? fieldId(`item-${i}-error`) : undefined"
-                                class="form-field min-h-11 rounded-lg px-3 py-2"
-                                :data-testid="fieldId(`item-${i}-description`)"
-                            />
-                        </label>
-                        <label class="flex flex-col gap-1.5" :for="fieldId(`item-${i}-amount`)">
-                            <span>{{ t('quotations.detail.amount') }}</span>
-                            <input
-                                :id="fieldId(`item-${i}-amount`)"
-                                v-model="item.amount"
-                                type="text"
-                                inputmode="decimal"
-                                autocomplete="off"
-                                :aria-invalid="fieldErrors.has(`additional_items.${i}.amount`)"
-                                :aria-describedby="fieldErrors.has(`additional_items.${i}.amount`) ? fieldId(`item-${i}-error`) : undefined"
-                                class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums"
-                                :data-testid="fieldId(`item-${i}-amount`)"
-                            />
-                        </label>
-                        <button type="button" class="row-action min-h-11 self-end rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeItemNo', { no: i + 1 })" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
-                            {{ t('quotations.builder.removeItem') }}
-                        </button>
-                        <p v-if="itemError(i) !== null" class="line-note text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
-                            {{ itemError(i) }}
-                        </p>
-                    </div>
-                </section>
-
                 <!-- Lines (QS.2a, D-155): the entry row, then the table it fills. -->
                 <section class="flex flex-col gap-3">
                     <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
@@ -1011,9 +966,7 @@ onMounted(load);
                     </div>
 
                     <p v-if="fieldErrors.has('lines')" class="text-[var(--color-danger)]" role="alert" :data-testid="fieldId('lines-error')">{{ fieldErrors.get('lines') }}</p>
-                    <p v-if="lines.length === 0" class="text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</p>
-
-                    <div v-else class="table-frame overflow-x-auto rounded-xl">
+                    <div class="table-frame overflow-x-auto rounded-xl">
                         <table class="card-table w-full text-table" :data-testid="fieldId('lines')">
                             <thead>
                                 <tr class="table-head">
@@ -1028,6 +981,10 @@ onMounted(load);
                                 </tr>
                             </thead>
                             <tbody>
+                                <!-- QS.2c: the headings show from the start; the empty row spans every live heading (7, or 8 with the tax column). -->
+                                <tr v-if="lines.length === 0" :data-testid="fieldId('lines-empty')">
+                                    <td :colspan="taxIncluded ? 8 : 7" class="p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</td>
+                                </tr>
                                 <tr v-for="(line, i) in lines" :key="i" class="table-row">
                                     <td :data-label="t('quotations.detail.supplier')" class="p-3" :data-testid="fieldId(`line-${i}-supplier`)">
                                         {{ line.supplier.name }}
@@ -1056,10 +1013,78 @@ onMounted(load);
                     </div>
                 </section>
 
+                <!-- Additional items (QS.2c: under the lines): never taxed (`D-62`) — the server knows, this form only lists them. -->
+                <section class="flex flex-col gap-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
+                        <button :id="fieldId('add-item')" type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
+                            + {{ t('quotations.builder.addItem') }}
+                        </button>
+                    </div>
+                    <!-- D-159 -->
+                    <p class="text-[var(--color-text-muted)]" :data-testid="fieldId('items-note')">{{ t('quotations.builder.itemsNote') }}</p>
+
+                    <div class="table-frame overflow-x-auto rounded-xl">
+                        <table class="card-table w-full text-table" :data-testid="fieldId('items')">
+                            <thead>
+                                <tr class="table-head">
+                                    <th scope="col" class="p-3 text-start">{{ t('quotations.detail.description') }}</th>
+                                    <th scope="col" class="p-3 text-end">{{ t('quotations.detail.amount') }}</th>
+                                    <th scope="col" class="p-3 text-end"><span class="sr-only">{{ t('quotations.builder.lineActions') }}</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-if="items.length === 0" :data-testid="fieldId('items-empty')">
+                                    <td colspan="3" class="p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noItems') }}</td>
+                                </tr>
+                                <tr v-for="(item, i) in items" :key="i" class="table-row">
+                                    <td :data-label="t('quotations.detail.description')" class="p-3">
+                                        <input
+                                            :id="fieldId(`item-${i}-description`)"
+                                            v-model="item.description"
+                                            type="text"
+                                            maxlength="255"
+                                            autocomplete="off"
+                                            :aria-label="t('quotations.detail.description')"
+                                            :aria-invalid="fieldErrors.has(`additional_items.${i}.description`)"
+                                            :aria-describedby="fieldErrors.has(`additional_items.${i}.description`) ? fieldId(`item-${i}-error`) : undefined"
+                                            class="form-field min-h-11 w-full rounded-lg px-3 py-2"
+                                            :data-testid="fieldId(`item-${i}-description`)"
+                                        />
+                                        <p v-if="itemError(i) !== null" class="mt-1 text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
+                                            {{ itemError(i) }}
+                                        </p>
+                                    </td>
+                                    <td :data-label="t('quotations.detail.amount')" class="p-3 text-end">
+                                        <input
+                                            :id="fieldId(`item-${i}-amount`)"
+                                            v-model="item.amount"
+                                            type="text"
+                                            inputmode="decimal"
+                                            autocomplete="off"
+                                            :aria-label="t('quotations.detail.amount')"
+                                            :aria-invalid="fieldErrors.has(`additional_items.${i}.amount`)"
+                                            :aria-describedby="fieldErrors.has(`additional_items.${i}.amount`) ? fieldId(`item-${i}-error`) : undefined"
+                                            class="form-field min-h-11 w-full rounded-lg px-3 py-2 text-end tabular-nums"
+                                            :data-testid="fieldId(`item-${i}-amount`)"
+                                        />
+                                    </td>
+                                    <td :data-label="t('quotations.builder.lineActions')" class="p-3 text-end">
+                                        <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeItemNo', { no: i + 1 })" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
+                                            {{ t('quotations.builder.removeItem') }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
                 <!-- Terms (D-103): a list built like the additional items, up to 15, printed
                      numbered. A ready term (keyed) keeps its default name as the placeholder and,
-                     under its text, the caller's recent terms as chips (6.8, Design System §6.3). -->
-                <section class="flex flex-col gap-3">
+                     under its text, the caller's recent terms as chips (6.8, Design System §6.3).
+                     QS.2c: a divider and space set them apart from the tables above. -->
+                <section class="terms-section mt-4 flex flex-col gap-3 pt-6">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-card-title">{{ t('quotations.terms.heading') }}</h2>
                         <button
@@ -1209,22 +1234,8 @@ onMounted(load);
     border: 1px solid var(--color-border);
 }
 
-/* The additional items' row: label, amount, Remove at its own width (A-60); one track per child, and its note spans the row. `§4.3`: one column under 640px. */
-.line-grid {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: minmax(10rem, 2fr) minmax(7rem, 1fr) auto;
-    align-items: end;
-}
-
-.line-note {
-    grid-column: 1 / -1;
-}
-
-@media (max-width: 639px) {
-    .line-grid {
-        grid-template-columns: 1fr;
-    }
+.terms-section {
+    border-block-start: 1px solid var(--color-border);
 }
 
 /*

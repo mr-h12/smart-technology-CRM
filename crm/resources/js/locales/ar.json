@@ -1362,6 +1362,7 @@
             "quotation_date": "تاريخ العرض",
             "valid_until": "صالح حتى",
             "noLines": "لا أسطر بعد — املأ الصف أعلاه ثم اضغط Enter.",
+            "noItems": "لا بنود إضافية بعد.",
             "addItem": "إضافة بند",
             "removeItem": "إزالة",
             "recentTerms": "شروط استُخدمت مؤخرًا",

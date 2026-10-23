@@ -1307,14 +1307,19 @@ describe('the builder\'s delivery-terms control', () => {
     }
 
     // QS.2a: the entry row's unit comes from the `units` list, read beside the delivery terms.
-    it('reads the delivery terms and the units once each, page 1, when the builder opens', async () => {
-        const fetchMock = respond({ terms: TERMS });
+    it('reads the units once on a new quotation, and the delivery terms and recent terms only on an edit (D-169: nothing new can show them)', async () => {
+        const paths = (fetchMock: ReturnType<typeof respond>): string[] => fetchMock.mock.calls
+            .map((call) => String(call[0]).replace(/^.*\/api\/v1/, ''))
+            .filter((path) => path.startsWith('/managed-lists/') || path.startsWith('/user-term-suggestions'));
 
-        await render(fetchMock);
+        const created = respond({ terms: TERMS });
+        await render(created);
+        expect(paths(created)).toEqual(['/managed-lists/units?page=1']);
 
-        const asked = fetchMock.mock.calls.map((call) => String(call[0]).replace(/^.*\/api\/v1/, '')).filter((path) => path.startsWith('/managed-lists/'));
-
-        expect([...asked].sort()).toEqual(['/managed-lists/delivery_terms?page=1', '/managed-lists/units?page=1']);
+        const edited = keyed();
+        await render(edited, KEYED_EDIT);
+        expect(paths(edited).filter((path) => path.startsWith('/managed-lists/')).sort()).toEqual(['/managed-lists/delivery_terms?page=1', '/managed-lists/units?page=1']);
+        expect(paths(edited).filter((path) => path.startsWith('/user-term-suggestions'))).toHaveLength(3);
     });
 
     it('makes the delivery field a combobox and leaves payment terms and warranty as text areas', async () => {

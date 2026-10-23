@@ -2051,6 +2051,10 @@ would hide them behind `OD-03` indefinitely.
       (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
       `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
       Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
+- [ ] **Text typed in an entry row but not added is dropped by Save, without a word** — *revealed by QS.2c, 2026-10-24.*
+      The lines' entry row has always worked this way (`draft()` reads only the table; `snapshot()` ignores the
+      entry), and QS.2c gives the additional items and the terms the same entry row, so all three now share it.
+      Kept on purpose (owner, 2026-10-24: «زي البنود دلوقتي»); a warning before Save is the fix if it bites.
 - [ ] **The builder spec names `/quotations/q1/edit` eight more times** — *revealed by QS.2c's waste audit, 2026-10-23.*
       Two `describe`-scoped `EDIT` constants and six literals, beside the top-level `KEYED_EDIT` QS.2c added.
       One top-level constant would serve them all; not folded here because the point's list did not name it.

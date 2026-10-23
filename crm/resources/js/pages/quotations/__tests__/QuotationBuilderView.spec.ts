@@ -866,7 +866,8 @@ describe('the quotation builder (create)', () => {
         expect(value(wrapper, 'item-entry-amount')).toBe('50');
     });
 
-    it('saves the additional items in table order — an edited item added back goes after the others', async () => {
+    // Owner, 2026-10-24: an edited row goes back to its own place, not to the end.
+    it('saves the additional items in table order — an edited item added back returns to its own row', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock);
 
@@ -882,8 +883,8 @@ describe('the quotation builder (create)', () => {
         await flushPromises();
 
         expect((saves(fetchMock)[0]?.body as { additional_items: unknown }).additional_items).toEqual([
-            { description: 'Installation', amount: '75' },
             { description: 'Delivery', amount: '60' },
+            { description: 'Installation', amount: '75' },
         ]);
     });
 
@@ -1957,7 +1958,8 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         await fillHeader(wrapper);
         await enterLine(wrapper);
         await wrapper.get(id('term-0-remove')).trigger('click');
-        // The warranty, renamed and given a text, goes back into the table after the delivery term — its key kept.
+        // The warranty, renamed and given a text, goes back to its own row, before the delivery term — its key kept
+        // (owner, 2026-10-24: the terms print numbered, so an edit never reorders them).
         await editRow(wrapper, 'term-0-edit');
         await wrapper.get(id('term-entry-title')).setValue('Guarantee');
         await wrapper.get(id('term-entry-body')).setValue('Two years');
@@ -1970,8 +1972,8 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         const body = saves(fetchMock)[0]?.body as Record<string, unknown>;
 
         expect(body.terms).toEqual([
-            { key: 'delivery_terms', title: null, body: null },
             { key: 'warranty', title: 'Guarantee', body: 'Two years' },
+            { key: 'delivery_terms', title: null, body: null },
             { key: null, title: 'Spare parts', body: 'Six months' },
         ]);
 

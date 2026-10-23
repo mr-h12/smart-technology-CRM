@@ -856,12 +856,6 @@ onMounted(load);
                         </span>
                     </label>
 
-                    <!-- D-157: the preparer's decision, outside the fields; off means no tax at all. -->
-                    <label class="flex min-h-11 items-center gap-2 self-end">
-                        <input v-model="taxIncluded" type="checkbox" :data-testid="fieldId('tax-included')" />
-                        <span>{{ t('quotations.builder.taxIncluded') }}</span>
-                    </label>
-
                     <label v-for="field in (['quotation_date', 'valid_until'] as const)" :key="field" class="flex flex-col gap-1.5" :for="fieldId(field)">
                         <span>{{ t(`quotations.builder.${field}`) }}</span>
                         <input
@@ -876,6 +870,12 @@ onMounted(load);
                         <span v-if="fieldErrors.has(field)" :id="fieldId(`${field}-error`)" class="text-[var(--color-danger)]" :data-testid="fieldId(`${field}-error`)">
                             {{ fieldErrors.get(field) }}
                         </span>
+                    </label>
+
+                    <!-- D-157: the preparer's decision, outside the fields; off means no tax at all. -->
+                    <label class="flex min-h-11 items-center gap-2 self-end">
+                        <input v-model="taxIncluded" type="checkbox" :data-testid="fieldId('tax-included')" />
+                        <span>{{ t('quotations.builder.taxIncluded') }}</span>
                     </label>
                 </div>
 

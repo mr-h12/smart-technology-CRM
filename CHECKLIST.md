@@ -4973,7 +4973,7 @@ resumes at 8.3 after the redesign unless the owner reorders.
 
 ### Point list — slice 2 approved 2026-10-23 as two points (owner, in chat: "2a+2c then 2b")
 
-- [ ] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
+- [x] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
       `D-163`…`D-165`) — migration B gives each `quotation_items` row its `supplier_id` (NOT NULL, foreign key),
       `unit_code`, `entered_unit_price` and `tax_percent`, backfilled from the line's supplier-offer line even when
       that offer line is soft-deleted, and each quotation its `pricing_mode` (`legacy` on every existing row;
@@ -4996,6 +4996,14 @@ resumes at 8.3 after the redesign unless the owner reorders.
       (owner, 2026-10-23, second ruling that day, reversing the morning's «no VAT column»; recorded as `D-168`,
       proposed); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
       product or unit (slice 3).
+      *(2026-10-23, #433 — tax added on top of the entered cost (D-167), the PDF's VAT column follows the toggle (D-168); CI 8 passed, 1 skipped on the PR head)*
+- [ ] **QS.2c** The builder's layout (owner, 2026-10-23, in chat; approved the same day) — the lines table always
+      shows its column headers, with one empty row before the first line; the additional items move **under** the
+      table as a small table (description · amount · remove) with their note (`D-159`) and an empty row of their own;
+      a divider and clear space separate them from the terms; a new quotation opens on **one empty term with no
+      key** instead of three ready ones (`D-169`, proposed, amending `D-103` ruling 1) — so its chips (6.8) and the
+      delivery combobox (F-32) appear only on stored keyed terms. An empty term prints nothing (`D-103` ruling 3)
+      and saves without a name (`needsName`). The API, the pricing and the PDF do not change.
 - [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
       with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
       and the totals block shows before Save.

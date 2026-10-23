@@ -178,6 +178,7 @@ final readonly class RespondToQuotation
      * before is the one after minus the line's quantity — exact, because an
      * accepted quotation is never accepted again (`If-Match` refuses the
      * replay before this runs), so no call here is an idempotent no-op.
+     * Only lines that still point at an offer line are consumed.
      *
      * @return array{array<string, string>, array<string, string>} before and after, by quotation line id
      */
@@ -187,6 +188,11 @@ final readonly class RespondToQuotation
         $after = [];
 
         foreach ($quotation->items as $line) {
+            // `D-155`: a line saved from QS.2a on points at no offer line and consumes nothing.
+            if ($line->supplierQuotationItemId === null) {
+                continue;
+            }
+
             $quantity = $line->quantity;
             $balance = $this->supplierQuantities->consume($line->supplierQuotationItemId, $quantity, $line->id);
 

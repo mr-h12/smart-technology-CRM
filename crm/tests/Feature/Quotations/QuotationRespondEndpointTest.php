@@ -34,9 +34,14 @@ use Tests\TestCase;
  * its quotations is live afterwards (Q12), counted under `FOR UPDATE`, and is
  * left alone when it has no `lost` edge (rule b). The answer says which with
  * `deal_lost` (owner, 2026-09-23).
+ *
+ * QS.2a · `D-161`: `D-81`'s consumption on accept retires for lines typed in
+ * the quotation — they point at no supplier offer — and stays for a legacy
+ * line that still does.
  */
 final class QuotationRespondEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -450,11 +455,19 @@ final class QuotationRespondEndpointTest extends TestCase
 
     private const PO_BODY = ['response' => 'accepted', 'customer_po_reference' => '4500123987', 'po_date' => '2026-09-23'];
 
-    /** §4.6 / `D-53` / Q5: the purchase order in the acceptance's transaction; `D-81`: every line consumed. */
-    public function test_accepted_writes_the_purchase_order_and_consumes_each_line(): void
+    /**
+     * §4.6 / `D-53` / Q5: the purchase order in the acceptance's transaction. QS.2a · `D-161`: a line typed in
+     * the quotation points at no supplier offer (`D-155`), so accepting it consumes nothing — and succeeds.
+     */
+    public function test_accepted_writes_the_purchase_order_and_consumes_nothing_for_lines_without_an_offer(): void
     {
         $deal = $this->deal(null);
-        [$id, $etag] = $this->sent($deal, ['2', '3']);
+        $id = $this->postJson(self::ENDPOINT, ['deal_id' => $deal, 'customer_id' => $this->customerId, ...$this->e1Body()], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+        DB::table('quotations')->where('id', $id)->update(['status' => 'sent', 'sent_at' => now()]);
+        $etag = $this->etagOf($id);
 
         $response = $this->respond($id, $etag, RoleName::Manager, self::PO_BODY)
             ->assertStatus(200)
@@ -473,7 +486,8 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame($response->json('data.purchase_order.id'), $order->id);
         self::assertSame($poNumber, $order->po_number);
 
-        self::assertSame('5.0000', $this->consumed());
+        self::assertSame('0.0000', $this->consumed());
+        self::assertSame(0, DB::table('supplier_quotation_items')->where('consumed_quantity', '<>', 0)->count());
         self::assertSame('accepted', $this->statusOf('quotations', $id));
         self::assertSame('won', $this->statusOf('deals', $deal));   // D-119
         self::assertSame(1, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
@@ -504,15 +518,15 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
     }
 
-    /** `D-81`: "the old/new `consumed_quantity` rides the transition's audit entry", keyed by the line consumed with. */
-    public function test_acceptance_is_audited_with_each_lines_balance_and_the_order(): void
+    /**
+     * `D-81`, kept for a legacy line (`D-165`, `D-161`): "the old/new `consumed_quantity` rides the
+     * transition's audit entry", keyed by the line consumed with — example 4's 3 on an untouched offer.
+     */
+    public function test_acceptance_is_audited_with_a_legacy_lines_balance_and_the_order(): void
     {
-        [$id, $etag] = $this->sent($this->deal(null), ['2', '3']);
-        $lines = DB::table('quotation_items')->where('quotation_id', $id)->orderBy('line_no')->pluck('id')->all();
-        self::assertCount(2, $lines);
-        [$first, $second] = $lines;
-        self::assertIsString($first);
-        self::assertIsString($second);
+        [$id, $etag] = $this->sentLegacy($this->deal(null));
+        $line = DB::table('quotation_items')->where('quotation_id', $id)->value('id');
+        self::assertIsString($line);
 
         $orderId = $this->respond($id, $etag, RoleName::Manager, self::PO_BODY)->assertStatus(200)->json('data.purchase_order.id');
         self::assertIsString($orderId);
@@ -525,9 +539,8 @@ final class QuotationRespondEndpointTest extends TestCase
         $after = $new['consumed_quantity'] ?? null;
         self::assertIsArray($before);
         self::assertIsArray($after);
-        self::assertCount(2, $before);
-        self::assertSame(['0.0000', '2.0000'], [$before[$first] ?? null, $before[$second] ?? null]);
-        self::assertSame(['2.0000', '5.0000'], [$after[$first] ?? null, $after[$second] ?? null]);
+        self::assertSame([$line => '0.0000'], $before);
+        self::assertSame([$line => '3.0000'], $after);
 
         [, $order] = $this->audited('PURCHASE_ORDER_CREATED', $orderId, 'purchase_order');
         self::assertSame($id, $order['quotation_id'] ?? null);
@@ -535,15 +548,18 @@ final class QuotationRespondEndpointTest extends TestCase
         self::assertSame('2026-09-23', $order['po_date'] ?? null);
     }
 
-    /** `D-81`: "No ceiling … exceeding is allowed with a warning" — acceptance is not blocked. */
-    public function test_acceptance_may_go_past_the_available_balance(): void
+    /**
+     * `D-81`, kept for a legacy line: "No ceiling … exceeding is allowed" — acceptance is not blocked, and the
+     * line still consumes its offer: 4 already drawn of 5, + 3 = 7.
+     */
+    public function test_a_legacy_line_still_consumes_its_offer_past_the_available_balance(): void
     {
-        [$id, $etag] = $this->sent($this->deal(null));
+        [$id, $etag] = $this->sentLegacy($this->deal(null));
         DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['consumed_quantity' => '4']);
 
         $this->respond($id, $etag, RoleName::Manager, self::PO_BODY)->assertStatus(200);
 
-        self::assertSame('6.0000', $this->consumed());
+        self::assertSame('7.0000', $this->consumed());
     }
 
     public function test_accepting_a_quotation_that_is_not_sent_is_a_transition_error(): void
@@ -845,14 +861,14 @@ final class QuotationRespondEndpointTest extends TestCase
     {
         $lines = [];
         foreach ($quantities as $quantity) {
-            $lines[] = ['supplier_quotation_item_id' => $this->lineId, 'quantity' => $quantity];
+            $lines[] = $this->lineBody(entered: '10', tax: null, margin: '20', quantity: $quantity);
         }
 
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
             'lines' => $lines,
             'terms' => [['key' => null, 'title' => 'Installation', 'body' => 'On site, two days']],
@@ -861,10 +877,27 @@ final class QuotationRespondEndpointTest extends TestCase
 
         DB::table('quotations')->where('id', $id)->update(['status' => 'sent', 'sent_at' => now()]);
 
+        return [$id, $this->etagOf($id)];
+    }
+
+    /**
+     * QS.2a: a `sent` legacy quotation — `D-156` example 4 on `$this->lineId`, inserted as migration B leaves one.
+     *
+     * @return array{string, string} id and etag
+     */
+    private function sentLegacy(string $dealId): array
+    {
+        $id = $this->legacyQuotation($dealId, $this->customerId, $this->lineId, 'sent');
+
+        return [$id, $this->etagOf($id)];
+    }
+
+    private function etagOf(string $id): string
+    {
         $etag = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200)->json('data.etag');
         self::assertIsString($etag);
 
-        return [$id, $etag];
+        return $etag;
     }
 
     private function currency(string $code): void

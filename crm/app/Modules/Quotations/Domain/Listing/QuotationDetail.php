@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Listing;
 
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use DateTimeImmutable;
 
 /**
@@ -36,7 +37,9 @@ final readonly class QuotationDetail
         public string $status,
         public string $currencyId,
         public string $currency,
-        public string $defaultMargin,
+        public PricingMode $pricingMode,
+        /** `D-165`: only a `legacy` quotation carries one. */
+        public ?string $defaultMargin,
         public string $discountPercent,
         public ?string $taxPercent,
         /** @var list<string> D-118: the rates as entered; `taxPercent` is their sum */

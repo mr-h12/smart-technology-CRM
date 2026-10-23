@@ -2051,6 +2051,33 @@ would hide them behind `OD-03` indefinitely.
       (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
       `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
       Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
+- [ ] **The offer-line-to-supplier join is written four times in the tests** — *revealed by QS.2a's waste audit, 2026-10-23.*
+      `InsertsQuotationRows.php:152`, `QuotationLineFixtures.php:88`, `QuotationReadEndpointTest.php:712` and
+      `EloquentQuotationDirectoryTest.php:466` each join `supplier_quotation_items` to `supplier_quotations.supplier_id` to give
+      a raw `quotation_items` row the `supplier_id` migration B made NOT NULL. One shared fixture helper removes them; slice 4
+      (the SQ retirement) is the natural place, since the offer-line rows go with it.
+- [ ] **The PdfImage tests write real PDFs into the development files volume** — *revealed by QS.2a's dsh rounds, 2026-10-23.*
+      `php artisan test tests/PdfImage` in `worker-pdf` (the first local run of that directory; CI runs it in a throw-away pdf
+      image) left 8 files under `/var/crm-files/2026/10/quotation/01a1555e-…/` (115 → 123). The testing environment keeps
+      `FILESYSTEM_DISK=local` on the shared volume. A test-only files root, or a cleanup in the test's `tearDown`, closes it.
+- [ ] **`QuotationCreated`, `QuotationUpdated` and the SPA's `read()` wrap a single value** — *created by QS.2a, deferred, 2026-10-23.*
+      `D-161` retired the quantity and drift warnings, so the two PHP events and the TypeScript `QuotationRead` /
+      `QuotationCreated` shapes now carry only the quotation. Removing them touches three constructors, the controller, four
+      service functions and every `.quotation` reader — wider than the point's approved list; slice 5 (the legacy-code
+      deletion) takes them with the rest.
+- [ ] **`lines.*.quantity` and `additional_items.*.amount` accept any number of decimals** — *revealed by QS.2a's pricing
+      review, 2026-10-23 (the rule predates the point: `d04fc626:95,100`).* The pricing uses the full value while PostgreSQL
+      rounds it half-up on write, so an amount of `10.0000005` is stored as `10.000001` beside an `additional_total` of
+      `10.000000`. The `{1,3}`/`{1,4}` decimal limit the margin and tax rules carry closes it.
+- [ ] **The supplier-quotation form's «recorded / consumed / available» balance freezes for new-mode acceptances** —
+      *revealed by QS.2a's blast-radius sweep, 2026-10-23.* Since `D-155` a new line names no offer line, so
+      `RespondToQuotation` consumes nothing on accept (`D-161` retired the balance warning) — yet
+      `SupplierQuotationFormModal.vue:444` still shows `consumed_quantity` / `available_quantity`
+      (`SupplierQuotationPayload.php:82-83`) as if live. Slice 4 retires the screen; until then the balance only
+      moves for legacy quotations. The owner may prefer hiding the two figures now.
+- [ ] **`SupplierItemPricingInterface` / `EloquentSupplierItemPricing` have no consumer** — *revealed by QS.2a's
+      blast-radius sweep, 2026-10-23.* `D-164` ended the line's lookup of the supplier price, so the interface
+      (`AppServiceProvider.php:349-354` binding) is dead; it is another module's file, so it goes with slice 4.
 
 ## Agent guide revisions — owner-directed
 
@@ -4926,7 +4953,7 @@ owner's order of 2026-10-22, replacing "resumes after this pass" above.
 ## Quotation-screen redesign — owner-directed, 2026-10-22
 
 The owner's quotation-screen workflow change: a quotation line owns its supplier, catalog item, unit, entered
-price, tax and margin, and no supplier-quotation document is made (`D-154`…`D-165`, proposed, merged #426).
+price, tax and margin, and no supplier-quotation document is made (`D-154`…`D-165`, proposed, merged #426; `D-166` with QS.2a).
 Five slices, each described to the owner before it starts and divided by the owner: 1 the line owns its
 facts → 2 the new screen (line tax and margin, the toggle, `pricing_mode`) → 3 inline supplier, product and
 unit → 4 retire the supplier-offer screen and `D-81` → 5 delete the legacy code (the tables stay). Module 13
@@ -4943,6 +4970,35 @@ resumes at 8.3 after the redesign unless the owner reorders.
       supplier, unit code, entered price and tax rate have no reader before slice 2 and arrive with it
       (migration B). Not in it: `pricing_mode` and the new pricing (slice 2).
       *(2026-10-23, #429 — all 348 dev lines named, the 52 on deleted offer lines included; QT-2026-0129's PDF generates, refused before; dashboard 71/71 sent lines carry a product)*
+
+### Point list — slice 2 approved 2026-10-23 as two points (owner, in chat: "2a+2c then 2b")
+
+- [ ] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
+      `D-163`…`D-165`) — migration B gives each `quotation_items` row its `supplier_id` (NOT NULL, foreign key),
+      `unit_code`, `entered_unit_price` and `tax_percent`, backfilled from the line's supplier-offer line even when
+      that offer line is soft-deleted, and each quotation its `pricing_mode` (`legacy` on every existing row;
+      `default_margin` only in `legacy`); `supplier_quotation_item_id` becomes nullable. A new line's entered price
+      is the supplier's cost before tax: its own margin is added, then its tax on top — tax is added, never taken
+      out (owner, 2026-10-23, superseding `D-156`'s division; recorded as `D-167`, proposed); tax is per line and the «شامل الضريبة»
+      toggle is the preparer's (`D-157`); no quotation margin, no quotation tax rates, no FX on a new line
+      (`D-164`). The builder's line section becomes an entry row (an existing supplier, product and unit only;
+      typing a new one is slice 3) and a table with remove and send-back, the supplier, tax and margin kept after
+      Enter; additional items above the table with their note (`D-159`); the figures appear after saving, as today.
+      A legacy Draft converts at its next save (`D-165`). The price-drift and over-quantity warnings retire
+      (`D-161`); accepting consumes only lines that still point at an offer; a save naming more than 25 distinct
+      suppliers is refused 422 on `lines` (`D-166`; owner, 2026-10-23: 25, where §6.2's 10 lived only in the old
+      picker). The detail shows each line's tax and unit to every viewer and its supplier and entered price to cost
+      viewers (owner, 2026-10-23: the customer PDF prints the rate and the unit, so neither is a cost field), and the note under
+      «إرسال للاعتماد» (`D-163`). The PDF taxes each
+      line at its own rate and reads the unit from the line; the per-line VAT column follows the toggle — on
+      (`tax_included`) it prints net unit and line prices **with the VAT column**, the VAT row and «السعر شامل
+      الضريبة» under the table as well as in the terms; off (`tax_exempt`) prints no column, no row and no note
+      (owner, 2026-10-23, second ruling that day, reversing the morning's «no VAT column»; recorded as `D-168`,
+      proposed); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
+      product or unit (slice 3).
+- [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
+      with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
+      and the totals block shows before Save.
 
 ## Shell revisions — owner-directed
 

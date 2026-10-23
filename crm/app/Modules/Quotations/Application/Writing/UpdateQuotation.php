@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Application\Writing;
 
+use App\Modules\Admin\Domain\Money\Decimal;
 use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Identity\Application\Rbac\AuthorizeAction;
@@ -13,6 +14,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use App\Modules\Quotations\Domain\Writing\QuotationDraft;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
@@ -39,25 +41,16 @@ use Illuminate\Database\ConnectionInterface;
  *    opens this path to `pending` — by naming it in `$editable`, having
  *    already checked §6.4's arrow — and nothing else does.
  * 4. **`edit margin` / `edit tax`** (403): §3.5's two checkmarks, asked only
- *    when the body actually moves the margin or the tax — re-saving a draft
- *    is not an edit of its margin. A line margin counts as a margin.
- * 5. **§5.6** (422 `business_rule_blocked`): the same block-or-warn the create
- *    applies, from the same {@see PriceQuotation}.
+ *    when the body actually moves a line's margin or tax — re-saving a draft
+ *    is not an edit of its margin.
  *
  * The write itself is guarded again in SQL ({@see QuotationDirectoryInterface::update()}),
  * so two edits that both passed step 2 cannot both commit.
  *
- * ── A Draft is re-priced at the time of the edit ───────────────────────────
+ * ── A Draft is re-priced from what was typed ─────────────────────────────────
  *
- * `D-09` captures the FX rate "at creation" and forbids later FX edits from
- * changing an existing quotation. A Draft being re-saved is not yet the
- * quotation the customer will see, so its lines are converted at the rate
- * effective **now** — the same call the create makes, one timestamp later.
- * The rate on the issued document is therefore the one at its last Draft
- * save, and it is frozen from then on because nothing after Draft comes
- * through here. Stated as an assumption: the document does not say which
- * moment a Draft's edit prices at, and "now" is the reading that keeps one
- * pricing path.
+ * A line is typed in the quotation's currency (`D-164`), so there is no FX rate
+ * to capture: the edit re-prices the body it is given, nothing else.
  *
  * ── §6.4: every edit is written to the audit log ───────────────────────────
  *
@@ -96,9 +89,9 @@ final readonly class UpdateQuotation
                 throw QuotationWriteRefused::notDraft();
             }
 
-            $priced = $this->pricer->price($validated, $before->customerId, now()->toDateTimeImmutable());
+            $priced = $this->pricer->price($validated);
 
-            $this->guardMarginAndTax($before, $validated, $priced, $actorId);
+            $this->guardMarginAndTax($before, $priced, $actorId);
 
             $draft = QuotationDraft::forUpdate($validated)
                 ->withComputed($priced->computed)
@@ -121,38 +114,64 @@ final readonly class UpdateQuotation
                 [...$draft->attributes, 'items' => $priced->items, 'additional_items' => $priced->additionalItems],
             );
 
-            return new QuotationUpdated($this->access->reread($quotationId), $priced->quantityWarnings);
+            return new QuotationUpdated($this->access->reread($quotationId));
         });
     }
 
     /**
-     * §3.5's `edit margin` and `edit tax`, each asked only when the body
-     * moves the thing it guards. Margin: the header's `default_margin`, or any
-     * submitted line margin (a line margin is added to the header's, `D-106`,
-     * so setting one is editing the margin). Tax: the **derived** `tax_percent`
-     * against the stored one, so a rate sent for an exempt customer — which
-     * `D-63` discards — is not counted as an edit of the tax.
+     * §3.5's `edit margin` and `edit tax`, each asked only when the body moves
+     * the thing it guards — and, since `D-155`, every line carries both, so
+     * "moves" is a comparison with the stored line at the same position (the
+     * edit replaces the whole list, and `line_no` is positional). A line with
+     * no stored counterpart is an added line: any margin or tax it carries is an edit.
+     * A `legacy` quotation's stored margin is `D-106`'s whole margin (the
+     * quotation's plus the line's) and its tax the quotation's rate, so
+     * converting it at its next save (`D-165`) is not an edit of either.
      *
-     * @param  array<string, mixed>  $validated
+     * ponytail: positional — a reorder of lines with different margins reads
+     * as an edit of the margin. Match by catalog item and supplier if that bites.
      */
-    private function guardMarginAndTax(QuotationDetail $before, array $validated, PricedQuotation $priced, string $actorId): void
+    private function guardMarginAndTax(QuotationDetail $before, PricedQuotation $priced, string $actorId): void
     {
-        $submittedMargin = $validated['default_margin'] ?? null;
-        $marginMoved = ! (is_string($submittedMargin) && is_numeric($submittedMargin) && is_numeric($before->defaultMargin))
-            || bccomp($submittedMargin, $before->defaultMargin, 3) !== 0
-            || array_filter($priced->items, static fn (array $row): bool => $row['margin_percent'] !== null) !== [];
+        $legacy = $before->pricingMode === PricingMode::Legacy;
+        $marginMoved = false;
+        $taxMoved = false;
+
+        foreach ($priced->items as $index => $row) {
+            $stored = $before->items[$index] ?? null;
+
+            // An appended line has nothing to compare with: its first margin or tax is the edit.
+            if ($stored === null) {
+                $marginMoved = $marginMoved || self::differs($row['margin_percent'] ?? null, '0');
+                $taxMoved = $taxMoved || ($row['tax_percent'] ?? null) !== null;
+
+                continue;
+            }
+
+            $storedMargin = $legacy ? bcadd(Decimal::of($before->defaultMargin ?? '0', 'default_margin'), Decimal::of($stored->marginPercent ?? '0', 'margin_percent'), 3) : $stored->marginPercent;
+            $storedTax = $legacy ? $before->taxPercent : $stored->taxPercent;
+
+            $marginMoved = $marginMoved || self::differs($row['margin_percent'] ?? null, $storedMargin);
+            $taxMoved = $taxMoved || self::differs($row['tax_percent'] ?? null, $storedTax);
+        }
 
         if ($marginMoved && ! $this->authorize->decide($actorId, 'quotation', 'edit_margin')->granted) {
             throw AuthorizationRefused::of('quotation', 'edit_margin');
         }
 
-        $newTax = $priced->computed['tax_percent'] ?? null;
-        $taxMoved = ($newTax === null) !== ($before->taxPercent === null)
-            || (is_string($newTax) && is_numeric($newTax) && is_numeric($before->taxPercent) && bccomp($newTax, $before->taxPercent, 3) !== 0);
-
         if ($taxMoved && ! $this->authorize->decide($actorId, 'quotation', 'edit_tax')->granted) {
             throw AuthorizationRefused::of('quotation', 'edit_tax');
         }
+    }
+
+    /** Null against a value differs; two values differ when they are not equal as numbers at 3 places. */
+    private static function differs(mixed $new, ?string $stored): bool
+    {
+        if ($new === null || $stored === null) {
+            return $new !== $stored;
+        }
+
+        return ! is_numeric($new) || ! is_numeric($stored) || bccomp((string) $new, $stored, 3) !== 0;
     }
 
     /**
@@ -167,6 +186,7 @@ final readonly class UpdateQuotation
             'quotation_date' => $before->quotationDate,
             'valid_until' => $before->validUntil,
             'currency_id' => $before->currencyId,
+            'pricing_mode' => $before->pricingMode->value,
             'default_margin' => $before->defaultMargin,
             'discount_percent' => $before->discountPercent,
             'tax_percent' => $before->taxPercent,

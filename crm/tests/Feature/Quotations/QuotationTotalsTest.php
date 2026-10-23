@@ -10,27 +10,160 @@ use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Module 7, Point 2.2 — §5.2 as far as the tax base.
+ * Module 7, Point 2.2 — §5.2, with `D-157`'s per-line tax (QS.2a).
  *
  * Pure, so it extends PHPUnit's own `TestCase` for the reason `PricedLineTest`
  * gives.
+ *
+ * `D-157`: tax is per line. The discount is spread over the lines in
+ * proportion to their amounts, each line is taxed at its own rate on its
+ * discounted amount, and the sum is the VAT line — `CustomerLineFigures::vat()`
+ * summed. No line carries a tax (`tax_exempt`) → no tax line at all (`D-63`).
+ * There is no quotation tax rate any more, so the totals take none.
  */
 final class QuotationTotalsTest extends TestCase
 {
     /**
      * A line whose `line_total` is exactly $amount, so a totals test reads as
-     * arithmetic over known numbers rather than as a second margin test.
+     * arithmetic over known numbers rather than as a second margin test. Taxed
+     * or not, it is typed at `amount`: the tax is added on top, never taken out
+     * (`D-167`).
      *
-     * @param  numeric-string  $amount
+     * @param  numeric-string  $amount  at most 2 places
+     * @param  numeric-string|null  $taxPercent
      */
-    private static function lineTotalling(string $amount): PricedLine
+    private static function lineTotalling(string $amount, ?string $taxPercent = null): PricedLine
     {
-        return PricedLine::from(
-            unitCostBase: $amount,
+        return PricedLine::fromEntered(
+            enteredUnitPrice: $amount,
+            taxPercent: $taxPercent,
             marginPercent: '0',
-            defaultMargin: '0',
             quantity: '1',
         );
+    }
+
+    // ───────────────────────────────── D-167's worked examples
+
+    public function test_e1_a_tax_included_line_is_taxed_at_its_own_rate_after_the_discount(): void
+    {
+        // Cost 100, margin 20%, × 3 → 360.00; discount 10% → 36.00; base
+        // 324.00; VAT 324 × 14% = 45.36; delivery 50 untaxed; 360 + 50 − 36 =
+        // 374.00; + 45.36 = 419.36.
+        $totals = QuotationTotals::from(
+            [PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3')],
+            ['50'],
+            '10',
+        );
+
+        self::assertSame('360.000000', $totals->subtotal());
+        self::assertSame('36.000000', $totals->discountAmount());
+        self::assertSame('324.000000', $totals->taxBase());
+        self::assertSame('45.360000', $totals->taxAmount());
+        self::assertSame('50.000000', $totals->additionalTotal());
+        self::assertSame('374.000000', $totals->netAmount());
+        self::assertSame('419.360000', $totals->totalBeforeRound());
+
+        // `D-65`: rounding off keeps 419.36; on, at EGP's unit 1, it is 419.00.
+        $off = RoundingRule::disabled('1')->apply($totals->totalBeforeRound());
+        self::assertSame(['419.360000', '0.000000'], [$off->finalTotal(), $off->roundingDiff()]);
+
+        $on = RoundingRule::to('1')->apply($totals->totalBeforeRound());
+        self::assertSame(['419.000000', '-0.360000'], [$on->finalTotal(), $on->roundingDiff()]);
+    }
+
+    public function test_e2_a_tax_that_carries_three_places_is_kept_until_print(): void
+    {
+        // Cost 81.82 at 10%, margin 20% → 98.184 → 98.18; VAT 98.18 × 10% = 9.818;
+        // 107.998. The PDF prints 9.82 and 108.00 (`D-99`: two places at print only).
+        $totals = QuotationTotals::from(
+            [PricedLine::fromEntered(enteredUnitPrice: '81.82', taxPercent: '10', marginPercent: '20', quantity: '1')],
+            [],
+            '0',
+        );
+
+        self::assertSame('98.180000', $totals->subtotal());
+        self::assertSame('9.818000', $totals->taxAmount());
+        self::assertSame('107.998000', $totals->totalBeforeRound());
+        self::assertSame(['9.82', '108.00'], [bcround((string) $totals->taxAmount(), 2), bcround($totals->totalBeforeRound(), 2)]);
+    }
+
+    public function test_e3_an_exempt_quotation_prices_what_was_typed_and_has_no_tax_line(): void
+    {
+        // `D-157` toggle off: 100 as typed, margin 20% → 120.00 × 3 = 360.00;
+        // discount 36.00; delivery 50; no tax at all → 374.00.
+        $totals = QuotationTotals::from(
+            [PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: null, marginPercent: '20', quantity: '3')],
+            ['50'],
+            '10',
+        );
+
+        self::assertSame('360.000000', $totals->subtotal());
+        self::assertSame('36.000000', $totals->discountAmount());
+        self::assertNull($totals->taxAmount(), 'D-63: an exempt quotation has no tax line, not a zero one.');
+        self::assertSame('374.000000', $totals->netAmount());
+        self::assertSame('374.000000', RoundingRule::to('1')->apply($totals->totalBeforeRound())->finalTotal());
+    }
+
+    public function test_each_line_is_taxed_at_its_own_rate_on_its_discounted_amount(): void
+    {
+        // `D-157`, two rates in one quotation, discount 10%, delivery 50:
+        //   A: cost 100 at 14%, margin 20%, × 3 → 120.00 → 360.00
+        //   B: cost 100 at 10%, margin  0%, × 2 → 100.00 → 200.00
+        // subtotal 560.00; discount 56.00; base 504.00;
+        // VAT A = 360 × 0.90 × 14% = 45.36; VAT B = 200 × 0.90 × 10% = 18.00; Σ = 63.36;
+        // net 560 + 50 − 56 = 554.00; total 554.00 + 63.36 = 617.36.
+        $totals = QuotationTotals::from(
+            [
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '10', marginPercent: '0', quantity: '2'),
+            ],
+            ['50'],
+            '10',
+        );
+
+        self::assertSame('560.000000', $totals->subtotal());
+        self::assertSame('56.000000', $totals->discountAmount());
+        self::assertSame('504.000000', $totals->taxBase());
+        self::assertSame('63.360000', $totals->taxAmount());
+        self::assertNotSame('70.560000', $totals->taxAmount(),
+            'D-157: one rate over the whole base (504 × 14%) is the retired quotation tax.');
+        self::assertSame('554.000000', $totals->netAmount());
+        self::assertSame('617.360000', $totals->totalBeforeRound());
+    }
+
+    public function test_a_zero_percent_line_adds_no_tax_but_leaves_the_quotation_taxed(): void
+    {
+        // `D-157`: a 0% line inside a tax-inclusive quotation. 360.00 at 14% and
+        // 55.00 at 0%, discount 10%: VAT 324 × 14% + 49.5 × 0% = 45.36 — a tax
+        // line, not none.
+        $totals = QuotationTotals::from(
+            [
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '14', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '50', taxPercent: '0', marginPercent: '10', quantity: '1'),
+            ],
+            [],
+            '10',
+        );
+
+        self::assertSame('415.000000', $totals->subtotal());
+        self::assertSame('373.500000', $totals->taxBase());
+        self::assertSame('45.360000', $totals->taxAmount());
+    }
+
+    public function test_a_tax_included_quotation_whose_lines_are_all_zero_percent_has_no_tax_line(): void
+    {
+        // The exempt rule (CLAUDE.md): no line with a rate above zero means no tax line, not a zero one.
+        $totals = QuotationTotals::from(
+            [
+                PricedLine::fromEntered(enteredUnitPrice: '100', taxPercent: '0', marginPercent: '20', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '50', taxPercent: '0', marginPercent: '10', quantity: '1'),
+            ],
+            [],
+            '10',
+        );
+
+        self::assertNull($totals->taxAmount());
+        self::assertSame($totals->netAmount(), $totals->totalBeforeRound());
     }
 
     // ───────────────────────────────── the acceptance row
@@ -43,7 +176,6 @@ final class QuotationTotalsTest extends TestCase
             [self::lineTotalling('10000')],
             ['1000'],
             '1.000',
-            null,
         );
 
         self::assertSame('10000.000000', $totals->subtotal());
@@ -63,7 +195,6 @@ final class QuotationTotalsTest extends TestCase
             [self::lineTotalling('10000')],
             ['1000'],
             '1.000',
-            null,
         );
 
         self::assertSame('1000.000000', $totals->additionalTotal(),
@@ -78,7 +209,7 @@ final class QuotationTotalsTest extends TestCase
     {
         // `D-64`. PO #226 taxes the pre-discount amount and is the documented
         // wrong answer; the accepted 10.32 difference is recorded there.
-        $totals = QuotationTotals::from([self::lineTotalling('10000')], [], '1.000', null);
+        $totals = QuotationTotals::from([self::lineTotalling('10000')], [], '1.000');
 
         self::assertSame('9900.000000', $totals->taxBase());
         self::assertNotSame('10000.000000', $totals->taxBase(),
@@ -96,7 +227,6 @@ final class QuotationTotalsTest extends TestCase
             [self::lineTotalling('7368.42')],
             ['250.75'],
             '1.000',
-            null,
         );
 
         self::assertSame(
@@ -113,7 +243,6 @@ final class QuotationTotalsTest extends TestCase
             [self::lineTotalling('10'), self::lineTotalling('5.5'), self::lineTotalling('0.25')],
             ['1', '2.5'],
             '0',
-            null,
         );
 
         self::assertSame('15.750000', $totals->subtotal());
@@ -126,12 +255,11 @@ final class QuotationTotalsTest extends TestCase
         // subtotal adds those — 26315.79 × 10 + 12.03 × 3 = 263157.90 + 36.09.
         $totals = QuotationTotals::from(
             [
-                PricedLine::from(unitCostBase: '26315.789474', marginPercent: null, defaultMargin: '0', quantity: '10'),
-                PricedLine::from(unitCostBase: '12.025', marginPercent: null, defaultMargin: '0', quantity: '3'),
+                PricedLine::fromEntered(enteredUnitPrice: '26315.789474', taxPercent: null, marginPercent: '0', quantity: '10'),
+                PricedLine::fromEntered(enteredUnitPrice: '12.025', taxPercent: null, marginPercent: '0', quantity: '3'),
             ],
             [],
             '0',
-            null,
         );
 
         self::assertSame('263193.990000', $totals->subtotal());
@@ -142,7 +270,7 @@ final class QuotationTotalsTest extends TestCase
         // Not `'0'`. Every other total in the system carries `D-68`'s scale and
         // this one has to as well, or the empty quotation is the single row
         // whose columns were written in a different shape.
-        $totals = QuotationTotals::from([], [], '0', null);
+        $totals = QuotationTotals::from([], [], '0');
 
         self::assertSame('0.000000', $totals->subtotal());
         self::assertSame('0.000000', $totals->additionalTotal());
@@ -152,13 +280,11 @@ final class QuotationTotalsTest extends TestCase
 
     public function test_a_zero_discount_takes_nothing_off(): void
     {
-        $totals = QuotationTotals::from([self::lineTotalling('10000')], [], '0', null);
+        $totals = QuotationTotals::from([self::lineTotalling('10000')], [], '0');
 
         self::assertSame('0.000000', $totals->discountAmount());
         self::assertSame('10000.000000', $totals->taxBase());
     }
-
-    // ───────────────────────────────── D-68, the same way PricedLine reaches it
 
     // ───────────────────────────────── D-63, and the rest of §5.2
 
@@ -166,10 +292,9 @@ final class QuotationTotalsTest extends TestCase
     {
         // Acceptance row 7, complete: tax base 9,900 at 14% is 1,386.
         $totals = QuotationTotals::from(
-            [self::lineTotalling('10000')],
+            [self::lineTotalling('10000', '14.000')],
             ['1000'],
             '1.000',
-            '14.000',
         );
 
         self::assertSame('9900.000000', $totals->taxBase());
@@ -180,11 +305,10 @@ final class QuotationTotalsTest extends TestCase
 
     public function test_an_exempt_quotation_has_no_tax_line_at_all(): void
     {
-        // Acceptance row 8, and `D-63`. Null, not zero: Point 1.1's
-        // `quotations_tax_percent_not_zero` refuses a zero percent and Point
-        // 1.2's `quotations_tax_amount_matches_tax_percent` refuses the mixed
-        // pair, so a zero here would be unstorable as well as wrong.
-        $totals = QuotationTotals::from([self::lineTotalling('10000')], ['1000'], '1.000', null);
+        // Acceptance row 8, and `D-63`: no line carries a tax, so there is no
+        // tax line — null, not zero. §16's PDF decides whether to print the
+        // line by whether the amount exists.
+        $totals = QuotationTotals::from([self::lineTotalling('10000')], ['1000'], '1.000');
 
         self::assertNull($totals->taxAmount());
         self::assertSame('10900.000000', $totals->netAmount());
@@ -195,9 +319,9 @@ final class QuotationTotalsTest extends TestCase
     public function test_the_additional_items_rejoin_the_net_amount(): void
     {
         // The half of `D-62` that is easy to miss. Delivery sits out of the tax
-        // base and then counts in full towards what the customer owes — §5.2
-        // line 501. A net amount of 9,900 would mean it had been dropped.
-        $totals = QuotationTotals::from([self::lineTotalling('10000')], ['1000'], '1.000', '14.000');
+        // base and then counts in full towards what the customer owes — §5.2.
+        // A net amount of 9,900 would mean it had been dropped.
+        $totals = QuotationTotals::from([self::lineTotalling('10000', '14.000')], ['1000'], '1.000');
 
         self::assertSame('10900.000000', $totals->netAmount());
         self::assertNotSame('9900.000000', $totals->netAmount());
@@ -209,10 +333,9 @@ final class QuotationTotalsTest extends TestCase
         // `quotations_total_before_round_adds_tax`, recomputed the way the
         // database will.
         $totals = QuotationTotals::from(
-            [self::lineTotalling('7368.42')],
+            [self::lineTotalling('7368.42', '14.000')],
             ['250.75'],
             '1.000',
-            '14.000',
         );
 
         $scale = PricedLine::SCALE;
@@ -231,11 +354,11 @@ final class QuotationTotalsTest extends TestCase
 
     public function test_the_documented_worked_example_reaches_the_documented_total(): void
     {
-        // §5.2's PO #226 figures under the documented ordering. `RoundingRule`
-        // is imported here and nowhere in `Domain/Pricing`: deptrac analyses
-        // `app/Modules` only, so a test may compose what the engine may not
-        // import, and this is the seam Step 3's Application layer will make.
-        $totals = QuotationTotals::from([self::lineTotalling('7368.42')], [], '1.000', '14.000');
+        // §5.2's PO #226 figures under the documented ordering, one line at
+        // 14%. `RoundingRule` is imported here and nowhere in `Domain/Pricing`:
+        // deptrac analyses `app/Modules` only, so a test may compose what the
+        // engine may not import.
+        $totals = QuotationTotals::from([self::lineTotalling('7368.42', '14.000')], [], '1.000');
 
         self::assertSame('73.684200', $totals->discountAmount());
         self::assertSame('7294.735800', $totals->taxBase());
@@ -257,9 +380,9 @@ final class QuotationTotalsTest extends TestCase
     {
         // 0.77 at 1.007% is 0.0077539 exactly, so the sixth decimal has to be
         // decided here the same way it is for every other product in the chain.
-        // (A 2-place line since `D-142`: a selling price no longer carries six.)
-        $totals = QuotationTotals::from([self::lineTotalling('0.77')], [], '0', '1.007');
+        $totals = QuotationTotals::from([self::lineTotalling('0.77', '1.007')], [], '0');
 
+        self::assertSame('0.770000', $totals->subtotal());
         self::assertSame('0.007753', $totals->taxAmount());
         self::assertNotSame('0.007754', $totals->taxAmount());
     }
@@ -269,8 +392,7 @@ final class QuotationTotalsTest extends TestCase
         // 0.77 × 1.007% is 0.0077539 exactly — seven decimals, so the sixth
         // has to be decided. Truncation gives ...7753; half-up would give
         // ...7754 and disagree with every other product in the chain.
-        // (A 2-place line since `D-142`: a selling price no longer carries six.)
-        $totals = QuotationTotals::from([self::lineTotalling('0.77')], [], '1.007', null);
+        $totals = QuotationTotals::from([self::lineTotalling('0.77')], [], '1.007');
 
         self::assertSame('0.007753', $totals->discountAmount());
         self::assertNotSame('0.007754', $totals->discountAmount());

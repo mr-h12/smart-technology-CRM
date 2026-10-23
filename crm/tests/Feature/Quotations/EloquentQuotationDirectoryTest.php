@@ -461,7 +461,11 @@ final class EloquentQuotationDirectoryTest extends TestCase
     {
         return [
             'supplier_quotation_item_id' => $supplierLineId,
+            'supplier_id' => DB::table('supplier_quotation_items')
+                ->join('supplier_quotations', 'supplier_quotations.id', '=', 'supplier_quotation_items.supplier_quotation_id')
+                ->where('supplier_quotation_items.id', $supplierLineId)->value('supplier_quotations.supplier_id'),
             'catalog_item_id' => DB::table('supplier_quotation_items')->where('id', $supplierLineId)->value('catalog_item_id'),
+            'entered_unit_price' => '30000.000000',
             'unit_cost' => '1000.000000',
             'unit_cost_currency' => 'USD',
             'unit_cost_fx_rate_at_time' => '30',

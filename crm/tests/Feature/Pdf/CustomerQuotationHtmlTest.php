@@ -228,6 +228,132 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
+    // ── QS.2a: «شامل الضريبة» on (`D-157`; `D-168`, the owner, 2026-10-23) ──
+
+    /**
+     * The legacy layout: net unit and line prices **with the VAT column** —
+     * each line's VAT, the additional item's 0.00 — and the totals block as
+     * it is: Total Amount Excl. VAT (360.00 + 50.00), Discount, the lines'
+     * VAT, Total. The terms keep «The price includes VAT».
+     */
+    public function test_that_a_tax_included_page_prints_net_prices_and_a_vat_column(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...self::taxIncluded());
+
+            $vat = preg_quote(e((string) Lang::get('pdf.table.vat', [], $locale)), '/');
+            self::assertMatchesRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $html, "The tax-included {$locale} page has no VAT column.");
+
+            // Each row whole, `<tr>` to `</tr>`: six cells, the net figures and the line's VAT.
+            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '120.00', '45.36', '360.00'), $html, "The {$locale} line does not print 120.00, 45.36 and 360.00 in six cells.");
+            self::assertMatchesRegularExpression(self::row('Delivery & Installation', '—', '1', '50.00', '0.00', '50.00'), $html, "The {$locale} additional item has no 0.00 VAT cell.");
+
+            $total = static fn (string $key, string $value): string => '<td[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.totals.'.$key, [], $locale)), '/').'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>';
+            self::assertMatchesRegularExpression(
+                '/'.$total('excl_vat', '410.00').'.*?'.$total('discount', '36.00').'.*?'.$total('tax', '45.36').'.*?class="final".*?'.$total('final', '419.36 EGP').'/su',
+                $html,
+                "The {$locale} totals block is not E1's 410.00 · 36.00 · 45.36 · 419.36.",
+            );
+            self::assertStringContainsString('id="vat-included"', $html, "The {$locale} terms lost «The price includes VAT».");
+
+            // §3.12 rule 2, §14.6: the entered price, which is the cost (100.00
+            // a unit, 300.00 the line, `D-167`), and the margin never print.
+            foreach (['100.00', '300.00', '20.000'] as $leak) {
+                self::assertStringNotContainsString($leak, $html, "\"{$leak}\" is the entered price, a cost or the margin.");
+            }
+        }
+    }
+
+    /**
+     * The owner, 2026-10-23: «السعر شامل الضريبة» directly under the line
+     * table — after its last page's table, before the totals — as well as in
+     * the terms.
+     */
+    public function test_that_a_tax_included_page_says_the_price_includes_vat_directly_under_the_table(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $note = preg_quote(e((string) Lang::get('pdf.conditions.vat_included', [], $locale)), '/');
+
+            self::assertMatchesRegularExpression(
+                '/<\/table>\s*<(\w+)\b[^>]*\bid="prices-include-tax"[^>]*>\s*'.$note.'\s*<\/\1>\s*<table class="totals"/u',
+                $this->html($locale, ...self::taxIncluded()),
+                "The {$locale} page does not say the price includes VAT directly under the table.",
+            );
+
+            // Under the table, once — not under every page's table.
+            self::assertSame(1, substr_count($this->html($locale, ...[...self::taxIncluded(), 'lines' => self::lines(9)]), 'id="prices-include-tax"'), "The {$locale} note is not printed once.");
+        }
+    }
+
+    /** The exempt rule: a tax-included quotation whose lines are all 0 % has no tax figure, so no VAT row, note or term. */
+    public function test_that_a_tax_included_page_with_only_zero_percent_lines_prints_no_vat(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...[...self::taxIncluded(), 'taxAmount' => null, 'finalTotal' => '410.000000']);
+
+            self::assertStringNotContainsString('id="tax-row"', $html, "The {$locale} page has a VAT row.");
+            self::assertStringNotContainsString('id="prices-include-tax"', $html, "The {$locale} page has the note.");
+            self::assertStringNotContainsString('id="vat-included"', $html, "The {$locale} page has the VAT term.");
+        }
+    }
+
+    /** `D-157` toggle off (`D-156`'s third example) and `D-165`'s legacy page: neither carries the note under the table. */
+    public function test_that_only_a_tax_included_page_carries_the_note_under_the_table(): void
+    {
+        $exempt = [
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '120.000000', '360.000000', 'Pcs', 'قطعة', null)],
+            'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '50.000000')],
+            'subtotal' => '360.000000', 'additionalTotal' => '50.000000', 'totalExcludingVat' => '410.000000',
+            'discountPercent' => '10.000', 'discountAmount' => '36.000000', 'taxBase' => '324.000000',
+            'taxPercent' => null, 'taxAmount' => null, 'netAmount' => '374.000000', 'finalTotal' => '374.000000',
+        ];
+
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...$exempt);
+            self::assertStringNotContainsString('id="prices-include-tax"', $html, "The exempt {$locale} page says the price includes VAT.");
+            self::assertStringNotContainsString('id="tax-row"', $html);
+            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '120.00', '360.00'), $html);
+
+            self::assertStringNotContainsString('id="prices-include-tax"', $this->html(locale: $locale), "The legacy {$locale} page gained the note.");
+        }
+    }
+
+    /**
+     * E1, toggle on, as the mapper hands it over: the stored net 120.00 a unit
+     * and 360.00 the line (`D-168`), the line's VAT 45.36; the header carries
+     * no single rate (`D-165`) and its VAT is the lines' sum, 45.36.
+     *
+     * @return array<string, mixed>
+     */
+    private static function taxIncluded(): array
+    {
+        return [
+            'pricesIncludeTax' => true,
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '120.000000', '360.000000', 'Pcs', 'قطعة', '45.360000')],
+            'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '50.000000')],
+            'subtotal' => '360.000000',
+            'additionalTotal' => '50.000000',
+            'totalExcludingVat' => '410.000000',
+            'discountPercent' => '10.000',
+            'discountAmount' => '36.000000',
+            'taxBase' => '324.000000',
+            'taxPercent' => null,
+            'taxAmount' => '45.360000',
+            'netAmount' => '374.000000',
+            'finalTotal' => '419.360000',
+            'roundingDiff' => '0.000000',
+        ];
+    }
+
+    /** One table row, `<tr>` to `</tr>`, its cells exactly these. */
+    private static function row(string ...$cells): string
+    {
+        return '/<tr>\s*'.implode('\s*', array_map(
+            static fn (string $cell): string => '<td[^>]*>\s*'.preg_quote(e($cell), '/').'\s*<\/td>',
+            $cells,
+        )).'\s*<\/tr>/u';
+    }
+
     public function test_that_the_totals_are_d107s_rows_in_order(): void
     {
         // Total Amount Excl. VAT · Discount · VAT · Total — neither label
@@ -258,8 +384,8 @@ final class CustomerQuotationHtmlTest extends TestCase
         // A fractional quantity, priced by the real engine rather than typed:
         // 13.65 × 2.5 twice. The view takes `PricedLine`'s line amounts and
         // `QuotationTotals`' subtotal, as the stored row would carry them.
-        $priced = PricedLine::from('13.65', null, '0', '2.5');
-        $totals = QuotationTotals::from([$priced, $priced], [], '0', null);
+        $priced = PricedLine::fromEntered(enteredUnitPrice: '13.65', taxPercent: null, marginPercent: '0', quantity: '2.5');
+        $totals = QuotationTotals::from([$priced, $priced], [], '0');
         $fractional = [
             'lines' => [
                 new CustomerQuotationLine(1, 'Formatter M428dw', '2.5000', $priced->unitPrice(), $priced->lineTotal(), 'Pcs', 'قطعة', null),

@@ -4,34 +4,105 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Quotations;
 
-use App\Modules\Admin\Domain\Money\CurrencyCode;
-use App\Modules\Admin\Domain\Money\ExchangeRate;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Support\Database\Precision;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Module 7, Point 2.1 — §5.1's four formulas.
+ * Module 7, Point 2.1 — §5.1's formulas, as `D-167` restates them (QS.2a).
  *
  * Extends PHPUnit's own `TestCase` rather than `Tests\TestCase`: `PricedLine`
  * is a pure Domain class that touches no database and boots no application,
  * the same shape `CurrencyMatrixDataTest` already tests the money classes in.
  *
- * The build plan's first three acceptance rows for Module 7 are the first three
- * tests here, named after the rows so `CHECKLIST.md` and this file can be read
- * against each other.
+ * `D-167` (owner, 2026-10-23: tax is added, never removed): with `m` the line's
+ * margin %, the entered price is the supplier's cost before tax —
+ * `unit_cost_base = entered`, `unit_price = round2(entered × (1 + m/100))`
+ * (`D-142`), `line_amount = round2(unit_price × quantity)`, `line_cost =
+ * entered × quantity`. The line's tax is added on top in `QuotationTotals`
+ * (`D-157`) and never touches these figures. The quotation margin and
+ * `D-106`'s sum are gone. No FX on a new line (`D-164`).
  */
 final class PricedLineTest extends TestCase
 {
-    // ───────────────────────────────── the acceptance rows
+    // ───────────────────────────────── D-167's worked examples
+
+    public function test_a_taxed_line_adds_its_margin_to_the_cost_and_leaves_the_tax_for_the_totals(): void
+    {
+        // `D-167` example (1): cost 100; + 20% is 120.00; × 3 is 360.00. The 14% is
+        // added on top later (`QuotationTotals`), never taken out of the 100.
+        foreach (['14', null] as $tax) {
+            $line = PricedLine::fromEntered(
+                enteredUnitPrice: '100',
+                taxPercent: $tax,
+                marginPercent: '20',
+                quantity: '3',
+            );
+
+            self::assertSame('100.000000', $line->unitCostBase(), 'The unit cost stored is the entered price (D-167).');
+            self::assertSame('120.000000', $line->unitPrice());
+            self::assertSame('360.000000', $line->lineTotal());
+            self::assertSame('300.000000', $line->lineCost());
+        }
+    }
+
+    public function test_a_lines_rate_never_touches_its_own_figures(): void
+    {
+        // `D-167` example (2): cost 90 at 10% is still cost 90 — never 90 ÷ 1.1
+        // = 81.818181; × 1.2 = 108.00 (`D-142`).
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '90',
+            taxPercent: '10',
+            marginPercent: '20',
+            quantity: '1',
+        );
+
+        self::assertSame('90.000000', $line->unitCostBase());
+        self::assertNotSame('81.818181', $line->unitCostBase(), 'D-167: tax is added, never taken out.');
+        self::assertSame('108.000000', $line->unitPrice());
+        self::assertSame('108.000000', $line->lineTotal());
+        self::assertSame('90.000000', $line->lineCost());
+    }
+
+    public function test_a_line_with_no_tax_is_priced_from_what_was_typed(): void
+    {
+        // `D-157`, toggle off: no extraction — the typed 100 is the net.
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '100',
+            taxPercent: null,
+            marginPercent: '20',
+            quantity: '3',
+        );
+
+        self::assertSame('100.000000', $line->unitCostBase());
+        self::assertSame('120.000000', $line->unitPrice());
+        self::assertSame('360.000000', $line->lineTotal());
+        self::assertSame('300.000000', $line->lineCost());
+    }
+
+    public function test_a_zero_percent_line_takes_nothing_out(): void
+    {
+        // `D-157`: a 0% line inside a tax-inclusive quotation is allowed — cost 50, + 10%.
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '50',
+            taxPercent: '0',
+            marginPercent: '10',
+            quantity: '1',
+        );
+
+        self::assertSame('50.000000', $line->unitCostBase());
+        self::assertSame('55.000000', $line->unitPrice());
+    }
+
+    // ───────────────────────────────── the acceptance row, and the margin's sign
 
     public function test_a_cost_of_a_thousand_at_twenty_percent_prices_at_twelve_hundred(): void
     {
-        // Acceptance row 1, and `D-04` itself.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: null,
-            defaultMargin: '20.000',
+        // Acceptance row 1, and `D-04` itself — the margin is the line's own now (`D-167`).
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '1000',
+            taxPercent: null,
+            marginPercent: '20.000',
             quantity: '1',
         );
 
@@ -39,100 +110,17 @@ final class PricedLineTest extends TestCase
         self::assertSame('1000.000000', $line->unitCostBase());
     }
 
-    public function test_a_line_margin_is_added_to_the_quotation_margin(): void
+    public function test_a_margin_of_minus_a_hundred_prices_the_line_at_zero(): void
     {
-        // Acceptance row 2, as `D-106` amends it: the line margin is an extra
-        // on top of the quotation's, summed and applied once — 20 + 10 → 30%.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: '10.000',
-            defaultMargin: '20.000',
-            quantity: '1',
-        );
-
-        self::assertSame('1300.000000', $line->unitPrice());
-    }
-
-    public function test_a_supplier_price_converts_at_the_rate_captured_on_the_line(): void
-    {
-        // Acceptance row 3. The rate is the one stored on the line, never a
-        // rate looked up now — §5.6 and `D-09`. Editing the FX table later
-        // cannot reach this calculation because the number arrives as an
-        // argument, not as a lookup.
-        $line = PricedLine::from(
-            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48.5')->convert('100', PricedLine::SCALE),
-            marginPercent: null,
-            defaultMargin: '20.000',
-            quantity: '2',
-        );
-
-        self::assertSame('4850.000000', $line->unitCostBase());
-        self::assertSame('5820.000000', $line->unitPrice());
-        self::assertSame('11640.000000', $line->lineTotal());
-        self::assertSame('9700.000000', $line->lineCost());
-    }
-
-    // ───────────────────────────────── what "if empty" means (D-03, D-106)
-
-    public function test_an_absent_line_margin_inherits_the_quotation_margin(): void
-    {
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: null,
-            defaultMargin: '20.000',
-            quantity: '1',
-        );
-
-        self::assertSame('1200.000000', $line->unitPrice());
-    }
-
-    public function test_a_zero_line_margin_adds_nothing(): void
-    {
-        // `D-106`: an extra of 0 is no extra — the quotation margin alone.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: '0',
-            defaultMargin: '20.000',
-            quantity: '1',
-        );
-
-        self::assertSame('1200.000000', $line->unitPrice());
-    }
-
-    public function test_a_negative_line_margin_lowers_the_quotation_margin_to_sell_at_cost(): void
-    {
-        // The owner's ruling of 2026-10-09 under `D-106`: selling one line at
-        // cost is a line margin of minus the quotation margin.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: '-20.000',
-            defaultMargin: '20.000',
-            quantity: '1',
-        );
-
-        self::assertSame('1000.000000', $line->unitPrice());
-    }
-
-    public function test_a_whole_margin_of_minus_a_hundred_prices_the_line_at_zero(): void
-    {
-        // The request's floor (`D-106`) stops exactly here: `unit_price >= 0`.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: '-120.000',
-            defaultMargin: '20.000',
+        // The `unit_price >= 0` CHECK stops exactly here.
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '1000',
+            taxPercent: null,
+            marginPercent: '-100.000',
             quantity: '1',
         );
 
         self::assertSame('0.000000', $line->unitPrice());
-    }
-
-    public function test_the_effective_margin_is_the_sum_and_an_empty_line_counts_as_zero(): void
-    {
-        // The one place the sum is written: the price reads it (`D-106`);
-        // the detail shows the achieved margin instead (`D-148`).
-        self::assertSame('30.000', PricedLine::effectiveMargin('10.000', '20.000', 3));
-        self::assertSame('20.000', PricedLine::effectiveMargin(null, '20.000', 3));
-        self::assertSame('0.000', PricedLine::effectiveMargin('-20.000', '20.000', 3));
     }
 
     public function test_a_negative_margin_prices_below_cost_rather_than_being_refused(): void
@@ -140,14 +128,13 @@ final class PricedLineTest extends TestCase
         // Point 1.3 left `margin_percent` free of a non-negativity CHECK on
         // purpose, while `unit_price >= 0` still binds. The engine must not
         // invent a refusal the schema declined to make.
-        $line = PricedLine::from(
-            unitCostBase: '1000',
-            marginPercent: '-30.000',
-            defaultMargin: '20.000',
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '1000',
+            taxPercent: null,
+            marginPercent: '-10.000',
             quantity: '1',
         );
 
-        // 20 − 30 = −10% (`D-106`).
         self::assertSame('900.000000', $line->unitPrice());
     }
 
@@ -157,15 +144,15 @@ final class PricedLineTest extends TestCase
     {
         // `quantity` is NUMERIC(14,4), a different scale from money, and both
         // products are taken against the already-quantized unit values.
-        $line = PricedLine::from(
-            unitCostBase: '10.5',
-            marginPercent: '10.000',
-            defaultMargin: '20.000',
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '10.5',
+            taxPercent: null,
+            marginPercent: '30.000',
             quantity: '2.5000',
         );
 
         self::assertSame('10.500000', $line->unitCostBase());
-        self::assertSame('13.650000', $line->unitPrice());   // 10.5 × (1 + 0.20 + 0.10), D-106
+        self::assertSame('13.650000', $line->unitPrice());   // 10.5 × 1.30
         self::assertSame('34.130000', $line->lineTotal());   // 34.125 rounded to 2 places, D-142
         self::assertSame('26.250000', $line->lineCost());
     }
@@ -174,20 +161,20 @@ final class PricedLineTest extends TestCase
 
     public function test_the_selling_unit_price_is_rounded_to_two_places_before_it_is_multiplied(): void
     {
-        // `D-142`'s own case (QT-2026-0135): a tax-inclusive 30000 entering net
-        // at 14% (`D-105`) is 26315.789474; printed 26315.79 × 10 must be the
-        // line, 263157.90 — not 263157.89. Only the selling price rounds: the
-        // cost figures stay at `D-68`'s scale.
-        $line = PricedLine::from(
-            unitCostBase: '26315.789474',
-            marginPercent: null,
-            defaultMargin: '0.000',
+        // `D-142`'s own case (QT-2026-0135), typed the new way: its cost
+        // 26315.789474 at 14% (`D-167`: the rate leaves the cost alone); printed
+        // 26315.79 × 10 must be the line, 263157.90 — not 263157.89. Only the
+        // selling price rounds: the cost figures stay at `D-68`'s scale.
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '26315.789474',
+            taxPercent: '14',
+            marginPercent: '0',
             quantity: '10',
         );
 
+        self::assertSame('26315.789474', $line->unitCostBase());
         self::assertSame('26315.790000', $line->unitPrice());
         self::assertSame('263157.900000', $line->lineTotal());
-        self::assertSame('26315.789474', $line->unitCostBase());
         self::assertSame('263157.894740', $line->lineCost());
     }
 
@@ -196,10 +183,10 @@ final class PricedLineTest extends TestCase
         // `D-142`: half away from zero (`bcround`'s default). 12.025 is the
         // half whose even neighbour is below it, so truncation and half-even
         // would both give 12.02.
-        $line = PricedLine::from(
-            unitCostBase: '12.025',
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '12.025',
+            taxPercent: null,
             marginPercent: '0',
-            defaultMargin: '0',
             quantity: '3',
         );
 
@@ -207,33 +194,15 @@ final class PricedLineTest extends TestCase
         self::assertSame('36.090000', $line->lineTotal());
     }
 
-    public function test_an_fx_converted_price_is_rounded_after_the_margin_is_applied(): void
-    {
-        // `D-142` over `D-106`: 19.99 USD × 48.53 = 970.1147 EGP; × 1.20 =
-        // 1164.13764 → 1164.14; × 3 = 3492.42. The converted cost is not
-        // rounded (`D-09`, `D-68`), and the line cost is still taken on it.
-        $line = PricedLine::from(
-            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '48.53')->convert('19.99', PricedLine::SCALE),
-            marginPercent: null,
-            defaultMargin: '20.000',
-            quantity: '3',
-        );
-
-        self::assertSame('970.114700', $line->unitCostBase());
-        self::assertSame('1164.140000', $line->unitPrice());
-        self::assertSame('3492.420000', $line->lineTotal());
-        self::assertSame('2910.344100', $line->lineCost());
-    }
-
     public function test_a_fractional_quantity_line_amount_is_rounded_to_two_places_but_its_cost_is_not(): void
     {
         // `D-142` (owner, 2026-10-20): 13.65 × 2.5 = 34.125 would print 34.13 per
         // cell yet add 34.125 to the subtotal; the line amount itself rounds,
         // half away from zero. The cost keeps `D-68`'s six places.
-        $line = PricedLine::from(
-            unitCostBase: '13.65',
-            marginPercent: null,
-            defaultMargin: '0',
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '13.65',
+            taxPercent: null,
+            marginPercent: '0',
             quantity: '2.5',
         );
 
@@ -246,19 +215,19 @@ final class PricedLineTest extends TestCase
 
     public function test_a_product_beyond_the_money_scale_is_truncated_not_rounded(): void
     {
-        // NUMERIC(18,6) × NUMERIC(18,8) is exact at scale 14, so something must
-        // decide the sixth decimal. BCMath truncates and PostgreSQL rounds
-        // half-up; the owner's ruling of 2026-09-07 pins truncation, so the
-        // engine must reach scale 6 itself rather than letting the column do it.
-        $line = PricedLine::from(
-            unitCostBase: ExchangeRate::of(CurrencyCode::Usd, CurrencyCode::Egp, '1.23456789')->convert('1', PricedLine::SCALE),
-            marginPercent: '0',
-            defaultMargin: '20.000',
-            quantity: '1',
+        // 81.818181 × 2.5 = 204.5454525 — seven decimals, so the sixth has to
+        // be decided. The owner's ruling of 2026-09-07 pins truncation:
+        // BCMath truncates and PostgreSQL rounds half-up, so the engine must
+        // reach scale 6 itself rather than letting the column do it.
+        $line = PricedLine::fromEntered(
+            enteredUnitPrice: '81.818181',
+            taxPercent: '10',
+            marginPercent: '20',
+            quantity: '2.5',
         );
 
-        self::assertSame('1.234567', $line->unitCostBase());
-        self::assertNotSame('1.234568', $line->unitCostBase(),
+        self::assertSame('204.545452', $line->lineCost());
+        self::assertNotSame('204.545453', $line->lineCost(),
             'Half-up here would disagree with BCMath everywhere else in the chain.');
     }
 

@@ -23,6 +23,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
 use App\Modules\Quotations\Domain\Pricing\CustomerLineFigures;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 
 /**
  * `QuotationDetail` → `CustomerQuotationView` — Module 9 Point 1.2, and the
@@ -158,6 +159,7 @@ final readonly class CustomerQuotationViewMapper
             finalTotal: $quotation->finalTotal,
             roundingDiff: $quotation->roundingDiff,
             terms: self::terms($quotation),
+            pricesIncludeTax: $quotation->pricingMode === PricingMode::TaxIncluded,
         );
     }
 
@@ -189,10 +191,13 @@ final readonly class CustomerQuotationViewMapper
             $quotation->items,
         )));
         $descriptions = $this->lineDescriptions->descriptionsOf($itemIds);
-        $units = $this->lineDescriptions->unitsOf($itemIds);
+        $units = $this->lineDescriptions->unitsOf(array_values(array_unique(array_filter(array_map(
+            static fn (QuotationLine $line): ?string => $line->unitCode,
+            $quotation->items,
+        )))));
 
         $discountPercent = Decimal::of($quotation->discountPercent, 'discount_percent');
-        $taxPercent = $quotation->taxPercent === null ? null : Decimal::of($quotation->taxPercent, 'tax_percent');
+        $legacy = $quotation->pricingMode === PricingMode::Legacy;
 
         $lines = [];
         $undescribed = [];
@@ -206,16 +211,20 @@ final readonly class CustomerQuotationViewMapper
                 continue;
             }
 
-            $lineTotal = Decimal::of($line->lineTotal, 'line_total');
+            // D-157: a line is taxed at its own rate; a legacy one at the quotation's (D-165).
+            $rate = $legacy ? $quotation->taxPercent : $line->taxPercent;
+            $vat = $rate === null ? null : CustomerLineFigures::vat(Decimal::of($line->lineTotal, 'line_total'), $discountPercent, Decimal::of($rate, 'tax_percent'));
+
+            $unit = $line->unitCode === null ? null : ($units[$line->unitCode] ?? null);
             $lines[] = new CustomerQuotationLine(
                 lineNo: $line->lineNo,
                 description: $description,
                 quantity: $line->quantity,
                 unitPrice: $line->unitPrice,
                 lineTotal: $line->lineTotal,
-                unitEn: $units[$line->catalogItemId]['en'] ?? null,
-                unitAr: $units[$line->catalogItemId]['ar'] ?? null,
-                vatAmount: CustomerLineFigures::vat($lineTotal, $discountPercent, $taxPercent),
+                unitEn: $unit['en'] ?? null,
+                unitAr: $unit['ar'] ?? null,
+                vatAmount: $vat,
             );
         }
 

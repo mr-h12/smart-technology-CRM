@@ -56,6 +56,7 @@ final readonly class QuotationDraft
         'quotation_date',
         'valid_until',
         'currency_id',
+        'pricing_mode',
         'default_margin',
         'discount_percent',
         'rounding_unit',

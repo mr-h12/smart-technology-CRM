@@ -18,12 +18,6 @@
  * `QuotationPayload::detail()` strips them for a caller without §3.5's
  * `view cost & margin` (Step 6 Q7), and the SPA makes no decision of its own.
  *
- * ── Warnings are the server's words ────────────────────────────────────────
- *
- * `meta.warnings` on a read is `supplier_price_changed` (Point 4.5, `D-36`):
- * a red line, "review pricing", never a block. The text is the server's
- * `message`, already in the caller's language.
- *
  * ── Actions: hidden when refused, decided by the API ───────────────────────
  *
  * Edit, Submit for approval and Delete belong to a Draft (`§3.5`, `D-46`);
@@ -44,8 +38,9 @@
  * order an acceptance wrote is drawn by `QuotationPurchaseOrder` (3.3), with
  * its files and their upload; the customer PDF by Module 9's panel (5.2).
  * Approve and return are Module 8.
- * The supplier behind a line is not named: the line carries
- * `supplier_quotation_item_id` and this page reads nothing of Module 6's.
+ * QS.2a (`D-155`): a line owns its supplier, unit, entered price and tax; the
+ * payload carries them for a cost viewer only and the unit always. The unit is
+ * a `units` code, named from the managed list. No warning rides a read (`D-161`).
  * Edit links to `/quotations/:id/edit`, Point 6.7's builder.
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
@@ -74,7 +69,6 @@ import {
     submitQuotation,
     type CustomerResponse,
     type QuotationDetail,
-    type QuotationWarning,
 } from '@/services/quotations';
 import { displayDecimals, displayPercent, displayQuantity } from '@/domain/displayDecimals';
 import { useAuth } from '@/stores/auth';
@@ -86,7 +80,7 @@ const { t, locale } = useI18n();
 const { hasPermission } = useAuth();
 
 const quotation = ref<QuotationDetail | null>(null);
-const warnings = ref<QuotationWarning[]>([]);
+const units = ref<ListEntry[]>([]);
 const customer = ref<Customer | null>(null);
 /** F-49 · 1.4a: the deal's status and its manual move; `null` when it is not, or cannot be, read. */
 const deal = ref<Deal | null>(null);
@@ -205,6 +199,13 @@ function roundingUnit(unit: string): string {
     return (trimmed.split('.')[1] ?? '').length > 2 ? trimmed : displayDecimals(unit);
 }
 
+/** `D-155`: a line's unit is a code; the list names it, the code stands in until (or unless) the list is read. */
+function unitLabel(code: string | null): string {
+    const entry = units.value.find((candidate) => candidate.code === code);
+
+    return entry === undefined ? text(code) : entryLabel(entry, locale.value);
+}
+
 function percent(value: string | null | undefined): string {
     return value === null || value === undefined ? '—' : `${displayPercent(value)}%`;
 }
@@ -218,7 +219,7 @@ async function load(): Promise<void> {
     try {
         const result = await readQuotation(id.value);
         quotation.value = result.quotation;
-        warnings.value = result.warnings;
+        void listEntries('units', 1).then((page) => { units.value = page.items; }, () => {});
     } catch (error) {
         const status = error instanceof ApiError ? error.status : 0;
 
@@ -428,17 +429,6 @@ onMounted(refresh);
                 </p>
             </header>
 
-            <!-- `D-36`: the red line, the server's words, never a block. -->
-            <p
-                v-for="warning in warnings"
-                :key="warning.field + warning.code"
-                class="warning-line rounded-lg p-3"
-                role="alert"
-                data-testid="quotation-detail-warning"
-            >
-                {{ warning.message }}
-            </p>
-
             <!-- `API-12`: somebody else wrote first. Read their version; never overwrite it by retrying. -->
             <div
                 v-if="conflict"
@@ -491,7 +481,7 @@ onMounted(refresh);
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.filter.currency') }}</dt>
                     <dd>{{ quotation.currency }}</dd>
                 </div>
-                <div v-if="quotation.default_margin !== undefined" class="flex flex-col gap-1">
+                <div v-if="typeof quotation.default_margin === 'string'" class="flex flex-col gap-1">
                     <dt class="text-[var(--color-text-muted)]">{{ t('quotations.detail.defaultMargin') }}</dt>
                     <dd class="tabular-nums" data-testid="quotation-detail-default_margin">{{ percent(quotation.default_margin) }}</dd>
                 </div>
@@ -607,6 +597,9 @@ onMounted(refresh);
                     {{ t('quotations.detail.delete') }}
                 </button>
             </div>
+
+            <!-- `D-163`: the rule as it stands, said where the button is. -->
+            <p v-if="canSubmit" class="text-[var(--color-text-muted)]" data-testid="quotation-detail-submit-note">{{ t('quotations.detail.submitNote') }}</p>
 
             <!-- `Design System §6.6`: the consequence, never a native confirm(); A-22 (Option B): in a modal dialog. -->
             <ConfirmDialog
@@ -727,8 +720,12 @@ onMounted(refresh);
                         <thead>
                             <tr class="table-head">
                                 <th scope="col" class="p-3 text-start">#</th>
+                                <th v-if="showsCosts" scope="col" class="p-3 text-start">{{ t('quotations.detail.supplier') }}</th>
                                 <th scope="col" class="p-3 text-start">{{ t('quotations.detail.product') }}</th>
+                                <th scope="col" class="p-3 text-start">{{ t('quotations.detail.unit') }}</th>
                                 <th scope="col" class="p-3 text-end">{{ t('quotations.detail.quantity') }}</th>
+                                <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.enteredPrice') }}</th>
+                                <th scope="col" class="p-3 text-end">{{ t('quotations.detail.taxRate') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.unitCost') }}</th>
                                 <th v-if="showsCosts" scope="col" class="p-3 text-end">{{ t('quotations.detail.margin') }}</th>
                                 <th scope="col" class="p-3 text-end">{{ t('quotations.detail.unitPrice') }}</th>
@@ -738,8 +735,12 @@ onMounted(refresh);
                         <tbody>
                             <tr v-for="line in quotation.items" :key="line.id" class="table-row">
                                 <td data-label="#" class="p-3 tabular-nums">{{ line.line_no }}</td>
+                                <td v-if="showsCosts" :data-label="t('quotations.detail.supplier')" class="p-3" data-testid="quotation-line-supplier">{{ text(line.supplier_name) }}</td>
                                 <td :data-label="t('quotations.detail.product')" class="p-3" data-testid="quotation-line-product">{{ text(line.product_name) }}</td>
+                                <td :data-label="t('quotations.detail.unit')" class="p-3" data-testid="quotation-line-unit">{{ unitLabel(line.unit_code) }}</td>
                                 <td :data-label="t('quotations.detail.quantity')" class="p-3 text-end tabular-nums" data-testid="quotation-line-quantity">{{ displayQuantity(line.quantity) }}</td>
+                                <td v-if="showsCosts" :data-label="t('quotations.detail.enteredPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-entered_unit_price"><bdi dir="ltr">{{ displayDecimals(line.entered_unit_price) }} {{ quotation.currency }}</bdi></td>
+                                <td :data-label="t('quotations.detail.taxRate')" class="p-3 text-end tabular-nums" data-testid="quotation-line-tax_percent"><bdi dir="ltr">{{ percent(line.tax_percent) }}</bdi></td>
                                 <td :data-label="t('quotations.detail.unitCost')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_cost"><bdi dir="ltr">{{ displayDecimals(line.unit_cost_base) }} {{ quotation.currency }}</bdi></td>
                                 <td :data-label="t('quotations.detail.margin')" v-if="showsCosts" class="p-3 text-end tabular-nums" data-testid="quotation-line-effective_margin_percent"><bdi dir="ltr">{{ percent(line.effective_margin_percent) }}</bdi></td>
                                 <td :data-label="t('quotations.detail.unitPrice')" class="p-3 text-end tabular-nums" data-testid="quotation-line-unit_price">{{ displayDecimals(line.unit_price) }}</td>
@@ -784,7 +785,7 @@ onMounted(refresh);
                 <template v-if="quotation.tax_amount !== null">
                     <dt>{{ t('quotations.detail.taxBase') }}</dt>
                     <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_base"><bdi dir="ltr">{{ displayDecimals(quotation.tax_base) }} {{ quotation.currency }}</bdi></dd>
-                    <dt>{{ t('quotations.detail.tax', { percent: displayPercent(quotation.tax_percent) }) }}</dt>
+                    <dt>{{ quotation.tax_percent === null ? t('quotations.detail.taxByLine') : t('quotations.detail.tax', { percent: displayPercent(quotation.tax_percent) }) }}</dt>
                     <dd class="whitespace-nowrap tabular-nums" data-testid="quotation-total-tax_amount"><bdi dir="ltr">{{ displayDecimals(quotation.tax_amount) }} {{ quotation.currency }}</bdi></dd>
                 </template>
 
@@ -844,14 +845,6 @@ onMounted(refresh);
 
 .table-row {
     border-block-start: 1px solid var(--color-border);
-}
-
-/* §6.5's yellow badge — `Design System §6.4`'s Warning tone, the word beside it. */
-/* `Design System §6.4`: red icon + label; the words carry the meaning, the colour only underlines it. */
-.warning-line {
-    background-color: var(--color-surface-muted);
-    border: 1px solid var(--color-danger);
-    color: var(--color-danger);
 }
 
 .form-alert {

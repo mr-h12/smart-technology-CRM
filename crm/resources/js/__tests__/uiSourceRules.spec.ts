@@ -178,17 +178,15 @@ describe('UI source rules (F-42)', () => {
         expect(backs.filter((tag) => !/\binline-flex\b/.test(tag) || !/\bmin-h-11\b/.test(tag))).toEqual([]);
     });
 
-    it('the builder (A-20, A-60, A-15): a sticky Save bar, scroll padding for it, four line columns, and no Number(', () => {
+    // QS.2a: A-60's four-column supplier-offer line retired with the offer picker (D-154); the lines
+    // are a card table now, pinned in QuotationBuilderView.spec.ts (A-39).
+    it('the builder (A-20, A-15): a sticky Save bar, scroll padding for it, and no Number(', () => {
         const builder = SOURCES.find(([at]) => at === 'pages/quotations/QuotationBuilderView.vue')?.[1] ?? '';
 
         // A-20: Save stays in view, and a focused field never hides under the bar.
         expect(builder).toMatch(/\.action-bar\s*\{[^}]*position:\s*sticky;[^}]*inset-block-end:\s*0;/);
         expect(builder).toMatch(/scroll-padding-block-end:/);
         expect(builder).toMatch(/class="action-bar\b/);
-
-        // A-60: label, quantity, margin and Remove — four columns, so Remove stays on its line.
-        const columns = /\.line-grid\s*\{[^}]*grid-template-columns:\s*([^;]+);/.exec(builder)?.[1] ?? '';
-        expect(columns.trim().split(/\s+(?![^(]*\))/)).toHaveLength(4);
 
         // A-15 / D-67: the SPA computes no figure.
         expect(builder).not.toMatch(/\bNumber\(/);

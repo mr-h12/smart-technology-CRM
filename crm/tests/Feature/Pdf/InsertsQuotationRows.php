@@ -147,10 +147,13 @@ trait InsertsQuotationRows
 
         $supplierLine = $this->supplierLine();
         $product = DB::table('supplier_quotation_items')->where('id', $supplierLine)->value('catalog_item_id');
+        $supplier = DB::table('supplier_quotation_items')
+            ->join('supplier_quotations', 'supplier_quotations.id', '=', 'supplier_quotation_items.supplier_quotation_id')
+            ->where('supplier_quotation_items.id', $supplierLine)->value('supplier_quotations.supplier_id');
         foreach ([...array_map(static fn (string $c): array => [$c, null], $lineCosts), ...array_map(static fn (string $c): array => [$c, now()], $deletedLineCosts)] as $i => [$cost, $deletedAt]) {
             DB::table('quotation_items')->insert([
                 'id' => Uuid::uuid7()->toString(), 'quotation_id' => $id, 'supplier_quotation_item_id' => $supplierLine, 'catalog_item_id' => $product, 'line_no' => $i + 1,
-                'unit_cost' => $cost, 'unit_cost_currency' => $currency, 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => $cost,
+                'supplier_id' => $supplier, 'entered_unit_price' => $cost, 'unit_cost' => $cost, 'unit_cost_currency' => $currency, 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => $cost,
                 'unit_price' => $cost, 'quantity' => '1', 'line_total' => $cost, 'line_cost' => $cost,
                 'deleted_at' => $deletedAt, 'created_at' => now(), 'updated_at' => now(),
             ]);

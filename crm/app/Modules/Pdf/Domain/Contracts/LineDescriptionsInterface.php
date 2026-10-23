@@ -43,11 +43,11 @@ interface LineDescriptionsInterface
     public function descriptionsOf(array $catalogItemIds): array;
 
     /**
-     * F-40 · 1.4 (`D-107`): catalog item id => its unit in both languages.
-     * No unit, no entry — the PDF prints `—`.
+     * QS.2a (`D-155`): unit code => its unit in both languages.
+     * An unlisted code has no entry — the PDF prints `—`.
      *
-     * @param  list<string>  $catalogItemIds
+     * @param  list<string>  $unitCodes
      * @return array<string, array{en: string, ar: string}>
      */
-    public function unitsOf(array $catalogItemIds): array;
+    public function unitsOf(array $unitCodes): array;
 }

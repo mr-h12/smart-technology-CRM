@@ -31,14 +31,6 @@ use App\Modules\Storage\Domain\StoredFile;
  * Without it the cost fields are **absent**, not null: `margin_percent` null
  * already means "no extra on the header's margin" (`D-106`), so a null here would be a
  * lie about the line, and a zero would be a lie about the money.
- *
- * `warnings()` is §5.6's "warn, do not block", carried in `meta` the way `D-35`'s
- * `similar_customers` is: the warning is about the save, not a field of the
- * quotation. Each entry is the same `{field, code, message}` triple `OpenAPI §5.1`
- * gives error details, so the SPA reads a warning and a refusal with one reader,
- * and `field` names the request's line (`lines.N.quantity`, 0-based like the
- * validator's own paths) rather than a supplier item id the caller would have
- * to match by hand.
  */
 final class QuotationPayload
 {
@@ -140,9 +132,11 @@ final class QuotationPayload
 
     /**
      * @param  array<string, string>  $lineNames  `ShowQuotation::lineNames()` — a line it cannot name carries null (F-16 · 1.1)
+     * @param  array<string, string>  $supplierNames  `ShowQuotation::supplierNames()` — cost viewers only
+     * @param  array<string, mixed>|null  $entry  `ShowQuotation::entry()` — cost viewers only, the values the builder loads
      * @return array<string, mixed>
      */
-    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting, array $lineNames): array
+    public static function detail(QuotationDetail $quotation, bool $withCosts, ApprovalWaiting $waiting, array $lineNames, array $supplierNames, ?array $entry): array
     {
         return [
             'id' => $quotation->id,
@@ -154,6 +148,7 @@ final class QuotationPayload
             'status' => $quotation->status,
             'currency_id' => $quotation->currencyId,
             'currency' => $quotation->currency,
+            'pricing_mode' => $quotation->pricingMode->value,
             ...($withCosts ? ['default_margin' => $quotation->defaultMargin] : []),
             'discount_percent' => $quotation->discountPercent,
             'tax_percent' => $quotation->taxPercent,
@@ -190,6 +185,7 @@ final class QuotationPayload
                     'line_no' => $line->lineNo,
                     'product_name' => $lineNames[$line->id] ?? null,
                     ...($withCosts ? $line->asRow() : array_diff_key($line->asRow(), array_flip(QuotationLine::COST_FIELDS))),
+                    ...($withCosts ? ['supplier_name' => $supplierNames[$line->supplierId] ?? null] : []),
                     // `D-148` (over `D-106`'s ruling (b)): the margin the stored price achieves, computed here, never by the SPA —
                     // a cost field, so it goes with the others; read-only, so not in `asRow()`'s audit values.
                     ...($withCosts ? ['effective_margin_percent' => PricedLine::achievedMargin(Decimal::of($line->unitPrice, 'unit_price'), Decimal::of($line->unitCostBase, 'unit_cost_base'))] : []),
@@ -205,6 +201,7 @@ final class QuotationPayload
                 ],
                 $quotation->additionalItems,
             ),
+            ...($entry === null ? [] : ['entry' => $entry]),
             'created_by' => $quotation->createdBy,
             'created_at' => $quotation->createdAt->format(DATE_ATOM),
             'updated_by' => $quotation->updatedBy,
@@ -273,7 +270,7 @@ final class QuotationPayload
             'subtotal' => $order->subtotal,
             'additional_total' => $order->additionalTotal,
             'discount_amount' => $order->discountAmount,
-            ...($order->taxPercent === null ? [] : ['tax_percent' => $order->taxPercent, 'tax_amount' => $order->taxAmount]),
+            ...($order->taxAmount === null ? [] : ['tax_percent' => $order->taxPercent, 'tax_amount' => $order->taxAmount]),
         ];
     }
 
@@ -293,22 +290,5 @@ final class QuotationPayload
             'scan_status' => $file->scanStatus->value,
             'created_at' => $file->createdAt->format(DATE_ATOM),
         ];
-    }
-
-    /**
-     * One `meta.warnings` entry per line: 3.4's `quantity_exceeds_recorded` on
-     * `quantity`, 4.5's `supplier_price_changed` on `unit_cost`. The message
-     * is `quotations.warnings.<code>`.
-     *
-     * @param  list<int>  $lineNumbers  1-based, as `QuotationCreated::$quantityWarnings` and `ShowQuotation::movedLines()` report them
-     * @return list<array{field: string, code: string, message: string}>
-     */
-    public static function warnings(array $lineNumbers, string $code, string $attribute): array
-    {
-        return array_map(static fn (int $lineNo): array => [
-            'field' => 'lines.'.($lineNo - 1).'.'.$attribute,
-            'code' => $code,
-            'message' => (string) __('quotations.warnings.'.$code),
-        ], $lineNumbers);
     }
 }

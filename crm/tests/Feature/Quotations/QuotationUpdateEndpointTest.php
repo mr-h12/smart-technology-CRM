@@ -9,7 +9,6 @@ use App\Modules\Identity\Infrastructure\Eloquent\Role;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use Database\Seeders\RolePermissionSeeder;
-use DateTimeInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -25,10 +24,12 @@ use Tests\TestCase;
  * concurrency_conflict` (never 412), and the write advances `version_token`
  * so the token that just succeeded is stale on the next try. §3.5's `edit`
  * row is Draft-only; `edit margin` and `edit tax` are separate grants. Every
- * edit is re-priced by §5 and written to the audit log (§6.4).
+ * edit is re-priced by §5 and written to the audit log (§6.4). QS.2a: a legacy
+ * Draft converts to the line pricing at its next save, to the same total (`D-165`).
  */
 final class QuotationUpdateEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -137,25 +138,14 @@ final class QuotationUpdateEndpointTest extends TestCase
         $this->edit($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(403);
     }
 
-    /** §3.5 `edit margin` is its own checkmark: without it, a changed margin is refused … */
-    public function test_that_changing_the_margin_needs_the_edit_margin_grant(): void
-    {
-        [$id, $etag] = $this->quotation($this->deal(null));
-        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
-
-        $this->edit($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
-            ->assertStatus(403)
-            ->assertJsonPath('error.code', 'permission_denied');
-    }
-
-    /** … a line margin counts as a margin … */
+    /** §3.5 `edit margin` is its own checkmark: without it, a changed line margin is refused … */
     public function test_that_a_line_margin_needs_the_edit_margin_grant(): void
     {
         [$id, $etag] = $this->quotation($this->deal(null));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
         $this->edit($id, $etag, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2', 'margin_percent' => '30']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '30', quantity: '2')],
         ]), RoleName::Manager)->assertStatus(403);
     }
 
@@ -166,7 +156,7 @@ final class QuotationUpdateEndpointTest extends TestCase
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
         $this->edit($id, $etag, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2', 'margin_percent' => '-20']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '-20', quantity: '2')],
         ]), RoleName::Manager)->assertStatus(403);
     }
 
@@ -179,27 +169,67 @@ final class QuotationUpdateEndpointTest extends TestCase
         $this->edit($id, $etag, $this->payload(['terms' => [['key' => 'payment_terms', 'title' => null, 'body' => '30 days']]]), RoleName::Manager)->assertStatus(200);
     }
 
-    /** §3.5 `edit tax`, the same way. */
-    public function test_that_changing_the_tax_needs_the_edit_tax_grant(): void
+    /**
+     * §3.5 `edit tax`, the same way. QS.2a: the tax is the line's (`D-157`), so moving a line's rate is the
+     * edit it guards — 14 % to 5 % refused without it — and re-saving the same rates is not.
+     */
+    public function test_that_changing_a_lines_tax_needs_the_edit_tax_grant(): void
     {
-        [$id, $etag] = $this->quotation($this->deal(null));
+        $line = $this->lineBody();
+        [$id, $etag] = $this->quotation($this->deal(null), $this->e1Body($line));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->edit($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
-        $this->edit($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200);
+        $this->edit($id, $etag, $this->e1Body(['tax_percent' => '5'] + $line), RoleName::Manager)
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'permission_denied');
+        $this->edit($id, $etag, $this->e1Body($line), RoleName::Manager)->assertStatus(200);
     }
 
-    /** `D-118`: `edit tax` guards the sum — the same rates in another order are not a change. */
-    public function test_that_reordering_the_tax_rates_needs_no_edit_tax_grant(): void
+    /** §3.5: a line's first margin is an edit of the margin — appending one is not a free way around the grant. */
+    public function test_that_appending_a_line_with_a_margin_needs_the_edit_margin_grant(): void
     {
         [$id, $etag] = $this->quotation($this->deal(null));
-        $etag = $this->edit($id, $etag, $this->payload(['tax_percents' => ['14', '5']]), RoleName::Manager)->assertStatus(200)->json('data.etag');
-        self::assertIsString($etag);
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2'), $this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(403);
+    }
+
+    /** … and a line's first tax is an edit of the tax. */
+    public function test_that_appending_a_line_with_a_tax_needs_the_edit_tax_grant(): void
+    {
+        $line = $this->lineBody(margin: '0');
+        [$id, $etag] = $this->quotation($this->deal(null), $this->e1Body($line));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->edit($id, $etag, $this->payload(['tax_percents' => ['5', '14']]), RoleName::Manager)
-            ->assertStatus(200)
-            ->assertJsonPath('data.tax_percents', ['5.000', '14.000']);
+        $this->edit($id, $etag, [...$this->e1Body($line), 'lines' => [$line, $this->lineBody(margin: '0')]], RoleName::Manager)
+            ->assertStatus(403);
+    }
+
+    /** Emptying the list and re-adding in two saves leaves no stored line to compare with — still the guarded edit. */
+    public function test_that_emptying_then_refilling_the_lines_needs_the_edit_margin_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
+
+        $this->edit($id, $etag, $this->payload(['lines' => []]), RoleName::Manager)->assertStatus(200);
+        $etag = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->json('data.etag');
+        self::assertIsString($etag);
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(403);
+    }
+
+    /** With the grants held, the appended line saves. */
+    public function test_that_appending_a_line_with_a_margin_succeeds_with_the_grant(): void
+    {
+        [$id, $etag] = $this->quotation($this->deal(null));
+
+        $this->edit($id, $etag, $this->payload([
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2'), $this->lineBody(entered: '10', tax: null, margin: '30', quantity: '1')],
+        ]), RoleName::Manager)->assertStatus(200);
     }
 
     // ─────────────────────────────────────────────────────── optimistic lock
@@ -236,7 +266,7 @@ final class QuotationUpdateEndpointTest extends TestCase
             ->assertJsonPath('error.details.0.current_etag', $etag);
 
         // Nothing was written.
-        self::assertSame('20.000', DB::table('quotations')->where('id', $id)->value('default_margin'));
+        self::assertSame('20.000', DB::table('quotation_items')->where('quotation_id', $id)->whereNull('deleted_at')->value('margin_percent'));
     }
 
     /** `DB-12`: the write advances the token, so the token that just succeeded is stale on the next try. */
@@ -269,32 +299,34 @@ final class QuotationUpdateEndpointTest extends TestCase
 
     // ───────────────────────────────────────────────────── what the edit does
 
-    /** §5 re-priced on the backend: 3 × (10 × 1.25) = 37.5, plus 7 untaxed (`D-62`), 10 % discount before tax (`D-64`), 14 % tax. */
+    /**
+     * §5 re-priced on the backend from what was typed (`D-167`): a `tax_exempt` Draft (example 3) edited into
+     * example 1 — cost 100 → 120.00 × 3, 10 % off before tax (`D-64`), the line's 14 % added on
+     * 324.00 = 45.36, the 50 delivery untaxed (`D-62`) → 419.36; no quotation margin (`D-156`).
+     */
     public function test_that_an_edit_is_repriced_and_answered_in_full(): void
     {
-        [$id, $etag] = $this->quotation($this->deal(null));
+        [$id, $etag] = $this->quotation($this->deal(null), $this->e3Body());
 
-        $this->edit($id, $etag, $this->payload([
-            'default_margin' => '25',
-            'discount_percent' => '10',
-            'tax_percents' => ['14'],
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '3']],
-            'additional_items' => [['description' => 'Installation', 'amount' => '7']],
+        $this->edit($id, $etag, [
+            ...$this->e1Body(),
             'terms' => [['key' => 'payment_terms', 'title' => null, 'body' => '30 days']],
-        ]), RoleName::Manager)
+        ], RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.id', $id)
-            ->assertJsonPath('data.default_margin', '25.000')
-            ->assertJsonPath('data.subtotal', '37.500000')
-            ->assertJsonPath('data.discount_amount', '3.750000')
-            ->assertJsonPath('data.tax_base', '33.750000')
-            ->assertJsonPath('data.tax_amount', '4.725000')
-            ->assertJsonPath('data.additional_total', '7.000000')
-            ->assertJsonPath('data.final_total', '45.475000')
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.tax_percent', null)
+            ->assertJsonPath('data.subtotal', '360.000000')
+            ->assertJsonPath('data.discount_amount', '36.000000')
+            ->assertJsonPath('data.tax_base', '324.000000')
+            ->assertJsonPath('data.tax_amount', '45.360000')
+            ->assertJsonPath('data.additional_total', '50.000000')
+            ->assertJsonPath('data.final_total', '419.360000')
             ->assertJsonPath('data.terms.0.body', '30 days')
             ->assertJsonPath('data.items.0.quantity', '3.0000')
-            ->assertJsonPath('data.items.0.unit_price', '12.500000')
-            ->assertJsonPath('data.additional_items.0.description', 'Installation')
+            ->assertJsonPath('data.items.0.unit_price', '120.000000')
+            ->assertJsonPath('data.additional_items.0.description', 'Delivery')
             ->assertJsonCount(1, 'data.items')
             ->assertJsonCount(1, 'data.additional_items');
 
@@ -303,59 +335,78 @@ final class QuotationUpdateEndpointTest extends TestCase
         self::assertSame(1, DB::table('quotation_items')->where('quotation_id', $id)->whereNull('deleted_at')->count());
     }
 
+    // ─────────────────────────────────────── QS.2a · a legacy Draft (D-165)
+
     /**
-     * `D-152` (fix pass F.4, U-8) over `D-09`: a Draft's edit re-prices it at the
-     * moment of the edit — the rate effective now and the supplier price as it
-     * stands now — not at the ones its creation captured. Created at
-     * `USD→EGP = 50` on 10 EGP (0.200000 USD); an hour later the rate is 40 and
-     * the price 12, and the edit stores 12 ÷ 40 = 0.300000 (`D-115`'s division).
+     * `D-165` (`D-152`'s U-8): a legacy taxed Draft opens converted — example 4's entry is its cost, 100, with
+     * 14 % beside it (`D-167`), at its two margins summed, 10 + 5 = 15 % — and saved through the new body it becomes
+     * `tax_included`, with no quotation margin and no quotation tax rate, at the same 403.97.
      */
-    public function test_that_a_draft_edit_reprices_at_the_rate_and_supplier_price_of_the_edit(): void
+    public function test_that_a_legacy_taxed_draft_converts_at_its_next_save_to_the_same_total(): void
     {
-        $usdId = $this->currency('USD', '0.01', false, false);
-        $this->fxRate($usdId, $this->currencyId('EGP'), '50', now()->subDay());
+        $id = $this->legacyQuotation($this->deal(null), $this->customerId, $this->lineId);
+        [$entry, $etag] = $this->entryOf($id);
 
-        [$id, $etag] = $this->quotation($this->deal(null), ['currency' => 'USD']);
-        self::assertSame(
-            ['unit_cost' => '10.000000', 'unit_cost_fx_rate_at_time' => '0.02000000', 'unit_cost_base' => '0.200000', 'unit_price' => '0.240000'],
-            $this->liveLineCosts($id),
-        );
+        self::assertSame('tax_included', $entry['pricing_mode'] ?? null);
+        $line = $this->entryLine($entry);
+        self::assertSame('100.000000', $line['entered_unit_price'] ?? null);
+        self::assertDecimal('14', $line['tax_percent'] ?? null);
+        self::assertDecimal('15', $line['margin_percent'] ?? null);
 
-        $this->travel(1)->hours();
-        $this->fxRate($usdId, $this->currencyId('EGP'), '40', now()->subMinutes(30));
-        DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['unit_price' => '12']);
-
-        $this->edit($id, $etag, $this->payload(['currency' => 'USD']), RoleName::Manager)->assertStatus(200);
-
-        self::assertSame(
-            ['unit_cost' => '12.000000', 'unit_cost_fx_rate_at_time' => '0.02500000', 'unit_cost_base' => '0.300000', 'unit_price' => '0.360000'],
-            $this->liveLineCosts($id),
-        );
-    }
-
-    /** §5.6 still warns on the edit, in `meta`, without blocking. */
-    public function test_that_an_over_quantity_line_warns_on_edit(): void
-    {
-        [$id, $etag] = $this->quotation($this->deal(null));
-
-        $this->edit($id, $etag, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '9']],
-        ]), RoleName::Manager)
+        $this->edit($id, $etag, $this->bodyFrom($entry), RoleName::Manager)
             ->assertStatus(200)
-            ->assertJsonPath('meta.warnings.0.field', 'lines.0.quantity')
-            ->assertJsonPath('meta.warnings.0.code', 'quantity_exceeds_recorded');
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.tax_percent', null)
+            ->assertJsonPath('data.tax_percents', [])
+            ->assertJsonPath('data.items.0.unit_price', '115.000000')
+            ->assertJsonPath('data.tax_amount', '43.470000')
+            ->assertJsonPath('data.final_total', '403.970000');
+
+        self::assertSame(
+            ['pricing_mode' => 'tax_included', 'default_margin' => null, 'final_total' => '403.970000'],
+            (array) DB::table('quotations')->where('id', $id)->first(['pricing_mode', 'default_margin', 'final_total']),
+        );
     }
 
-    /** §5.6 still blocks a line with no usable price. */
-    public function test_that_an_unpriceable_line_is_blocked_on_edit(): void
+    /** `D-165`: an untaxed legacy Draft converts to `tax_exempt` — the 100 net typed as-is, no tax, 15 % → 360.50. */
+    public function test_that_a_legacy_untaxed_draft_converts_to_tax_exempt(): void
     {
-        [$id, $etag] = $this->quotation($this->deal(null));
-        DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['deleted_at' => now()]);
+        $id = $this->legacyQuotation($this->deal(null), $this->customerId, $this->lineId, taxed: false);
+        [$entry, $etag] = $this->entryOf($id);
 
-        $this->edit($id, $etag, $this->payload(), RoleName::Manager)
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'supplier_price_missing');
+        self::assertSame('tax_exempt', $entry['pricing_mode'] ?? null);
+        $line = $this->entryLine($entry);
+        self::assertSame('100.000000', $line['entered_unit_price'] ?? null);
+        self::assertNull($line['tax_percent'] ?? null);
+        self::assertDecimal('15', $line['margin_percent'] ?? null);
+
+        $this->edit($id, $etag, $this->bodyFrom($entry), RoleName::Manager)
+            ->assertStatus(200)
+            ->assertJsonPath('data.pricing_mode', 'tax_exempt')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.tax_amount', null)
+            ->assertJsonPath('data.final_total', '360.500000');
+    }
+
+    /** `D-165`: an issued legacy quotation is never re-priced — reading it leaves every stored figure as it was. */
+    public function test_that_reading_a_sent_legacy_quotation_leaves_its_money_alone(): void
+    {
+        $id = $this->legacyQuotation($this->deal(null), $this->customerId, $this->lineId, status: 'sent');
+        $columns = ['pricing_mode', 'default_margin', 'tax_percent', 'tax_amount', 'final_total', 'version_token'];
+        $before = (array) DB::table('quotations')->where('id', $id)->first($columns);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.pricing_mode', 'legacy')
+            ->assertJsonPath('data.final_total', '403.970000');
+
+        self::assertSame(
+            ['pricing_mode' => 'legacy', 'default_margin' => '10.000', 'tax_percent' => '14.000', 'tax_amount' => '43.470000', 'final_total' => '403.970000', 'version_token' => 1],
+            $before,
+        );
+        self::assertSame($before, (array) DB::table('quotations')->where('id', $id)->first($columns));
+        self::assertSame('115.000000', DB::table('quotation_items')->where('quotation_id', $id)->value('unit_price'));
     }
 
     /** §6.4: "every edit is written to the audit log" — with `AUD-02`'s old and new values. */
@@ -363,7 +414,7 @@ final class QuotationUpdateEndpointTest extends TestCase
     {
         [$id, $etag] = $this->quotation($this->deal(null));
 
-        $this->edit($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)->assertStatus(200);
+        $this->edit($id, $etag, $this->payload(['discount_percent' => '10']), RoleName::Manager)->assertStatus(200);
 
         $row = DB::table('audit_log')->where('entity_type', 'quotation')->where('entity_id', $id)->where('event', 'QUOTATION_UPDATED')->first();
         self::assertInstanceOf(stdClass::class, $row);
@@ -373,8 +424,8 @@ final class QuotationUpdateEndpointTest extends TestCase
         $new = json_decode($row->new_values, true);
         self::assertIsArray($old);
         self::assertIsArray($new);
-        self::assertSame('20.000', $old['default_margin'] ?? null);
-        self::assertSame('25', $new['default_margin'] ?? null);
+        self::assertSame('0.000', $old['discount_percent'] ?? null);
+        self::assertSame('10', $new['discount_percent'] ?? null);
     }
 
     // ──────────────────────────────────────────────────────────── D-103 terms
@@ -545,26 +596,27 @@ final class QuotationUpdateEndpointTest extends TestCase
     {
         return array_merge([
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
         ], $overrides);
     }
 
     /**
      * Creates a quotation through Point 3.4's endpoint and reads its etag
-     * through Point 3.5's: one line of 2 × 10 at 20 % margin, plus 5 delivery.
+     * through Point 3.5's: `$body` — QS.2a's line-owned body (`e1Body()`,
+     * `e3Body()`) — or one line of 2 × 10 at 20 % margin, plus 5 delivery.
      *
-     * @param  array<string, mixed>  $overrides
+     * @param  array<string, mixed>|null  $body
      * @return array{string, string} id and etag
      */
-    private function quotation(string $dealId, array $overrides = []): array
+    private function quotation(string $dealId, ?array $body = null): array
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
-            ...$this->payload($overrides),
+            ...($body ?? $this->payload()),
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);
@@ -573,6 +625,73 @@ final class QuotationUpdateEndpointTest extends TestCase
         self::assertIsString($etag);
 
         return [$id, $etag];
+    }
+
+    /**
+     * The `entry` the builder loads — for a legacy quotation, converted (`D-165`) — and the etag to save it under.
+     *
+     * @return array{array<mixed>, string}
+     */
+    private function entryOf(string $id): array
+    {
+        $data = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200)->json('data');
+        self::assertIsArray($data);
+        $entry = $data['entry'] ?? null;
+        $etag = $data['etag'] ?? null;
+        self::assertIsArray($entry);
+        self::assertIsString($etag);
+
+        return [$entry, $etag];
+    }
+
+    /**
+     * @param  array<mixed>  $entry
+     * @return array<mixed> the entry's one line
+     */
+    private function entryLine(array $entry): array
+    {
+        $lines = $entry['lines'] ?? null;
+        self::assertIsArray($lines);
+        self::assertCount(1, $lines);
+        $line = $lines[0] ?? null;
+        self::assertIsArray($line);
+
+        return $line;
+    }
+
+    /**
+     * The body the builder saves from `$entry`: example 4's header (EGP, 10 % off, delivery 50) and the
+     * entry's line as loaded, a null tax left out — `tax_exempt` refuses one.
+     *
+     * @param  array<mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function bodyFrom(array $entry): array
+    {
+        $line = array_filter(
+            array_intersect_key($this->entryLine($entry), array_flip(['supplier_id', 'catalog_item_id', 'unit_code', 'entered_unit_price', 'tax_percent', 'margin_percent', 'quantity'])),
+            static fn (mixed $value): bool => $value !== null,
+        );
+
+        return [
+            'currency' => 'EGP',
+            'pricing_mode' => $entry['pricing_mode'] ?? null,
+            'discount_percent' => '10',
+            'lines' => [$line],
+            'additional_items' => [['description' => 'Delivery', 'amount' => '50']],
+        ];
+    }
+
+    /**
+     * Equal to `$expected` as a number, whatever scale the server wrote it at.
+     *
+     * @param  numeric-string  $expected
+     */
+    private static function assertDecimal(string $expected, mixed $actual): void
+    {
+        self::assertIsString($actual);
+        self::assertIsNumeric($actual);
+        self::assertSame(0, bccomp($expected, $actual, 6), $actual.' is not '.$expected);
     }
 
     private function currency(string $code, string $unit, bool $enabled, bool $base): string
@@ -590,34 +709,6 @@ final class QuotationUpdateEndpointTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    private function fxRate(string $fromId, string $toId, string $rate, DateTimeInterface $effectiveFrom): void
-    {
-        DB::table('fx_rates')->insert([
-            'id' => Uuid::uuid4()->toString(),
-            'from_currency_id' => $fromId,
-            'to_currency_id' => $toId,
-            'rate' => $rate,
-            'effective_from' => $effectiveFrom,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
-    /** @return array<string, mixed> the live line's stored cost snapshot and price */
-    private function liveLineCosts(string $quotationId): array
-    {
-        $line = DB::table('quotation_items')->where('quotation_id', $quotationId)->whereNull('deleted_at')
-            ->first(['unit_cost', 'unit_cost_fx_rate_at_time', 'unit_cost_base', 'unit_price']);
-        self::assertNotNull($line);
-
-        return [
-            'unit_cost' => $line->unit_cost,
-            'unit_cost_fx_rate_at_time' => $line->unit_cost_fx_rate_at_time,
-            'unit_cost_base' => $line->unit_cost_base,
-            'unit_price' => $line->unit_price,
-        ];
     }
 
     private function currencyId(string $code): string

@@ -134,11 +134,10 @@ function envelope(data: unknown, extra: Record<string, unknown> = {}): unknown {
 function respond(options: {
     quotation?: unknown;
     status?: number;
-    warnings?: unknown[];
     action?: (url: string, init?: RequestInit) => Response | null;
     pdf?: unknown[];
 } = {}): ReturnType<typeof vi.fn> {
-    const { quotation = QUOTATION, status = 200, warnings = [], action, pdf = [NO_PDF] } = options;
+    const { quotation = QUOTATION, status = 200, action, pdf = [NO_PDF] } = options;
     let pdfServed = 0;
 
     return vi.fn(async (input: string, init?: RequestInit) => {
@@ -159,6 +158,11 @@ function respond(options: {
             });
         }
 
+        // QS.2a: a line's unit is a `units` code, named from the managed list.
+        if (url.includes('/managed-lists/units')) {
+            return json(200, envelope([{ code: 'pcs', label_en: 'Piece', label_ar: 'قطعة', position: 1 }]));
+        }
+
         // Module 10 · 3.3's block reads its order's files on its own.
         if (url.includes('/purchase-orders/')) {
             return json(200, envelope({ documents: [] }));
@@ -177,7 +181,7 @@ function respond(options: {
         }
 
         return status === 200
-            ? json(200, envelope(quotation, { warnings }))
+            ? json(200, envelope(quotation))
             : json(status, { error: { code: status === 404 ? 'not_found' : 'forbidden', message: 'no' }, meta: { request_id: 'r1' } });
     });
 }
@@ -405,17 +409,6 @@ describe('the quotation detail view', () => {
         expect(tables.length).toBe(2);
         expect(tables.every((table) => table.classes().includes('card-table'))).toBe(true);
         expect(wrapper.findAll('tbody td').every((cell) => (cell.attributes('data-label') ?? '') !== '')).toBe(true);
-    });
-
-    it('draws each warning from `meta.warnings` as an alert in the server’s words', async () => {
-        const { wrapper } = await render(
-            respond({ warnings: [{ field: 'lines.0.supplier_quotation_item_id', code: 'supplier_price_changed', message: 'Supplier price has changed — review pricing.' }] }),
-        );
-
-        const alerts = wrapper.findAll('[data-testid="quotation-detail-warning"]');
-        expect(alerts).toHaveLength(1);
-        expect(alerts[0]?.attributes('role')).toBe('alert');
-        expect(alerts[0]?.text()).toContain('Supplier price has changed — review pricing.');
     });
 
     it('names the previous version and the self-approval', async () => {
@@ -928,6 +921,138 @@ describe('the quotation detail view', () => {
             // A queued render polls; unmounting stops it before the next test.
             wrapper.unmount();
         });
+    });
+});
+
+/**
+ * QS.2a — a line owns what was typed (`D-155`): its supplier, unit, entered price
+ * and tax. `GET /quotations/{id}` always carries `unit_code`, and the other three
+ * only for a caller with `quotation.view_cost_and_margin` (contract §4); the page
+ * draws what the payload carries and decides nothing (Q7, `D-67`).
+ */
+describe('the quotation detail view — line pricing (QS.2a)', () => {
+    beforeEach(() => {
+        vi.unstubAllGlobals();
+        useAuth().forgetSession();
+        window.localStorage.clear();
+    });
+
+    /** E1 as a cost viewer reads it: entered 100 (the supplier's cost before tax) at 14 % tax, 20 % margin, priced 120.00 — owner, 2026-10-23: tax is added, never taken out. */
+    const PRICED_LINE = {
+        ...COSTED_LINE,
+        supplier_quotation_item_id: null,
+        catalog_item_id: 'ci1',
+        product_name: 'Pump 5HP',
+        supplier_id: 's1',
+        supplier_name: 'Nile Pumps Co',
+        unit_code: 'pcs',
+        entered_unit_price: '100.000000',
+        tax_percent: '14.000',
+        quantity: '3.0000',
+        unit_price: '120.000000',
+        line_total: '360.000000',
+        unit_cost: '100.000000',
+        unit_cost_base: '100.000000',
+        margin_percent: '20.000',
+    };
+
+    /** A `tax_included` quotation (D-165): no quotation margin, no quotation rate, the VAT the lines' sum (D-157). */
+    const PRICED = {
+        ...QUOTATION,
+        pricing_mode: 'tax_included',
+        default_margin: null,
+        tax_percent: null,
+        tax_percents: [],
+        subtotal: '360.000000',
+        discount_amount: '36.000000',
+        tax_base: '324.000000',
+        tax_amount: '45.360000',
+        additional_total: '50.000000',
+        net_amount: '374.000000',
+        total_before_round: '419.360000',
+        rounding_enabled: false,
+        rounding_diff: '0.000000',
+        final_total: '419.360000',
+        items: [PRICED_LINE],
+    };
+
+    it('shows each line’s supplier, unit, entered price and tax when the payload carries them (D-155)', async () => {
+        const { wrapper } = await render(respond({ quotation: PRICED }));
+
+        expect(wrapper.get('[data-testid="quotation-line-supplier"]').text()).toBe('Nile Pumps Co');
+        expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('Piece');
+        // The cell's whole text: unit_cost_base is 100.000000 too, so a bare '100.00' would also pass on '1100.00'.
+        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).toBe('100.00 EGP');
+        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).not.toContain('100.000000');
+        expect(wrapper.get('[data-testid="quotation-line-tax_percent"]').text()).toMatch(/^14\s*%$/);
+    });
+
+    it('names the unit in the session’s language', async () => {
+        const { wrapper } = await render(respond({ quotation: PRICED }), USER, 'ar');
+
+        expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('قطعة');
+    });
+
+    // A legacy line backfilled from a catalog item without a unit carries `unit_code: null` (`QuotationLine::$unitCode`).
+    it('prints the dash for a line with no unit', async () => {
+        const noUnit = { ...PRICED, items: [{ ...PRICED_LINE, unit_code: null }] };
+        const { wrapper } = await render(respond({ quotation: noUnit }));
+
+        expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('—');
+    });
+
+    // §3.5 / Q7: without `view cost & margin` the server strips supplier and entered price; the unit and the
+    // tax rate stay — the customer PDF prints the rate, so it is no cost field (owner, 2026-10-23).
+    it('shows the unit and the tax rate and none of the supplier or entered price when the payload strips them', async () => {
+        const stripped = { ...QUOTATION, items: [{ ...QUOTATION.items[0], unit_code: 'pcs', tax_percent: '14.000' }] };
+        const { wrapper } = await render(respond({ quotation: stripped }), READER);
+
+        expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('Piece');
+        expect(wrapper.find('[data-testid="quotation-line-supplier"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="quotation-line-entered_unit_price"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="quotation-line-tax_percent"]').text()).toMatch(/^14\s*%$/);
+        expect(wrapper.find('[data-testid="quotation-lines"]').text()).not.toContain('Nile Pumps Co');
+    });
+
+    // D-165: `default_margin` is non-null only on a legacy quotation; the new pricing has none to show.
+    it('shows the default margin only when it is not null', async () => {
+        const priced = await render(respond({ quotation: PRICED }));
+        expect(priced.wrapper.find('[data-testid="quotation-detail-default_margin"]').exists()).toBe(false);
+
+        const legacy = await render(respond({ quotation: { ...QUOTATION, default_margin: '10.000', items: [COSTED_LINE] } }));
+        expect(legacy.wrapper.find('[data-testid="quotation-detail-default_margin"]').text()).toBe('10%');
+    });
+
+    // D-157: the VAT row is the sum of the lines' taxes — there is no single quotation rate to print beside it.
+    it('draws a tax_included quotation’s VAT row with its amount and no empty rate', async () => {
+        const { wrapper } = await render(respond({ quotation: PRICED }));
+        const totals = wrapper.get('[data-testid="quotation-detail-totals"]');
+
+        expect(totals.get('[data-testid="quotation-total-tax_amount"]').text()).toBe('45.36 EGP');
+        expect(totals.text()).not.toContain('(%)');
+        expect(totals.text()).not.toContain('null');
+        expect(totals.get('[data-testid="quotation-total-final_total"]').text()).toBe('419.36 EGP');
+    });
+
+    // D-163: under «إرسال للاعتماد», the rule as it stands — no permission changes.
+    it.each([
+        { locale: 'ar' as const, note: 'لا يمكن التعديل بعد الإرسال للاعتماد إلا إذا أعاده المدير أو قائد الفريق' },
+        { locale: 'en' as const, note: 'Once sent for approval, it can\'t be edited unless a Manager or Team Leader returns it.' },
+    ])('writes the $locale note under Submit for approval', async ({ locale, note }) => {
+        const { wrapper } = await render(respond(), USER, locale);
+        const submit = wrapper.get('[data-testid="quotation-action-submit"]').element;
+        const written = wrapper.get('[data-testid="quotation-detail-submit-note"]');
+
+        expect(written.text()).toBe(note);
+        expect(submit.compareDocumentPosition(written.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('writes no submit note where there is no Submit', async () => {
+        const pending = await render(respond({ quotation: { ...QUOTATION, status: 'pending' } }));
+        expect(pending.wrapper.find('[data-testid="quotation-detail-submit-note"]').exists()).toBe(false);
+
+        const reader = await render(respond(), READER);
+        expect(reader.wrapper.find('[data-testid="quotation-detail-submit-note"]').exists()).toBe(false);
     });
 });
 

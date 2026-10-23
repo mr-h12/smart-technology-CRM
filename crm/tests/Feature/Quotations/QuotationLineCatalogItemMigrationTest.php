@@ -29,6 +29,8 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
 
     private string $offerId;
 
+    private string $supplierId;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -36,7 +38,7 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
         $customerId = Uuid::uuid4()->toString();
         $dealId = Uuid::uuid4()->toString();
         $currencyId = Uuid::uuid4()->toString();
-        $supplierId = Uuid::uuid4()->toString();
+        $supplierId = $this->supplierId = Uuid::uuid4()->toString();
 
         $this->quotationId = Uuid::uuid4()->toString();
         $this->offerId = Uuid::uuid4()->toString();
@@ -134,6 +136,7 @@ final class QuotationLineCatalogItemMigrationTest extends TestCase
 
         DB::table('quotation_items')->insert(array_merge([
             'id' => $id, 'quotation_id' => $this->quotationId, 'supplier_quotation_item_id' => $supplierLineId, 'line_no' => $lineNo,
+            'supplier_id' => $this->supplierId, 'entered_unit_price' => '1000.000000',
             'unit_cost' => '1000.000000', 'unit_cost_currency' => 'EGP', 'unit_cost_fx_rate_at_time' => '1', 'unit_cost_base' => '1000.000000',
             'margin_percent' => '20', 'unit_price' => '1200.000000', 'quantity' => '1.0000', 'line_total' => '1200.000000', 'line_cost' => '1000.000000',
             'created_at' => now(), 'updated_at' => now(),

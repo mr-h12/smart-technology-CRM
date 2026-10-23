@@ -26,12 +26,12 @@ interface CatalogItemLabelsInterface
     public function labelsOf(array $catalogItemIds): array;
 
     /**
-     * F-40 · 1.4 (`D-107`): each item's unit, as the `units` managed list
-     * labels it in both languages. An item with no unit, or a code the list
-     * never held, has no entry; an archived entry still names its unit.
+     * QS.2a (`D-155`): each unit code as the `units` managed list labels it in
+     * both languages. A code the list never held has no entry; an archived
+     * entry still names its unit.
      *
-     * @param  list<string>  $catalogItemIds
-     * @return array<string, array{en: string, ar: string}> id => labels
+     * @param  list<string>  $unitCodes
+     * @return array<string, array{en: string, ar: string}> code => labels
      */
-    public function unitsOf(array $catalogItemIds): array;
+    public function unitsOf(array $unitCodes): array;
 }

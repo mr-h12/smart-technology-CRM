@@ -11,13 +11,9 @@ return [
         'additional_item_description' => 'وصف البند الإضافي',
         'additional_item_amount' => 'مبلغ البند الإضافي',
         'tax_percents' => 'مجموع نسب الضريبة',
-        'tax_percent_item' => 'نسبة الضريبة',
     ],
     'purchase_order_not_found' => 'لم يُعثر على أمر الشراء هذا.',
 
-    // `422 business_rule_blocked` — منع §5.6، وجاره الذي يفرضه `D-09`.
-    // مفاتيحه هي `QuotationNotPriceable::$reason`؛ أكّد المالك
-    // `fx_rate_missing` ككود مستقل في 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (النقطة 5.2). رسالة الغلاف هي
     // النقطة 5.5 — مجموعة `null` في `group_by=employee`: صفقة بلا مالك.
     'groups' => [
@@ -47,8 +43,6 @@ return [
 
     'errors' => [
         'invalid_request' => 'تعذّر فهم هذا الطلب.',
-        'supplier_price_missing' => 'لا يوجد سعر قابل للاستخدام لبند المورّد هذا — البند محذوف، أو عرض المورّد بلا عملة — لذا لا يمكن حفظ عرض السعر.',
-        'fx_rate_missing' => 'لا يوجد سعر صرف مسجَّل لتحويل بند المورّد هذا. سجِّل سعر الصرف أولًا.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (النقطة 3.6).
         'if_match_required' => 'أرسل الـ etag الحالي لعرض السعر في If-Match.',
         'stale_version' => 'عدّل شخص آخر عرض السعر هذا. أعد تحميله ثم طبّق تعديلك مجددًا.',
@@ -61,16 +55,11 @@ return [
         'deal_not_ready_to_send' => 'لم تبلغ صفقة عرض السعر هذا مرحلة عرض المورّد بعد، فلا يمكن إرسال العرض.',
     ],
 
-    // تحذير §5.6 — يُحمل في `meta.warnings` عند إنشاء ناجح.
-    'warnings' => [
-        'quantity_exceeds_recorded' => 'الكمية المطلوبة تتجاوز المتاح من عرض المورّد.',
-        'supplier_price_changed' => 'تغيّر سعر المورّد — راجع التسعير.',
-    ],
-
     // `422 validation_failed` تصدره حالة الاستخدام لا قاعدة تحقق.
     'validation' => [
         'unknown_deal' => 'لم يُعثر على هذه الصفقة.',
         'customer_not_the_deals' => 'يجب أن يكون العميل هو عميل الصفقة.',
+        'too_many_suppliers' => 'لا يمكن أن يضم عرض السعر أكثر من :max مورّدًا.',
         'note_not_blank' => 'لا يمكن أن تكون ملاحظة الإرجاع مسافات فقط.',
     ],
 ];

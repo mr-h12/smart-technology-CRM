@@ -35,19 +35,6 @@ final class CatalogLineDescriptionsTest extends TestCase
         );
     }
 
-    /** F-40 · 1.4 — `D-107`: each line's unit is its catalog item's, in both languages; none, no entry. */
-    public function test_that_each_line_takes_its_catalog_items_unit_in_both_languages(): void
-    {
-        $descriptions = new CatalogLineDescriptions(
-            self::labels([], null, [self::CATALOG_A => ['en' => 'Piece', 'ar' => 'قطعة']]),
-        );
-
-        self::assertSame(
-            [self::CATALOG_A => ['en' => 'Piece', 'ar' => 'قطعة']],
-            $descriptions->unitsOf([self::CATALOG_A, self::CATALOG_B]),
-        );
-    }
-
     public function test_that_the_catalog_is_asked_once_for_the_whole_quotation(): void
     {
         /** @var ArrayObject<int, list<string>> $asked */
@@ -72,22 +59,21 @@ final class CatalogLineDescriptionsTest extends TestCase
      *
      * @param  array<string, string>  $labels
      * @param  ArrayObject<int, list<string>>|null  $asked
-     * @param  array<string, array{en: string, ar: string}>  $units
      */
-    private static function labels(array $labels, ?ArrayObject $asked = null, array $units = []): CatalogItemLabelsInterface
+    private static function labels(array $labels, ?ArrayObject $asked = null): CatalogItemLabelsInterface
     {
-        return new class($labels, $asked ?? new ArrayObject, $units) implements CatalogItemLabelsInterface
+        return new class($labels, $asked ?? new ArrayObject) implements CatalogItemLabelsInterface
         {
             /**
              * @param  array<string, string>  $labels
              * @param  ArrayObject<int, list<string>>  $asked
-             * @param  array<string, array{en: string, ar: string}>  $units
              */
-            public function __construct(private readonly array $labels, private readonly ArrayObject $asked, private readonly array $units) {}
+            public function __construct(private readonly array $labels, private readonly ArrayObject $asked) {}
 
-            public function unitsOf(array $catalogItemIds): array
+            /** QS.2a: units are by code, proved against the database in `CustomerDocumentFactsTest`. */
+            public function unitsOf(array $unitCodes): array
             {
-                return array_intersect_key($this->units, array_flip($catalogItemIds));
+                return [];
             }
 
             public function labelsOf(array $catalogItemIds): array

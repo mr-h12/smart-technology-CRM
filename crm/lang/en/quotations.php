@@ -11,13 +11,9 @@ return [
         'additional_item_description' => 'additional item description',
         'additional_item_amount' => 'additional item amount',
         'tax_percents' => 'tax rates',
-        'tax_percent_item' => 'tax rate',
     ],
     'purchase_order_not_found' => 'This purchase order was not found.',
 
-    // `422 business_rule_blocked` — §5.6's block, and its neighbour `D-09`
-    // forces. Keyed by `QuotationNotPriceable::$reason`; the owner confirmed
-    // `fx_rate_missing` as a distinct code on 2026-09-11.
     // `OpenAPI §6.1`/`§6.2` — `GET /quotations` (Point 5.2). The envelope's
     // Point 5.5 — `group_by=employee`'s `null` group: a deal nobody owns.
     'groups' => [
@@ -47,8 +43,6 @@ return [
 
     'errors' => [
         'invalid_request' => 'This request could not be understood.',
-        'supplier_price_missing' => 'This supplier line has no usable price — the line is gone, or its supplier quotation has no currency — so the quotation cannot be saved.',
-        'fx_rate_missing' => 'No exchange rate is recorded to convert this supplier line. Record the rate first.',
         // `PATCH /quotations/{id}` — `QuotationWriteRefused` (Point 3.6).
         'if_match_required' => 'Send the quotation\'s current etag in If-Match.',
         'stale_version' => 'This quotation was changed by someone else. Reload it and apply your edit again.',
@@ -61,16 +55,11 @@ return [
         'deal_not_ready_to_send' => 'This quotation\'s deal has not reached the supplier quotation stage yet, so the quotation cannot be sent.',
     ],
 
-    // §5.6's warning — carried in `meta.warnings` on a successful create.
-    'warnings' => [
-        'quantity_exceeds_recorded' => 'The requested quantity exceeds what is left of the supplier\'s offer.',
-        'supplier_price_changed' => 'Supplier price has changed — review pricing.',
-    ],
-
     // `422 validation_failed` raised by the use case, not by a rule.
     'validation' => [
         'unknown_deal' => 'This deal was not found.',
         'customer_not_the_deals' => 'The customer must be the deal\'s customer.',
+        'too_many_suppliers' => 'A quotation can name at most :max suppliers.',
         'note_not_blank' => 'A return note cannot be only spaces.',
     ],
 ];

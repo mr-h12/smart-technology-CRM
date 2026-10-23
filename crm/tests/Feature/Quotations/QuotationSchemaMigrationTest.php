@@ -381,15 +381,6 @@ final class QuotationSchemaMigrationTest extends TestCase
         );
     }
 
-    /** `D-03`: a line margin of NULL inherits this one, so the chain has to terminate. */
-    public function test_that_a_quotation_without_a_default_margin_is_refused(): void
-    {
-        self::assertSame(
-            self::NOT_NULL_VIOLATION,
-            $this->refusedWith(fn () => $this->insert(['default_margin' => null])),
-        );
-    }
-
     public function test_that_an_unknown_deal_is_refused(): void
     {
         self::assertSame(

@@ -26,6 +26,7 @@ use Tests\TestCase;
  */
 final class QuotationBadgesEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -39,8 +40,6 @@ final class QuotationBadgesEndpointTest extends TestCase
 
     private string $customerId;
 
-    private string $lineId;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,7 +48,6 @@ final class QuotationBadgesEndpointTest extends TestCase
 
         $this->currency('EGP', '1', false, true);
         $this->customerId = $this->customer();
-        $this->lineId = $this->supplierLine('10', '5');
     }
 
     public function test_that_an_anonymous_caller_is_refused(): void
@@ -231,9 +229,9 @@ final class QuotationBadgesEndpointTest extends TestCase
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor($creator))->assertStatus(201)->json('data.id');
 
@@ -258,14 +256,6 @@ final class QuotationBadgesEndpointTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-
-        return $id;
-    }
-
-    private function currencyId(string $code): string
-    {
-        $id = DB::table('currencies')->where('code', $code)->value('id');
-        self::assertIsString($id);
 
         return $id;
     }
@@ -299,42 +289,6 @@ final class QuotationBadgesEndpointTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    /** Seeds §4.1's chain in EGP and returns the `supplier_quotation_items` id a line points at. */
-    private function supplierLine(string $unitPrice, string $quantity): string
-    {
-        $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
-        $offerId = Uuid::uuid4()->toString();
-        $lineId = Uuid::uuid4()->toString();
-
-        DB::table('suppliers')->insert([
-            'id' => $supplierId, 'name' => 'Alpha Supplies',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('catalog_items')->insert([
-            'id' => $catalogItemId, 'kind' => 'product', 'name' => 'Widget',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotations')->insert([
-            'id' => $offerId,
-            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
-            'supplier_id' => $supplierId,
-            'total_price' => '1',
-            'currency_id' => $this->currencyId('EGP'),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotation_items')->insert([
-            'id' => $lineId,
-            'supplier_quotation_id' => $offerId,
-            'catalog_item_id' => $catalogItemId,
-            'unit_price' => $unitPrice,
-            'quantity' => $quantity,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $lineId;
     }
 
     private function userWith(RoleName $role): User

@@ -26,7 +26,6 @@ use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
 use App\Modules\Quotations\Domain\Listing\InvalidQuotationListQuery;
 use App\Modules\Quotations\Domain\Listing\PurchaseOrderNotFound;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
-use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Domain\Writing\QuotationWriteRefused;
 use App\Modules\Reports\Domain\ReportWriteRefused;
 use App\Modules\Storage\Domain\Exceptions\UploadRejected;
@@ -630,34 +629,7 @@ final class ApiExceptionRenderer
         );
     }
 
-    /**
-     * `OpenAPI §5.1` — 422 `business_rule_blocked`, "a documented rule blocks
-     * the action, such as missing supplier price": §5.6's block, with the
-     * exception's `$reason` as the stable detail code (`supplier_price_missing`,
-     * or `fx_rate_missing` — the owner's 2026-09-11 addition). `field` names the
-     * request's line the way the validator would (0-based), so the SPA points at
-     * the line rather than matching a supplier item id; the envelope message is
-     * the detail's, on {@see self::roleAdministration()}'s precedent — one
-     * reason, one sentence.
-     */
-    public static function quotationNotPriceable(QuotationNotPriceable $exception, Request $request): JsonResponse
-    {
-        $message = (string) __('quotations.errors.'.$exception->reason);
-
-        return ApiEnvelope::error(
-            $request,
-            422,
-            'business_rule_blocked',
-            $message,
-            [[
-                'field' => 'lines.'.($exception->lineNo - 1).'.supplier_quotation_item_id',
-                'code' => $exception->reason,
-                'message' => $message,
-            ]],
-        );
-    }
-
-    /** `D-90` rule a (Module 10 · 1.3): {@see self::quotationNotPriceable()}'s 422 `business_rule_blocked`, with no field — the request has none to point at. */
+    /** `D-90` rule a (Module 10 · 1.3): `OpenAPI §5.1`'s 422 `business_rule_blocked`, with no field — the request has none to point at. */
     public static function dealNotReadyToSend(Request $request): JsonResponse
     {
         $message = (string) __('quotations.errors.deal_not_ready_to_send');

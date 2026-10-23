@@ -19,6 +19,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use ArrayObject;
 use DateTimeImmutable;
 use LogicException;
@@ -47,14 +48,15 @@ final class CustomerQuotationViewMapperTest extends TestCase
 
     /**
      * Three supplier-quotation items, one per supplier, each with a cost chain
-     * no customer-visible figure in {@see self::quotation()} shares.
+     * no customer-visible figure in {@see self::quotation()} shares — and,
+     * since QS.2a (`D-155`), the supplier the line itself names.
      *
-     * @var array<string, array{unitCost: string, unitCostBase: string, lineCost: string, marginPercent: string}>
+     * @var array<string, array{unitCost: string, unitCostBase: string, lineCost: string, marginPercent: string, supplierId: string}>
      */
     private const SUPPLIER_ITEMS = [
-        '0199a000-0000-7000-8000-00000000a001' => ['unitCost' => '4111.17', 'unitCostBase' => '4111.1700', 'lineCost' => '8222.34', 'marginPercent' => '17.25'],
-        '0199a000-0000-7000-8000-00000000a002' => ['unitCost' => '4222.28', 'unitCostBase' => '4222.2800', 'lineCost' => '12666.84', 'marginPercent' => '18.35'],
-        '0199a000-0000-7000-8000-00000000a003' => ['unitCost' => '4333.39', 'unitCostBase' => '4333.3900', 'lineCost' => '4333.39', 'marginPercent' => '19.45'],
+        '0199a000-0000-7000-8000-00000000a001' => ['unitCost' => '4111.17', 'unitCostBase' => '4111.1700', 'lineCost' => '8222.34', 'marginPercent' => '17.25', 'supplierId' => '0199a000-0000-7000-8000-00000000e5a1'],
+        '0199a000-0000-7000-8000-00000000a002' => ['unitCost' => '4222.28', 'unitCostBase' => '4222.2800', 'lineCost' => '12666.84', 'marginPercent' => '18.35', 'supplierId' => '0199a000-0000-7000-8000-00000000e5a2'],
+        '0199a000-0000-7000-8000-00000000a003' => ['unitCost' => '4333.39', 'unitCostBase' => '4333.3900', 'lineCost' => '4333.39', 'marginPercent' => '19.45', 'supplierId' => '0199a000-0000-7000-8000-00000000e5a3'],
     ];
 
     /**
@@ -79,15 +81,17 @@ final class CustomerQuotationViewMapperTest extends TestCase
 
         // The twelve values the point names — three supplier-item ids, and each
         // line's unit cost, base-currency unit cost and line cost — plus the
-        // margins and the rate, which reveal the same thing from the other side.
-        // Sixteen distinct, not seventeen: line 3 is quantity 1, so its line
+        // margins and the rate, which reveal the same thing from the other side,
+        // and QS.2a's three supplier ids (the entered price is migration B's
+        // backfill, the base-currency unit cost, already searched for).
+        // Nineteen distinct, not twenty: line 3 is quantity 1, so its line
         // cost is its unit cost.
         $leaks = [self::DEFAULT_MARGIN, self::FX_RATE];
         foreach (self::SUPPLIER_ITEMS as $id => $costs) {
             $leaks = [$id, ...array_values($costs), ...$leaks];
         }
         $leaks = array_values(array_unique($leaks));
-        self::assertCount(16, $leaks, 'The fixture must hold sixteen distinct values to search for.');
+        self::assertCount(19, $leaks, 'The fixture must hold nineteen distinct values to search for.');
 
         $json = json_encode($view, JSON_THROW_ON_ERROR);
 
@@ -109,6 +113,27 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertCount(3, $view->lines);
         self::assertSame(['5219.30', '6332.50', '5418.00'], array_map(static fn ($line): string => $line->unitPrice, $view->lines));
         self::assertSame('Formatter M428dw', $view->lines[0]->description);
+
+        // QS.2a (`D-155`): a tax_included line carries what was typed — its
+        // supplier, the entered price 100 (the cost, `D-167`) and the margin
+        // 20 % — and its line cost, 300. None of it reaches the view, and none
+        // of these values is one of E1's printed figures (120.00, 360.00,
+        // 45.36), so a mapper that printed the entered price or the cost
+        // instead of the selling price fails here.
+        $supplierId = self::SUPPLIER_ITEMS['0199a000-0000-7000-8000-00000000a001']['supplierId'];
+        $taxIncluded = $this->mapper()->map(self::quotation(
+            taxPercent: null,
+            discountPercent: '10.000',
+            pricingMode: PricingMode::TaxIncluded,
+            items: [self::lineOwned(1, array_values(self::CATALOG_ITEMS)[0], 'box', '100.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000')],
+        ));
+        self::assertSame('120.000000', self::atScale6($taxIncluded->lines[0]->unitPrice), 'The selling price did not cross, so the search below proves nothing.');
+
+        // Whole JSON values, quoted: the selling price "120.000000" contains the margin's digits "20.000".
+        $taxIncludedJson = json_encode($taxIncluded, JSON_THROW_ON_ERROR);
+        foreach ([$supplierId, '100.000000', '20.000', '300.000000'] as $value) {
+            self::assertStringNotContainsString('"'.$value.'"', $taxIncludedJson, "\"{$value}\" is the tax-included line's supplier, entered price, margin or cost, and reached the customer view.");
+        }
     }
 
     public function test_that_the_quotation_is_read_through_the_directory(): void
@@ -208,7 +233,11 @@ final class CustomerQuotationViewMapperTest extends TestCase
      */
     public function test_each_line_carries_its_unit_vat_and_undiscounted_total(): void
     {
-        $lines = $this->mapper()->map(self::quotation())->lines;
+        $view = $this->mapper()->map(self::quotation());
+        $lines = $view->lines;
+
+        // `D-165`: a legacy quotation prints as it always has — net prices and a VAT column.
+        self::assertFalse($view->pricesIncludeTax);
 
         self::assertSame(
             [
@@ -263,16 +292,86 @@ final class CustomerQuotationViewMapperTest extends TestCase
         self::assertSame('263157.894740', $line->lineTotal);
     }
 
-    /** `D-107`: a catalog item with no unit prints `—`, so it maps, with no unit. */
-    public function test_a_line_with_no_unit_maps_with_none(): void
+    /**
+     * `D-107` read from the line (QS.2a, `D-155`): the unit is the line's own
+     * `unit_code`, asked for once by code for the whole quotation. A line with
+     * no unit, or a code the `units` list has no entry for, maps with none and
+     * prints `—`.
+     */
+    public function test_units_are_asked_for_by_the_lines_codes_and_a_missing_one_maps_with_none(): void
     {
-        $first = self::CATALOG_ITEMS['0199a000-0000-7000-8000-00000000a001'];
+        /** @var ArrayObject<int, list<string>> $askedUnits */
+        $askedUnits = new ArrayObject;
 
-        $line = $this->mapper(units: [$first => ['en' => 'Piece', 'ar' => 'قطعة']])->map(self::quotation())->lines[1];
+        $lines = $this->mapper(lineDescriptions: self::lineDescriptions(self::descriptions(), null, self::units(), $askedUnits))
+            ->map(self::quotation(unitCodes: ['pcs', null, 'crate']))->lines;
 
-        self::assertNull($line->unitEn);
-        self::assertNull($line->unitAr);
-        self::assertSame('Toner CF259A', $line->description);
+        self::assertSame([['pcs', 'crate']], $askedUnits->getArrayCopy());
+        self::assertSame(
+            [['Piece', 'قطعة'], [null, null], [null, null]],
+            array_map(static fn ($line): array => [$line->unitEn, $line->unitAr], $lines),
+        );
+        self::assertSame('Toner CF259A', $lines[1]->description);
+    }
+
+    // ── QS.2a: the line owns its unit and its tax (`D-155`…`D-157`, `D-165`) ──
+
+    /**
+     * E1, toggle on (`D-168`): the PDF prints the stored net unit and line
+     * prices, 120.00 and 360.00, and each line's VAT at its **own** rate on
+     * its discounted amount (`D-157`): 360.00 × 0.90 × 14 % = 45.36. The
+     * header carries no rate (`D-165`), so a VAT taken at the quotation's
+     * rate is none at all. A 0 % line beside it (allowed, `D-157`) is taxed 0,
+     * not left untaxed. Each unit is the line's code, not its catalog item's.
+     */
+    public function test_a_tax_included_quotation_maps_net_prices_and_each_lines_own_vat(): void
+    {
+        $catalog = array_values(self::CATALOG_ITEMS);
+
+        $view = $this->mapper()->map(self::quotation(
+            taxPercent: null,
+            discountPercent: '10.000',
+            pricingMode: PricingMode::TaxIncluded,
+            items: [
+                self::lineOwned(1, $catalog[0], 'box', '100.000000', '14.000', '100.000000', '3.0000', '120.000000', '360.000000'),
+                self::lineOwned(2, $catalog[1], 'pcs', '50.000000', '0.000', '50.000000', '1.0000', '60.000000', '60.000000'),
+            ],
+        ));
+
+        self::assertTrue($view->pricesIncludeTax);
+        self::assertSame(
+            [
+                ['Formatter M428dw', 'Box', 'علبة', '120.000000', '360.000000', '45.360000'],
+                ['Toner CF259A', 'Piece', 'قطعة', '60.000000', '60.000000', '0.000000'],
+            ],
+            array_map(static fn ($line): array => [
+                $line->description, $line->unitEn, $line->unitAr,
+                self::atScale6($line->unitPrice), self::atScale6($line->lineTotal), $line->vatAmount,
+            ], $view->lines),
+        );
+    }
+
+    /**
+     * `D-156`'s third example, toggle off (`D-157`): the typed price is used as
+     * is, so the PDF prints the stored 120.00 and 360.00 and no line carries
+     * VAT — not even a zero (`D-63`).
+     */
+    public function test_a_tax_exempt_quotation_maps_the_stored_prices_and_no_vat(): void
+    {
+        $view = $this->mapper()->map(self::quotation(
+            taxPercent: null,
+            discountPercent: '10.000',
+            pricingMode: PricingMode::TaxExempt,
+            items: [self::lineOwned(1, array_values(self::CATALOG_ITEMS)[0], 'pcs', '100.000000', null, '100.000000', '3.0000', '120.000000', '360.000000')],
+        ));
+
+        self::assertFalse($view->pricesIncludeTax);
+        self::assertSame(
+            [['Piece', 'قطعة', '120.000000', '360.000000', null]],
+            array_map(static fn ($line): array => [
+                $line->unitEn, $line->unitAr, self::atScale6($line->unitPrice), self::atScale6($line->lineTotal), $line->vatAmount,
+            ], $view->lines),
+        );
     }
 
     /** `D-107`'s defaults: the additional items cross as rows, and Excl. VAT adds them. */
@@ -386,7 +485,6 @@ final class CustomerQuotationViewMapperTest extends TestCase
      * @param  array<string, string>|null  $descriptions
      * @param  array<string, string>|null  $titles
      * @param  array<string, string>|null  $userNames
-     * @param  array<string, array{en: string, ar: string}>|null  $units
      * @param  array<string, array{name: string, title_en: string|null}>|null  $contacts
      * @param  array<string, array{en: string|null, ar: string|null}>|null  $jobTitles
      */
@@ -397,7 +495,6 @@ final class CustomerQuotationViewMapperTest extends TestCase
         ?LineDescriptionsInterface $lineDescriptions = null,
         ?array $titles = null,
         ?array $userNames = null,
-        ?array $units = null,
         ?array $contacts = null,
         ?array $jobTitles = null,
     ): CustomerQuotationViewMapper {
@@ -409,7 +506,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
                 SystemSetting::CompanyPhones->value => '035829952 · 01070764779',
             ]),
             self::customerNames($customerNames ?? [self::CUSTOMER_ID => 'Vegatrone']),
-            $lineDescriptions ?? self::lineDescriptions($descriptions ?? self::descriptions(), null, $units ?? self::units()),
+            $lineDescriptions ?? self::lineDescriptions($descriptions ?? self::descriptions(), null, self::units()),
             self::dealTitles($titles ?? [self::DEAL_ID => 'Printers for the Alexandria branch']),
             self::userFacts($userNames ?? [self::CREATOR_ID => 'Ahmed Essam'], $jobTitles ?? []),
             self::customerContacts($contacts ?? []),
@@ -603,22 +700,25 @@ final class CustomerQuotationViewMapperTest extends TestCase
     }
 
     /**
-     * Answers from `$descriptions`, appending every list it is asked for to `$asked`.
+     * Answers from `$descriptions` and `$units`, appending every list it is
+     * asked for to `$asked` and `$askedUnits`.
      *
      * @param  array<string, string>  $descriptions
      * @param  ArrayObject<int, list<string>>|null  $asked
-     * @param  array<string, array{en: string, ar: string}>  $units
+     * @param  array<string, array{en: string, ar: string}>  $units  keyed by `units` code (QS.2a)
+     * @param  ArrayObject<int, list<string>>|null  $askedUnits
      */
-    private static function lineDescriptions(array $descriptions, ?ArrayObject $asked = null, array $units = []): LineDescriptionsInterface
+    private static function lineDescriptions(array $descriptions, ?ArrayObject $asked = null, array $units = [], ?ArrayObject $askedUnits = null): LineDescriptionsInterface
     {
-        return new class($descriptions, $asked ?? new ArrayObject, $units) implements LineDescriptionsInterface
+        return new class($descriptions, $asked ?? new ArrayObject, $units, $askedUnits ?? new ArrayObject) implements LineDescriptionsInterface
         {
             /**
              * @param  array<string, string>  $descriptions
              * @param  ArrayObject<int, list<string>>  $asked
              * @param  array<string, array{en: string, ar: string}>  $units
+             * @param  ArrayObject<int, list<string>>  $askedUnits
              */
-            public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked, private readonly array $units) {}
+            public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked, private readonly array $units, private readonly ArrayObject $askedUnits) {}
 
             public function descriptionsOf(array $catalogItemIds): array
             {
@@ -627,23 +727,23 @@ final class CustomerQuotationViewMapperTest extends TestCase
                 return array_intersect_key($this->descriptions, array_flip($catalogItemIds));
             }
 
-            public function unitsOf(array $catalogItemIds): array
+            public function unitsOf(array $unitCodes): array
             {
-                return array_intersect_key($this->units, array_flip($catalogItemIds));
+                $this->askedUnits->append($unitCodes);
+
+                return array_intersect_key($this->units, array_flip($unitCodes));
             }
         };
     }
 
     /**
+     * The `units` list by code — what a line's `unit_code` is looked up in (QS.2a).
+     *
      * @return array<string, array{en: string, ar: string}>
      */
     private static function units(): array
     {
-        return array_combine(array_values(self::CATALOG_ITEMS), [
-            ['en' => 'Piece', 'ar' => 'قطعة'],
-            ['en' => 'Box', 'ar' => 'علبة'],
-            ['en' => 'Piece', 'ar' => 'قطعة'],
-        ]);
+        return ['pcs' => ['en' => 'Piece', 'ar' => 'قطعة'], 'box' => ['en' => 'Box', 'ar' => 'علبة']];
     }
 
     /**
@@ -667,8 +767,13 @@ final class CustomerQuotationViewMapperTest extends TestCase
     }
 
     /**
+     * A `legacy` quotation by default (`D-165`), its lines as migration B
+     * backfilled them; `$pricingMode` with `$items` gives a line-owned one.
+     *
      * @param  list<array{key: string|null, title: string|null, body: string|null}>  $terms
      * @param  list<array{string, string, string}>|null  $priced  quantity, unit price and line total per supplier item
+     * @param  list<string|null>  $unitCodes  each legacy line's `unit_code`
+     * @param  list<QuotationLine>|null  $items  replaces the legacy lines
      */
     private static function quotation(
         bool $repeatFirstItem = false,
@@ -676,20 +781,30 @@ final class CustomerQuotationViewMapperTest extends TestCase
         array $terms = [],
         ?string $taxPercent = '14',
         ?array $priced = null,
+        array $unitCodes = ['pcs', 'box', 'pcs'],
+        string $discountPercent = '5',
+        PricingMode $pricingMode = PricingMode::Legacy,
+        ?array $items = null,
     ): QuotationDetail {
         // Quantity, unit price and line total per supplier item — the customer's figures.
         $priced ??= [['2', '5219.30', '10438.60'], ['3', '6332.50', '18997.50'], ['1', '5418.00', '5418.00']];
         $ids = array_keys(self::SUPPLIER_ITEMS);
 
-        $items = [];
+        $legacy = [];
         foreach ($ids as $index => $id) {
             $costs = self::SUPPLIER_ITEMS[$id];
             $supplierItem = $repeatFirstItem && $index === 2 ? $ids[0] : $id;
-            $items[] = new QuotationLine(
+            $legacy[] = new QuotationLine(
                 id: '0199a000-0000-7000-8000-00000000b00'.($index + 1),
                 lineNo: $index + 1,
                 supplierQuotationItemId: $supplierItem,
                 catalogItemId: self::CATALOG_ITEMS[$supplierItem],
+                // Migration B's backfill: the offer's supplier, the catalog
+                // item's unit, the base-currency cost, the quotation's rate.
+                supplierId: self::SUPPLIER_ITEMS[$supplierItem]['supplierId'],
+                unitCode: $unitCodes[$index],
+                enteredUnitPrice: $costs['unitCostBase'],
+                taxPercent: $taxPercent,
                 unitCost: $costs['unitCost'],
                 unitCostCurrency: 'USD',
                 unitCostFxRateAtTime: self::FX_RATE,
@@ -705,7 +820,25 @@ final class CustomerQuotationViewMapperTest extends TestCase
         if ($repeatFirstItem) {
             // Two lines quoting the same supplier item: asked for once, and
             // the third item still asked for through a fourth line.
-            $items[] = new QuotationLine('0199a000-0000-7000-8000-00000000b004', 4, $ids[2], self::CATALOG_ITEMS[$ids[2]], '4333.39', 'USD', self::FX_RATE, '4333.3900', '19.45', '5418.00', '1', '5418.00', '4333.39');
+            $legacy[] = new QuotationLine(
+                id: '0199a000-0000-7000-8000-00000000b004',
+                lineNo: 4,
+                supplierQuotationItemId: $ids[2],
+                catalogItemId: self::CATALOG_ITEMS[$ids[2]],
+                supplierId: self::SUPPLIER_ITEMS[$ids[2]]['supplierId'],
+                unitCode: 'pcs',
+                enteredUnitPrice: '4333.3900',
+                taxPercent: $taxPercent,
+                unitCost: '4333.39',
+                unitCostCurrency: 'USD',
+                unitCostFxRateAtTime: self::FX_RATE,
+                unitCostBase: '4333.3900',
+                marginPercent: '19.45',
+                unitPrice: '5418.00',
+                quantity: '1',
+                lineTotal: '5418.00',
+                lineCost: '4333.39',
+            );
         }
 
         return new QuotationDetail(
@@ -718,8 +851,9 @@ final class CustomerQuotationViewMapperTest extends TestCase
             status: 'approved',
             currencyId: '0199a000-0000-7000-8000-00000000e001',
             currency: 'EGP',
-            defaultMargin: self::DEFAULT_MARGIN,
-            discountPercent: '5',
+            pricingMode: $pricingMode,
+            defaultMargin: $pricingMode === PricingMode::Legacy ? self::DEFAULT_MARGIN : null,
+            discountPercent: $discountPercent,
             taxPercent: $taxPercent,
             taxPercents: $taxPercent === null ? [] : [$taxPercent],
             roundingUnit: '1',
@@ -748,8 +882,48 @@ final class CustomerQuotationViewMapperTest extends TestCase
             updatedBy: null,
             createdAt: new DateTimeImmutable('2026-07-14T08:00:00+00:00'),
             updatedAt: new DateTimeImmutable('2026-07-14T09:00:00+00:00'),
-            items: $items,
+            items: $items ?? $legacy,
             additionalItems: [new QuotationAdditionalLine('0199a000-0000-7000-8000-00000000c101', 1, 'Delivery & Installation', '250.00')],
+        );
+    }
+
+    /**
+     * A line priced under `D-156`, as QS.2a stores it: no supplier-offer line;
+     * its own supplier, unit, entered price and tax; typed in the quotation's
+     * currency (`D-164`, no FX); its cost the net price, its margin 20 %.
+     *
+     * @param  numeric-string  $net
+     * @param  numeric-string  $quantity
+     */
+    private static function lineOwned(
+        int $lineNo,
+        string $catalogItemId,
+        ?string $unitCode,
+        string $enteredUnitPrice,
+        ?string $taxPercent,
+        string $net,
+        string $quantity,
+        string $unitPrice,
+        string $lineTotal,
+    ): QuotationLine {
+        return new QuotationLine(
+            id: '0199a000-0000-7000-8000-00000000b10'.$lineNo,
+            lineNo: $lineNo,
+            supplierQuotationItemId: null,
+            catalogItemId: $catalogItemId,
+            supplierId: self::SUPPLIER_ITEMS['0199a000-0000-7000-8000-00000000a001']['supplierId'],
+            unitCode: $unitCode,
+            enteredUnitPrice: $enteredUnitPrice,
+            taxPercent: $taxPercent,
+            unitCost: $net,
+            unitCostCurrency: 'EGP',
+            unitCostFxRateAtTime: '1',
+            unitCostBase: $net,
+            marginPercent: '20.000',
+            unitPrice: $unitPrice,
+            quantity: $quantity,
+            lineTotal: $lineTotal,
+            lineCost: bcmul($net, $quantity, 6),
         );
     }
 

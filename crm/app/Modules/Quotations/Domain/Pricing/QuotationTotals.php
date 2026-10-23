@@ -12,7 +12,7 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * additional_total   = Σ additional items (delivery / installation)
  * discount_amount    = subtotal × discount_percent / 100        (D-07)
  * tax_base           = subtotal − discount_amount               (D-64)
- * tax_amount         = tax_base × tax_percent / 100             (D-63)
+ * tax_amount         = Σ over taxed lines of the line's discounted amount × its own rate   (D-157)
  * net_amount         = subtotal + additional_total − discount_amount
  * total_before_round = net_amount + tax_amount
  * ```
@@ -33,10 +33,12 @@ namespace App\Modules\Quotations\Domain\Pricing;
  * Pure by construction, for the reason `PricedLine` gives.
  *
  * **An exempt quotation has no tax line at all** (`D-63`) — `tax_amount` is
- * `null`, never `'0'`. Point 1.1's `quotations_tax_percent_not_zero` refuses a
- * zero percent outright and Point 1.2's `quotations_tax_amount_matches_tax_percent`
- * refuses the mixed pair, so a zero here would be unstorable as well as wrong:
- * §16's PDF decides whether to print the line by whether the amount exists.
+ * `null`, never `'0'`: each line is taxed at its own rate after the discount
+ * (`D-157`), and no line with a rate above zero means no tax line. The pair
+ * Points 1.1 and 1.2 put on the quotation's `tax_percent` and `tax_amount`
+ * binds `legacy` rows only (`D-165`); `quotations_exempt_has_no_tax_amount`
+ * keeps a `tax_exempt` row's amount null. §16's PDF decides whether to print
+ * the line by whether the amount exists.
  *
  * Note `additional_total` rejoins the arithmetic in `net_amount` after sitting
  * out of `tax_base`. It is excluded from the tax, not from the quotation — the
@@ -70,21 +72,14 @@ final readonly class QuotationTotals
     ) {}
 
     /**
-     * @param  list<PricedLine>  $lines
+     * @param  list<PricedLine>  $lines  each carries its own tax rate (`D-157`); a line with none is untaxed
      * @param  list<numeric-string>  $additionalAmounts  each already in the quotation's currency
      * @param  numeric-string  $discountPercent  NUMERIC(6,3), and `< 100` by Point 1.1's CHECK
-     * @param  numeric-string|null  $taxPercent  null when the quotation is exempt (`D-63`)
-     *
-     * No default on `$taxPercent`. Defaulting it to null would make a caller
-     * that simply forgot the argument produce a silently untaxed quotation —
-     * the failure would be a missing tax line on a customer's PDF, not an
-     * error. Every caller states its tax intent.
      */
     public static function from(
         array $lines,
         array $additionalAmounts,
         string $discountPercent,
-        ?string $taxPercent,
     ): self {
         // `PricedLine::SCALE` rather than a second copy of the same number: it
         // is already `D-68`'s money scale, already documented, and already
@@ -119,10 +114,18 @@ final readonly class QuotationTotals
         // the values the row will actually store.
         $taxBase = bcsub($subtotal, $discountAmount, $scale);
 
-        // `D-63`: no percent means no tax line, not a zero one.
-        $taxAmount = $taxPercent === null
-            ? null
-            : bcdiv(bcmul($taxBase, $taxPercent, $scale + 3), '100', $scale);
+        // `D-157`: the discount is spread over the lines in proportion to their amounts, each
+        // line is taxed at its own rate on its discounted amount, and the sum is the tax line.
+        // `D-63`: no taxed line means no tax line, not a zero one.
+        $taxAmount = null;
+        foreach ($lines as $line) {
+            // A 0 % line adds nothing: with no rate above zero the quotation is exempt, and an exempt one has no tax line.
+            $rate = $line->taxPercent();
+            $vat = $rate !== null && bccomp($rate, '0', 3) > 0 ? CustomerLineFigures::vat($line->lineTotal(), $discountPercent, $rate) : null;
+            if ($vat !== null) {
+                $taxAmount = bcadd($taxAmount ?? bcadd('0', '0', $scale), $vat, $scale);
+            }
+        }
 
         // §5.2 line 501 — revenue excluding tax. The additional items rejoin
         // here, which is the half of `D-62` that is easy to miss.
@@ -182,11 +185,13 @@ final readonly class QuotationTotals
     }
 
     /**
-     * `tax_base × tax_percent / 100`, or **null** when the quotation is exempt.
+     * `Σ` each taxed line's discounted amount × its own rate (`D-157`), or
+     * **null** when no line carries a rate above zero. `tax_base × tax_percent
+     * / 100` is how a `legacy` row's stored amount was made (`D-165`).
      *
      * Null and not `'0'` (`D-63`). `§16` prints a tax line only when there is
-     * an amount, and Point 1.2's CHECK pairs this with `tax_percent` so the two
-     * are null together or neither is.
+     * an amount; Point 1.2's CHECK pairing it with `tax_percent` binds `legacy`
+     * rows only.
      *
      * @return numeric-string|null
      */

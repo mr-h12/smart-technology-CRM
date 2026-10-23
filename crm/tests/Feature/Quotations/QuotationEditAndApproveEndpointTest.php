@@ -31,6 +31,7 @@ use Tests\TestCase;
  */
 final class QuotationEditAndApproveEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -42,8 +43,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
 
     private string $customerId;
 
-    private string $lineId;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,7 +51,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
 
         $this->currency('EGP', '1', false, true);
         $this->customerId = $this->customer();
-        $this->lineId = $this->supplierLine('10', '5');
     }
 
     // ────────────────────────────────────────────────────────── authorisation
@@ -91,12 +89,12 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), $role)->assertStatus(403);
+        $this->editAndApprove($id, $etag, $this->payload($this->atMargin('25')), $role)->assertStatus(403);
 
         $row = DB::table('quotations')->where('id', $id)->first();
         self::assertInstanceOf(stdClass::class, $row);
         self::assertSame('pending', $row->status);
-        self::assertSame('20.000', $row->default_margin, 'a refused edit-and-approve changes nothing.');
+        self::assertSame('20.000', $this->lineMargin($id), 'a refused edit-and-approve changes nothing.');
     }
 
     /** §3.5 `edit margin` is its own checkmark: an approver without it may approve but not move the margin. */
@@ -105,7 +103,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_margin')->delete();
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->payload($this->atMargin('25')), RoleName::Manager)
             ->assertStatus(403)
             ->assertJsonPath('error.code', 'permission_denied');
 
@@ -114,14 +112,20 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $this->editAndApprove($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200);
     }
 
-    /** §3.5 `edit tax`, the same way. */
+    /** §3.5 `edit tax`, the same way: example 1's line moves its own rate (`D-157`) from 14 to 5, nothing else. */
     public function test_that_changing_the_tax_needs_the_edit_tax_grant(): void
     {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
+        $line = $this->lineBody();
+        [$id, $etag] = $this->pending(RoleName::IndoorSales, $this->e1Body($line));
         DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
 
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
-        self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'));
+        $this->editAndApprove($id, $etag, $this->e1Body(['tax_percent' => '5'] + $line), RoleName::Manager)
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'permission_denied');
+
+        self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'), 'the approval must not commit without the edit.');
+
+        $this->editAndApprove($id, $etag, $this->e1Body($line), RoleName::Manager)->assertStatus(200);
     }
 
     // ──────────────────────────────────────────────────── optimistic locking
@@ -142,7 +146,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
-        $this->editAndApprove($id, 'quotation:'.$id.':1', $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, 'quotation:'.$id.':1', $this->payload($this->atMargin('25')), RoleName::Manager)
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'concurrency_conflict')
             ->assertJsonPath('error.details.0.code', QuotationWriteRefused::STALE_VERSION)
@@ -151,7 +155,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $row = DB::table('quotations')->where('id', $id)->first();
         self::assertInstanceOf(stdClass::class, $row);
         self::assertSame('pending', $row->status);
-        self::assertSame('20.000', $row->default_margin);
+        self::assertSame('20.000', $this->lineMargin($id));
     }
 
     // ───────────────────────────────────────────────────── the transition
@@ -161,7 +165,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->quotation($this->deal(null), RoleName::Manager);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->payload($this->atMargin('25')), RoleName::Manager)
             ->assertStatus(409)
             ->assertJsonPath('error.code', 'state_transition_invalid')
             ->assertJsonPath('error.details.0.code', QuotationWriteRefused::INVALID_TRANSITION);
@@ -169,31 +173,49 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $row = DB::table('quotations')->where('id', $id)->first();
         self::assertInstanceOf(stdClass::class, $row);
         self::assertSame('draft', $row->status);
-        self::assertSame('20.000', $row->default_margin, 'a refused transition must not edit the draft.');
+        self::assertSame('20.000', $this->lineMargin($id), 'a refused transition must not edit the draft.');
         self::assertSame(1, $row->version_token);
     }
 
     // ─────────────────────────────────────────────────────── the happy path
 
-    /** A margin edit is re-priced (3.6's path) and the row approved, in one answer with 3.5's body. */
-    public function test_that_a_margin_edit_is_priced_and_the_quotation_approved(): void
+    /**
+     * A margin edit is re-priced (3.6's path) and the row approved, in one answer with 3.5's body. QS.2a: the
+     * body is the line-owned one (`D-155`); example 1's line moved from 20 % to 25 % — 100 net → 125.00 × 3 =
+     * 375.00, 10 % off, its 14 % on 337.50 = 47.25, delivery 50 → 434.75 — with no quotation margin (`D-156`).
+     */
+    public function test_that_a_line_margin_edit_is_priced_and_the_quotation_approved(): void
     {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
+        $line = $this->lineBody();
+        $dealId = $this->deal($this->userWith(RoleName::IndoorSales)->id);
+        $id = $this->postJson(self::ENDPOINT, ['deal_id' => $dealId, 'customer_id' => $this->customerId, ...$this->e1Body($line)], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+        $etag = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))->assertStatus(200)->json('data.etag');
+        self::assertIsString($etag);
+        $etag = $this->patchJson(self::ENDPOINT.'/'.$id.'/submit-for-approval', [], [...$this->bearerFor(RoleName::IndoorSales), 'If-Match' => $etag])
+            ->assertStatus(200)
+            ->json('data.etag');
+        self::assertIsString($etag);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->e1Body(['margin_percent' => '25'] + $line), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.is_self_approved', false)
-            ->assertJsonPath('data.default_margin', '25.000')
-            ->assertJsonPath('data.items.0.unit_price', '12.500000')
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.items.0.margin_percent', '25.000')
+            ->assertJsonPath('data.items.0.unit_price', '125.000000')
+            ->assertJsonPath('data.tax_amount', '47.250000')
+            ->assertJsonPath('data.final_total', '434.750000')
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.etag', 'quotation:'.$id.':4');
 
         $row = DB::table('quotations')->where('id', $id)->first();
         self::assertInstanceOf(stdClass::class, $row);
         self::assertSame('approved', $row->status);
-        self::assertSame('25.000', $row->default_margin);
         self::assertNotNull($row->submitted_at, 'the submission moment survives the approval.');
     }
 
@@ -205,7 +227,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $this->editAndApprove($id, $etag, $this->payload(), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'approved')
-            ->assertJsonPath('data.default_margin', '20.000');
+            ->assertJsonPath('data.items.0.margin_percent', '20.000');
     }
 
     /** `D-50`: the approver is `created_by` → `is_self_approved`, through this route as through 1.1's. */
@@ -213,7 +235,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::Manager);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->payload($this->atMargin('25')), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.is_self_approved', true);
@@ -229,7 +251,7 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         [$id, $etag] = $this->pending(RoleName::IndoorSales);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)->assertStatus(200);
+        $this->editAndApprove($id, $etag, $this->payload($this->atMargin('25')), RoleName::Manager)->assertStatus(200);
 
         $updated = $this->auditRow($id, 'QUOTATION_UPDATED');
         self::assertInstanceOf(stdClass::class, $updated);
@@ -239,36 +261,17 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $new = json_decode($updated->new_values, true);
         self::assertIsArray($old);
         self::assertIsArray($new);
-        self::assertSame('20.000', $old['default_margin'] ?? null);
-        self::assertSame('25', $new['default_margin'] ?? null);
+        $oldLine = is_array($old['items'] ?? null) ? ($old['items'][0] ?? null) : null;
+        $newLine = is_array($new['items'] ?? null) ? ($new['items'][0] ?? null) : null;
+        self::assertIsArray($oldLine);
+        self::assertIsArray($newLine);
+        self::assertSame('20.000', $oldLine['margin_percent'] ?? null);
+        self::assertSame('25.000', $newLine['margin_percent'] ?? null);
 
         $approved = $this->auditRow($id, 'QUOTATION_APPROVED');
         self::assertInstanceOf(stdClass::class, $approved);
         self::assertGreaterThanOrEqual($updated->id, $approved->id, 'the edit is recorded before the approval.');
         self::assertNull($this->auditRow($id, 'SELF_APPROVAL'));
-    }
-
-    /** A tax edit likewise: `tax_percent` old → new inside `QUOTATION_UPDATED`. */
-    public function test_that_a_tax_edit_is_audited_old_to_new(): void
-    {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
-
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)
-            ->assertStatus(200)
-            ->assertJsonPath('data.tax_percent', '14.000');
-
-        $updated = $this->auditRow($id, 'QUOTATION_UPDATED');
-        self::assertInstanceOf(stdClass::class, $updated);
-        self::assertIsString($updated->old_values);
-        self::assertIsString($updated->new_values);
-        $old = json_decode($updated->old_values, true);
-        $new = json_decode($updated->new_values, true);
-        self::assertIsArray($old);
-        self::assertIsArray($new);
-        self::assertNull($old['tax_percent'] ?? null);
-        self::assertSame('14.000', $new['tax_percent'] ?? null);  // D-118: the sum, at the percent scale
-        self::assertSame([], $old['tax_percents'] ?? null);
-        self::assertSame(['14.000'], $new['tax_percents'] ?? null);
     }
 
     public function test_that_an_unknown_id_is_a_404(): void
@@ -302,11 +305,27 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
     {
         return array_merge([
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
         ], $overrides);
+    }
+
+    /**
+     * The body with its one line at `$margin` — the margin is the line's since `D-156`.
+     *
+     * @return array<string, mixed>
+     */
+    private function atMargin(string $margin): array
+    {
+        return ['lines' => [$this->lineBody(entered: '10', tax: null, margin: $margin, quantity: '2')]];
+    }
+
+    /** The live line's stored margin — what a refused edit must leave alone. */
+    private function lineMargin(string $quotationId): mixed
+    {
+        return DB::table('quotation_items')->where('quotation_id', $quotationId)->whereNull('deleted_at')->value('margin_percent');
     }
 
     private function auditRow(string $id, string $event): ?stdClass
@@ -320,11 +339,12 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
      * A quotation `$creator` built on their own deal and submitted (4.2), so
      * `created_by` is `$creator` — the fact Q3 keys self-approval on.
      *
+     * @param  array<string, mixed>  $body  replaces `quotation()`'s default body keys
      * @return array{string, string} id and the etag after the submit
      */
-    private function pending(RoleName $creator): array
+    private function pending(RoleName $creator, array $body = []): array
     {
-        [$id, $etag] = $this->quotation($this->deal($this->userWith($creator)->id), $creator);
+        [$id, $etag] = $this->quotation($this->deal($this->userWith($creator)->id), $creator, $body);
 
         $etag = $this->patchJson(self::ENDPOINT.'/'.$id.'/submit-for-approval', [], [...$this->bearerFor($creator), 'If-Match' => $etag])
             ->assertStatus(200)
@@ -340,18 +360,20 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
      * its etag through Point 3.5's: one line of 2 × 10 at 20 % margin, plus 5
      * delivery.
      *
+     * @param  array<string, mixed>  $body  replaces the default body keys
      * @return array{string, string} id and etag
      */
-    private function quotation(string $dealId, RoleName $creator): array
+    private function quotation(string $dealId, RoleName $creator, array $body = []): array
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
             'currency' => 'EGP',
-            'default_margin' => '20',
+            'pricing_mode' => 'tax_exempt',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            'lines' => [$this->lineBody(entered: '10', tax: null, margin: '20', quantity: '2')],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
+            ...$body,
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor($creator))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);
@@ -375,14 +397,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
-
-        return $id;
-    }
-
-    private function currencyId(string $code): string
-    {
-        $id = DB::table('currencies')->where('code', $code)->value('id');
-        self::assertIsString($id);
 
         return $id;
     }
@@ -416,42 +430,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    /** Seeds §4.1's chain in EGP and returns the `supplier_quotation_items` id a line points at. */
-    private function supplierLine(string $unitPrice, string $quantity): string
-    {
-        $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
-        $offerId = Uuid::uuid4()->toString();
-        $lineId = Uuid::uuid4()->toString();
-
-        DB::table('suppliers')->insert([
-            'id' => $supplierId, 'name' => 'Alpha Supplies',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('catalog_items')->insert([
-            'id' => $catalogItemId, 'kind' => 'product', 'name' => 'Widget',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotations')->insert([
-            'id' => $offerId,
-            'code' => 'SQ-'.now()->format('Y').'-'.substr($lineId, 0, 4),
-            'supplier_id' => $supplierId,
-            'total_price' => '1',
-            'currency_id' => $this->currencyId('EGP'),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('supplier_quotation_items')->insert([
-            'id' => $lineId,
-            'supplier_quotation_id' => $offerId,
-            'catalog_item_id' => $catalogItemId,
-            'unit_price' => $unitPrice,
-            'quantity' => $quantity,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $lineId;
     }
 
     private function userWith(RoleName $role): User

@@ -8,6 +8,7 @@ use App\Modules\Audit\Domain\AuditEvent;
 use App\Modules\Audit\Domain\Contracts\AuditRecorderInterface;
 use App\Modules\Deals\Domain\Contracts\DealFactsInterface;
 use App\Modules\Deals\Domain\Contracts\DealOutcomeInterface;
+use App\Modules\Identity\Application\Rbac\AuthorizeAction;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Quotations\Domain\Access\QuotationRowScope;
@@ -60,6 +61,7 @@ final readonly class CreateQuotation
         private TermSuggestions $terms,
         private ConnectionInterface $connection,
         private UserFactsInterface $users,
+        private AuthorizeAction $authorize,
     ) {}
 
     /**
@@ -72,15 +74,12 @@ final readonly class CreateQuotation
 
         return $this->connection->transaction(function () use ($validated, $scope, $actorId): QuotationCreated {
             $this->guardDeal($validated, $scope);
+            $this->guardMarginAndTax($validated, $actorId);
 
             // D-119: the deal walks to `supplier_quotation`; a blocked save below rolls it back.
             $this->dealOutcome->quotationCreated(self::string($validated['deal_id'] ?? null, 'deal_id'), $actorId);
 
-            $priced = $this->pricer->price(
-                $validated,
-                self::string($validated['customer_id'] ?? null, 'customer_id'),
-                now()->toDateTimeImmutable(),
-            );
+            $priced = $this->pricer->price($validated);
 
             $draft = QuotationDraft::forCreate($validated)
                 ->withComputed($priced->computed)
@@ -102,7 +101,7 @@ final readonly class CreateQuotation
                 [...$draft->attributes, 'items' => $priced->items, 'additional_items' => $priced->additionalItems],
             );
 
-            return new QuotationCreated($quotation, $priced->quantityWarnings);
+            return new QuotationCreated($quotation);
         });
     }
 
@@ -141,6 +140,23 @@ final readonly class CreateQuotation
             throw ValidationException::withMessages([
                 'customer_id' => [(string) __('quotations.validation.customer_not_the_deals')],
             ]);
+        }
+    }
+
+    /** §3.5's `edit margin` and `edit tax` are cells apart from `create`: a line's first margin or tax is the edit they guard. */
+    /** @param  array<string, mixed>  $validated */
+    private function guardMarginAndTax(array $validated, string $actorId): void
+    {
+        $lines = is_array($validated['lines'] ?? null) ? $validated['lines'] : [];
+        $margin = array_filter($lines, static fn (mixed $l): bool => is_array($l) && is_numeric($l['margin_percent'] ?? null) && bccomp((string) $l['margin_percent'], '0', 3) !== 0);
+        $tax = array_filter($lines, static fn (mixed $l): bool => is_array($l) && ($l['tax_percent'] ?? null) !== null);
+
+        if ($margin !== [] && ! $this->authorize->decide($actorId, 'quotation', 'edit_margin')->granted) {
+            throw AuthorizationRefused::of('quotation', 'edit_margin');
+        }
+
+        if ($tax !== [] && ! $this->authorize->decide($actorId, 'quotation', 'edit_tax')->granted) {
+            throw AuthorizationRefused::of('quotation', 'edit_tax');
         }
     }
 

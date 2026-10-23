@@ -5,132 +5,87 @@ declare(strict_types=1);
 namespace App\Modules\Quotations\Application\Writing;
 
 use App\Modules\Admin\Domain\Contracts\CurrencyRepositoryInterface;
-use App\Modules\Admin\Domain\Contracts\FxRateRepositoryInterface;
 use App\Modules\Admin\Domain\Money\Currency;
 use App\Modules\Admin\Domain\Money\CurrencyCode;
 use App\Modules\Admin\Domain\Money\Decimal;
-use App\Modules\Customers\Domain\Contracts\CustomerTaxStatusInterface;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
-use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
+use App\Modules\Quotations\Domain\Pricing\PricingMode;
 use App\Modules\Quotations\Domain\Pricing\QuotationTotals;
-use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use App\Support\Database\Precision;
-use App\Support\Http\TaxRates;
-use DateTimeImmutable;
 use InvalidArgumentException;
 
 /**
  * §5 applied to one submitted quotation body — the block `CreateQuotation`
- * (Point 3.3) carried inline, lifted out at Point 3.6 because the edit
- * re-prices exactly the same way. One implementation of the pricing rules,
- * called from two use cases; a second copy is the defect the waste audit
- * names first.
+ * carried inline, lifted out because the edit re-prices exactly the same way.
+ * One implementation of the pricing rules, called from two use cases; a second
+ * copy is the defect the waste audit names first.
  *
  * ── What it computes, and why the caller could not ─────────────────────────
  *
- * Per line (§5.1): the supplier's price and the offer's currency come from
- * {@see SupplierItemPricingInterface}; the FX rate is captured at `$at`
- * (`D-09` — creation, or the edit that re-prices a Draft) from
- * {@see FxRateRepositoryInterface::effectiveRate()}; and {@see PricedLine}
- * applies the margin. Per quotation (§5.2): {@see QuotationTotals} totals to
- * the tax base and {@see \App\Modules\Admin\Domain\Money\RoundingRule}
- * finishes the last two lines. §5 puts all of this in the backend and lets the
- * UI "preview but never be the source of truth", so none of it is lifted from
- * the request — {@see QuotationDraft::withComputed()} is where it joins the draft.
+ * Per line (`D-167`; owner, 2026-10-23: tax is added, never removed): the line
+ * is priced from what was typed — the entered price, the supplier's cost before
+ * tax, plus its own margin — by {@see PricedLine::fromEntered()}.
+ * The line is typed in the quotation's currency (`D-164`): no supplier price,
+ * no FX rate, no quotation margin. Per quotation (§5.2): {@see QuotationTotals}
+ * totals to the tax base, taxing each line at its own rate (`D-157`), and
+ * {@see \App\Modules\Admin\Domain\Money\RoundingRule} finishes the last two
+ * lines. §5 puts all of this in the backend and lets the UI "preview but never
+ * be the source of truth", so none of it is lifted from the request —
+ * {@see \App\Modules\Quotations\Domain\Writing\QuotationDraft::withComputed()}
+ * is where it joins the draft.
  *
- * ── §5.6's two outcomes ────────────────────────────────────────────────────
+ * ── `D-157`: the toggle is the preparer's ──────────────────────────────────
  *
- * A price missing at the supplier **blocks** ({@see QuotationNotPriceable}); a
- * requested quantity above what the offer has left — its available balance,
- * `D-81` — **warns and does not** ({@see PricedQuotation::$quantityWarnings}).
- *
- * ── `D-63`: tax is derived, not trusted ────────────────────────────────────
- *
- * A tax-exempt customer renders **no tax line at all** — `tax_percent` is forced
- * to null regardless of what the request sent. A taxed customer keeps the
- * request's per-quotation rate (which may itself be null). The preparer's
- * override of an exempt customer is an approval-time edit (Module 8).
+ * `pricing_mode` is `tax_included` (each line carries its rate, added on top
+ * of its discounted amount) or `tax_exempt` (no line carries a rate and the
+ * quotation has no tax line at all, `D-63`). It is not forced from the
+ * customer's exemption. A new save writes no quotation margin and no quotation
+ * tax rate (`D-165`).
  */
 final readonly class PriceQuotation
 {
     public function __construct(
-        private SupplierItemPricingInterface $supplierPrices,
         private CurrencyRepositoryInterface $currencies,
-        private FxRateRepositoryInterface $fxRates,
-        private CustomerTaxStatusInterface $customerTax,
     ) {}
 
     /**
      * @param  array<string, mixed>  $validated  the Form Request's output
-     * @param  string  $customerId  whose tax status decides `D-63`
-     *
-     * @throws QuotationNotPriceable
      */
-    public function price(array $validated, string $customerId, DateTimeImmutable $at): PricedQuotation
+    public function price(array $validated): PricedQuotation
     {
         $currency = $this->quotationCurrency($validated['currency'] ?? null);
-        $defaultMargin = self::decimal($validated['default_margin'] ?? null, 'default_margin');
+        $mode = PricingMode::from(self::string($validated['pricing_mode'] ?? null, 'pricing_mode'));
 
         /** @var list<PricedLine> $pricedLines */
         $pricedLines = [];
         /** @var list<array<string, mixed>> $itemRows */
         $itemRows = [];
-        /** @var list<int> $warnings */
-        $warnings = [];
 
-        foreach (self::rows($validated, 'lines') as $index => $line) {
-            $itemId = self::string($line['supplier_quotation_item_id'] ?? null, 'supplier_quotation_item_id');
+        foreach (self::rows($validated, 'lines') as $line) {
             $quantity = self::decimal($line['quantity'] ?? null, 'quantity');
-            $lineMargin = array_key_exists('margin_percent', $line) && $line['margin_percent'] !== null
-                ? self::decimal($line['margin_percent'], 'margin_percent')
+            $entered = self::decimal($line['entered_unit_price'] ?? null, 'entered_unit_price');
+            $margin = bcadd(self::decimal($line['margin_percent'] ?? null, 'margin_percent'), '0', Precision::PERCENT_SCALE);
+            $tax = $mode === PricingMode::TaxIncluded
+                ? bcadd(self::decimal($line['tax_percent'] ?? null, 'tax_percent'), '0', Precision::PERCENT_SCALE)
                 : null;
 
-            $price = $this->supplierPrices->priceFor($itemId);
-
-            // §5.6: a gone or soft-deleted line, or a price whose currency
-            // the offer never recorded, is no usable price — block.
-            if ($price === null || $price->currencyId === null) {
-                throw QuotationNotPriceable::priceMissing($itemId, $index + 1);
-            }
-
-            $supplierCurrency = $this->currencies->findById($price->currencyId);
-            if ($supplierCurrency === null) {
-                throw QuotationNotPriceable::priceMissing($itemId, $index + 1);
-            }
-
-            // `D-09`: the rate is captured at creation. No rate for the pair in
-            // either direction (`D-115`) means the line cannot be converted, so
-            // it cannot be priced.
-            $rate = $this->fxRates->effectiveRate($supplierCurrency->code(), $currency->code(), $at);
-            if ($rate === null) {
-                throw QuotationNotPriceable::fxRateMissing($itemId, $index + 1);
-            }
-
-            $priced = PricedLine::from(
-                $rate->convert(Decimal::of($price->unitPrice, 'unit_cost'), PricedLine::SCALE),
-                $lineMargin,
-                $defaultMargin,
-                $quantity,
-            );
+            $priced = PricedLine::fromEntered($entered, $tax, $margin, $quantity);
             $pricedLines[] = $priced;
 
-            // §5.6: requested above what the offer has left → warn, never
-            // block. `D-81` (F-05 · 1.4): the ceiling is the available balance
-            // (`quantity − consumed_quantity`, computed by Module 6), not the
-            // recorded offer.
-            if (bccomp($quantity, Decimal::of($price->availableQuantity, 'available_quantity'), PricedLine::SCALE) > 0) {
-                $warnings[] = $index + 1;
-            }
-
             $itemRows[] = [
-                'supplier_quotation_item_id' => $itemId,
-                // `D-155`: the line names its own product.
-                'catalog_item_id' => $price->catalogItemId,
-                'unit_cost' => $price->unitPrice,
-                'unit_cost_currency' => $supplierCurrency->code()->value,
-                'unit_cost_fx_rate_at_time' => $rate->rate(),
+                // `D-155`: the line owns its facts; the offer line is provenance only.
+                'supplier_quotation_item_id' => null,
+                'supplier_id' => self::string($line['supplier_id'] ?? null, 'supplier_id'),
+                'catalog_item_id' => self::string($line['catalog_item_id'] ?? null, 'catalog_item_id'),
+                'unit_code' => self::string($line['unit_code'] ?? null, 'unit_code'),
+                'entered_unit_price' => bcadd($entered, '0', PricedLine::SCALE),
+                'tax_percent' => $tax,
+                // The stored unit cost is the net, in the quotation's own currency at rate 1 (`D-164`).
+                'unit_cost' => $priced->unitCostBase(),
+                'unit_cost_currency' => $currency->code()->value,
+                'unit_cost_fx_rate_at_time' => '1',
                 'unit_cost_base' => $priced->unitCostBase(),
-                'margin_percent' => $lineMargin,
+                'margin_percent' => $margin,
                 'unit_price' => $priced->unitPrice(),
                 'quantity' => $quantity,
                 'line_total' => $priced->lineTotal(),
@@ -152,24 +107,10 @@ final readonly class PriceQuotation
             ];
         }
 
-        // `D-63`: exempt forces no tax line. `D-118`: else the rates as entered,
-        // summed on the one base — `tax_percent` is the sum §5 reads.
-        $taxPercents = [];
-        $submittedRates = $validated['tax_percents'] ?? [];
-
-        if (is_array($submittedRates) && ! $this->customerTax->isExempt($customerId)) {
-            foreach ($submittedRates as $rate) {
-                $taxPercents[] = bcadd(self::decimal($rate, 'tax_percents'), '0', Precision::PERCENT_SCALE);
-            }
-        }
-
-        $taxPercent = TaxRates::sum($taxPercents);
-
         $totals = QuotationTotals::from(
             $pricedLines,
             $additionalAmounts,
             self::decimal($validated['discount_percent'] ?? null, 'discount_percent'),
-            $taxPercent,
         );
 
         $rounded = $currency->rounding()->apply($totals->totalBeforeRound());
@@ -177,8 +118,11 @@ final readonly class PriceQuotation
         return new PricedQuotation(
             computed: [
                 'currency_id' => $currency->id(),
-                'tax_percent' => $taxPercent,
-                'tax_percents' => $taxPercents,
+                'pricing_mode' => $mode->value,
+                // `D-165`: a new mode carries no quotation margin and no quotation tax rate.
+                'default_margin' => null,
+                'tax_percent' => null,
+                'tax_percents' => [],
                 'rounding_unit' => $currency->rounding()->unit(),
                 'rounding_enabled' => $currency->rounding()->isEnabled(),
                 'subtotal' => $totals->subtotal(),
@@ -193,7 +137,6 @@ final readonly class PriceQuotation
             ],
             items: $itemRows,
             additionalItems: $additionalRows,
-            quantityWarnings: $warnings,
         );
     }
 

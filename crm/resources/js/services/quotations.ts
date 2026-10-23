@@ -48,11 +48,17 @@ export interface QuotationGroup {
     items: QuotationSummary[];
 }
 
-/** A line as the detail returns it. The `unit_cost*`, `margin_percent` and `line_cost` keys are absent without §3.5's grant. */
+/** A line as the detail returns it. The `unit_cost*`, `margin_percent`, `line_cost` and — `D-155` — `supplier_*`, `entered_unit_price` and `tax_percent` keys are absent without §3.5's grant. */
 export interface QuotationLine {
     id: string;
     line_no: number;
-    supplier_quotation_item_id: string;
+    /** Null on a line typed under the new pricing (`D-154`); set on a legacy line. */
+    supplier_quotation_item_id: string | null;
+    unit_code: string | null;
+    supplier_id?: string;
+    supplier_name?: string | null;
+    entered_unit_price?: string;
+    tax_percent?: string | null;
     /** F-16 · 1.1: the catalog item's name (a service's `service_type`); null when its supplier line is archived. */
     product_name: string | null;
     quantity: string;
@@ -76,13 +82,37 @@ export interface QuotationAdditionalItem {
     amount: string;
 }
 
+/** `D-157`'s two modes; `legacy` is read-only history (`D-165`) and never sent. */
+export type PricingMode = 'tax_included' | 'tax_exempt';
+
+/** One line as the builder types it — `GET /quotations/{id}`'s `entry` (contract §4), cost viewers only. */
+export interface QuotationEntryLine {
+    supplier_id: string;
+    supplier_name: string | null;
+    catalog_item_id: string;
+    product_name: string | null;
+    unit_code: string | null;
+    entered_unit_price: string;
+    tax_percent: string | null;
+    margin_percent: string;
+    quantity: string;
+}
+
+export interface QuotationEntry {
+    pricing_mode: PricingMode;
+    lines: QuotationEntryLine[];
+}
+
 /**
  * `QuotationPayload::detail()`. `tax_amount` is `null` on an exempt quotation
  * (`D-63` — no tax line, not a zero line); `rounding_diff` is `"0"` when the
- * currency does not round (`D-65`). `default_margin` is a cost field.
+ * currency does not round (`D-65`). `default_margin` is a cost field, null
+ * unless the quotation is `legacy` (`D-165`); `tax_percent` is null under the
+ * new pricing, where each line has its own rate (`D-157`).
  */
 export interface QuotationDetail extends QuotationSummary {
-    default_margin?: string;
+    pricing_mode: PricingMode | 'legacy';
+    default_margin?: string | null;
     discount_percent: string;
     tax_percent: string | null;
     /** D-118: the rates as entered; `tax_percent` is their sum. */
@@ -104,6 +134,8 @@ export interface QuotationDetail extends QuotationSummary {
     sent_at: string | null;
     /** Module 8 · 1.2's note, set by a return and cleared by the next submit; `returned_at` is on the wire too but nothing reads it yet. */
     return_note: string | null;
+    /** What the builder loads; absent for a caller without the cost grant. */
+    entry?: QuotationEntry;
     /** `OpenAPI §9.2`'s version token — what the next mutation sends as `If-Match`. */
     etag: string;
     items: QuotationLine[];
@@ -149,29 +181,25 @@ export interface PurchaseOrderListQuery {
     q?: string | null;
 }
 
-/** One `meta.warnings` entry: `quantity_exceeds_recorded` on a save, `supplier_price_changed` on a read (`§5.6`, `D-36`). Never a block. */
-export interface QuotationWarning {
-    field: string;
-    code: string;
-    message: string;
-}
-
-/** A read or a write answers with the quotation and the warnings beside it. */
+/** A read or a write answers with the quotation (`D-161`: no warning rides either). */
 export interface QuotationRead {
     quotation: QuotationDetail;
-    warnings: QuotationWarning[];
 }
 
 /** `POST /quotations` answers `QuotationPayload::of()` — the id and the code, no detail and **no etag** (F-03). */
 export interface QuotationCreated {
     quotation: { id: string; code: string };
-    warnings: QuotationWarning[];
 }
 
+/** `D-155`: a line is what was typed — nothing priced (`D-67`). `tax_percent` is sent only under `tax_included`. */
 export interface QuotationLineDraft {
-    supplier_quotation_item_id: string;
+    supplier_id: string;
+    catalog_item_id: string;
+    unit_code: string;
+    entered_unit_price: string;
+    tax_percent?: string;
+    margin_percent: string;
     quantity: string;
-    margin_percent?: string | null;
 }
 
 export interface QuotationAdditionalItemDraft {
@@ -186,10 +214,8 @@ export interface QuotationAdditionalItemDraft {
  */
 export interface QuotationDraft {
     currency: string;
-    default_margin: string;
+    pricing_mode: PricingMode;
     discount_percent: string;
-    /** D-118: empty is no tax (D-63). */
-    tax_percents: string[];
     quotation_date?: string | null;
     valid_until?: string | null;
     /** `SaveQuotationRequest`'s `sometimes`: an omitted list is not sent, as the old term fields were. */
@@ -283,11 +309,8 @@ function queryString(query: QuotationListQuery, groupBy?: string): string {
     return parameters.size === 0 ? '' : `?${parameters.toString()}`;
 }
 
-function read<T>(result: ApiResult<T>): { quotation: T; warnings: QuotationWarning[] } {
-    return {
-        quotation: result.data,
-        warnings: Array.isArray(result.meta.warnings) ? (result.meta.warnings as QuotationWarning[]) : [],
-    };
+function read<T>(result: ApiResult<T>): { quotation: T } {
+    return { quotation: result.data };
 }
 
 export async function listQuotations(query: QuotationListQuery = {}): Promise<Page<QuotationSummary>> {

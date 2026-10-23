@@ -884,7 +884,7 @@ onMounted(load);
                 </div>
 
                 <!-- Lines (QS.2a, D-155): the entry row, then the table it fills. -->
-                <section class="flex flex-col gap-3">
+                <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
                     <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
 
                     <div class="entry-grid line-row rounded-xl p-3" @keydown.enter="entryEnter">
@@ -982,8 +982,8 @@ onMounted(load);
                             </thead>
                             <tbody>
                                 <!-- QS.2c: the headings show from the start; the empty row spans every live heading (7, or 8 with the tax column). -->
-                                <tr v-if="lines.length === 0" :data-testid="fieldId('lines-empty')">
-                                    <td :colspan="taxIncluded ? 8 : 7" class="p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</td>
+                                <tr v-if="lines.length === 0" class="table-row" :data-testid="fieldId('lines-empty')">
+                                    <td :colspan="taxIncluded ? 8 : 7" class="justify-center p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noLines') }}</td>
                                 </tr>
                                 <tr v-for="(line, i) in lines" :key="i" class="table-row">
                                     <td :data-label="t('quotations.detail.supplier')" class="p-3" :data-testid="fieldId(`line-${i}-supplier`)">
@@ -1014,7 +1014,7 @@ onMounted(load);
                 </section>
 
                 <!-- Additional items (QS.2c: under the lines): never taxed (`D-62`) — the server knows, this form only lists them. -->
-                <section class="flex flex-col gap-3">
+                <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
                         <button :id="fieldId('add-item')" type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
@@ -1034,8 +1034,8 @@ onMounted(load);
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-if="items.length === 0" :data-testid="fieldId('items-empty')">
-                                    <td colspan="3" class="p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noItems') }}</td>
+                                <tr v-if="items.length === 0" class="table-row" :data-testid="fieldId('items-empty')">
+                                    <td colspan="3" class="justify-center p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noItems') }}</td>
                                 </tr>
                                 <tr v-for="(item, i) in items" :key="i" class="table-row">
                                     <td :data-label="t('quotations.detail.description')" class="p-3">
@@ -1083,8 +1083,8 @@ onMounted(load);
                 <!-- Terms (D-103): a list built like the additional items, up to 15, printed
                      numbered. A ready term (keyed) keeps its default name as the placeholder and,
                      under its text, the caller's recent terms as chips (6.8, Design System §6.3).
-                     QS.2c: a divider and space set them apart from the tables above. -->
-                <section class="terms-section mt-4 flex flex-col gap-3 pt-6">
+                     QS.2c: each section is its own card, with space between them. -->
+                <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-card-title">{{ t('quotations.terms.heading') }}</h2>
                         <button
@@ -1234,8 +1234,32 @@ onMounted(load);
     border: 1px solid var(--color-border);
 }
 
-.terms-section {
+/* QS.2c: each section (lines, additional items, terms) is a card. */
+.section-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+/* The tables' frame and row lines, as the detail page has them (a shared rule is a debt row). */
+.table-frame {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+}
+
+.table-head {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.table-row {
     border-block-start: 1px solid var(--color-border);
+}
+
+/* A phone hides the header (`card-table`), so the first row's line would double the frame's top edge. */
+@media (width < 640px) {
+    .table-row:first-child {
+        border-block-start: 0;
+    }
 }
 
 /*
@@ -1279,6 +1303,11 @@ onMounted(load);
 .line-row {
     background-color: var(--color-surface);
     border: 1px solid var(--color-border);
+}
+
+/* The entry row reads as the input area, apart from the table it fills. */
+.entry-grid.line-row {
+    background-color: var(--color-surface-muted);
 }
 
 .form-field {

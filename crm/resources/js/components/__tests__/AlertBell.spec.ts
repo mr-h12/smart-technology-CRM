@@ -279,6 +279,17 @@ describe('AlertBell — the list', () => {
         }
     });
 
+    /** Module 16 · 4: the storage alert says how full, and against what limit. */
+    it('says how full the storage is and what the limit is', async () => {
+        const storage = { ...JOB, id: 's1', kind: 'storage_over_limit', subject_id: null, details: { used_percent: '85', limit_percent: '80' }, occurrences: 1 };
+        const { wrapper } = await open(server({ alerts: [storage] }));
+
+        const row = wrapper.get('[data-testid="alert-row"]');
+        expect(row.text()).toContain('85');
+        expect(row.text()).toContain('80');
+        expect(row.get('a').attributes('href')).toBe('/');
+    });
+
     it('closes on Escape and gives the focus back to the bell', async () => {
         const { wrapper } = await open(server());
 

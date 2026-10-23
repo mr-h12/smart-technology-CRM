@@ -58,6 +58,12 @@ enum SystemLimit: string
      * the decision's own. Declared and unvalued: the job reads 3 while it is unset.
      */
     case QuotationExpiryAlertDays = 'quotations.expiry_alert_days';
+    /**
+     * `J-14`'s threshold · `D-153` · Module 16 · 4: the share of the files volume in use,
+     * a whole percent from 1 to 99 (the owner's reading of "the limit", 2026-10-22).
+     * Declared and unvalued: the job reads 80 while it is unset.
+     */
+    case StorageAlertPercent = 'limits.storage_alert_percent';
 
     /** §13/6 "maximum file size" · `D-39` — "10 MB (configurable)". */
     case MaxFileSizeMb = 'limits.max_file_size_mb';
@@ -115,6 +121,7 @@ enum SystemLimit: string
             self::StaleDealDays, self::QuotationExpiryAlertDays => 'days',
             self::QuotationApprovalSlaHours, self::WeeklyReviewWindowHours => 'hours',
             self::ReportArchiveMonths => 'months',
+            self::StorageAlertPercent => 'percent',
             self::MaxFileSizeMb => 'megabytes',
             self::LockoutMinutes => 'minutes',
             // A similarity score is a ratio of trigrams. It has no unit —
@@ -143,6 +150,11 @@ enum SystemLimit: string
      */
     public function rule(): string
     {
+        if ($this === self::StorageAlertPercent) {
+            // A share of a volume: 1 to 99. Zero would alert always; a hundred only once the disk is full.
+            return 'regex:/^[1-9][0-9]?$/';
+        }
+
         return match ($this->valueType()) {
             'decimal' => 'regex:/^(?!0(\.0+)?$)(0(\.[0-9]{1,3})?|1(\.0{1,3})?)$/',
             default => 'regex:/^[1-9][0-9]*$/',

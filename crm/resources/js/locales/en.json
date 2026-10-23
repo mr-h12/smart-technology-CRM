@@ -494,14 +494,16 @@
             "limits_max_file_size_mb": "Maximum file size",
             "identity_lockout_minutes": "Account lockout duration",
             "limits_customer_similarity_threshold": "Similar-name threshold",
-            "quotations_expiry_alert_days": "Quotation expiry alert"
+            "quotations_expiry_alert_days": "Quotation expiry alert",
+            "limits_storage_alert_percent": "Storage alert threshold"
         },
         "unit": {
             "days": "days",
             "hours": "hours",
             "megabytes": "MB",
             "minutes": "minutes",
-            "months": "months"
+            "months": "months",
+            "percent": "%"
         },
         "error": {
             "load": "These limits could not be loaded. Try again.",
@@ -515,7 +517,8 @@
             "limits_max_file_size_mb": "The biggest file anyone may attach, in megabytes. 10 means a 10 MB file is accepted and anything larger is refused.",
             "identity_lockout_minutes": "How long an account stays locked after five wrong passwords in a row, before the person can try again.",
             "limits_customer_similarity_threshold": "How alike a new customer's name must be to an existing one before saving warns about a possible duplicate: a number above 0, up to 1. Higher means the names must be closer. Blank means no warning.",
-            "quotations_expiry_alert_days": "How many days before a sent quotation's \"valid until\" date its owner and their Team Leader are alerted. Until a number is saved, 3 is used."
+            "quotations_expiry_alert_days": "How many days before a sent quotation's \"valid until\" date its owner and their Team Leader are alerted. Until a number is saved, 3 is used.",
+            "limits_storage_alert_percent": "How full the volume holding the uploaded files may get before every Super Admin is alerted, as a percentage from 1 to 99. Until a number is saved, 80 is used."
         },
         "unconfigured": "{count} of the {total} have never been configured."
     },
@@ -1724,7 +1727,7 @@
             "quotation_expiring": "Quotation {number} expires on {date}",
             "account_locked": "The account of {name} is locked after failed sign-ins",
             "job_failed": "A background job failed: {job}",
-            "storage_over_limit": "Storage is over its limit",
+            "storage_over_limit": "Storage is {used}% full; the limit is {limit}%",
             "backup_failed": "The last backup failed"
         }
     }

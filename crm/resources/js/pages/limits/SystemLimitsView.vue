@@ -99,7 +99,8 @@ const saveError = ref<string | null>(null);
  * rather than trusted: an unknown word would otherwise be handed to `t()` and
  * printed as `limits.unit.furlongs` in front of a person.
  */
-const UNIT_KEYS = new Set(['days', 'hours', 'megabytes', 'minutes', 'months']);
+// `percent` since Module 16 · 4 (`J-14`'s storage threshold, `D-153`).
+const UNIT_KEYS = new Set(['days', 'hours', 'megabytes', 'minutes', 'months', 'percent']);
 
 function unitLabel(unit: string | null): string | null {
     return unit !== null && UNIT_KEYS.has(unit) ? t(`limits.unit.${unit}`) : null;

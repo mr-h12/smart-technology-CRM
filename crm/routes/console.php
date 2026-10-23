@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Admin\Presentation\RunBackupJob;
 use App\Modules\Audit\Presentation\EnsureAuditPartitionsCommand;
 use App\Modules\Dashboard\Presentation\RefreshDashboardAggregatesJob;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
@@ -116,6 +117,11 @@ Schedule::job(new ClearResolvedAlertsJob, QueueName::Maintenance->value)->hourly
 // `limits.storage_alert_percent` setting, read inside the job.
 Schedule::job(new CheckStorageThresholdJob, QueueName::Maintenance->value)->daily();
 
+// J-10 database_backup, minimal (§15, D-153, Module 16 · 5: BK-01 without the search index,
+// BK-04). Daily at 02:00 UTC onto `maintenance`, clear of J-09's 00:30 and J-05/J-07's 01:00,
+// with its catch-up (§15 ✅), last on start — the job skips a day already backed up.
+Schedule::job(new RunBackupJob, QueueName::Maintenance->value)->dailyAt('2:00');
+
 // J-09 refresh_dashboard_aggregates (§15, D-146, Module 14 · 2.1b), onto `maintenance`
 // (§15.1: aggregates): hourly over the days that changed, and in full nightly at
 // 00:30 UTC. No catch-up entry — §15 marks it "❌ recomputes": the next run does.
@@ -135,6 +141,7 @@ Artisan::command('schedule:catch-up', function (Illuminate\Console\Scheduling\Sc
         'J-07' => GenerateMonthlyReportsJob::class,
         'J-08' => ArchiveOldReportsJob::class,
         'J-16' => RaiseQuotationExpiryAlertsJob::class,
+        'J-10' => RunBackupJob::class,
     ];
 
     foreach ($jobs as $code => $job) {

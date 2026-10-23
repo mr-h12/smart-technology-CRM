@@ -181,6 +181,8 @@ services:
       # §17: attachments live outside the application directory. Not mounted
       # into nginx, on purpose — see that service.
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
+      # Module 16 · 5 (`D-153`): J-10's backups, on their own volume (BK-08's off-machine copy is debt).
+      - crm-backups:${BACKUP_PATH:-/var/crm-backups}
       # This file, read-only, so QueueConfigurationTest can check that every
       # queue the application dispatches to has a worker draining it. The bind
       # mount above is ./crm, and this file is its parent's, so without this it
@@ -301,6 +303,8 @@ services:
       - laravel-storage:/var/www/html/storage
       - laravel-bootstrap-cache:/var/www/html/bootstrap/cache
       - crm-storage:${STORAGE_PATH:-/var/crm-files}
+      # Module 16 · 5 (`D-153`): J-10's backups, on their own volume (BK-08's off-machine copy is debt).
+      - crm-backups:${BACKUP_PATH:-/var/crm-backups}
     command: ["php", "artisan", "queue:work", "redis", "--queue=maintenance", "--tries=3"]
     networks: [crm]
 
@@ -493,6 +497,8 @@ volumes:
   laravel-storage:
   laravel-bootstrap-cache:
   crm-storage:
+  # Module 16 · 5: J-10's database dumps and file archives.
+  crm-backups:
 
 networks:
   crm:

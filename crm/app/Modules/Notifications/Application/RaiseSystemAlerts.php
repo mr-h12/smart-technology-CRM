@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Application;
 
+use App\Modules\Admin\Domain\Backup\BackupFailed;
+use App\Modules\Admin\Domain\Backup\BackupSucceeded;
 use App\Modules\Identity\Domain\Authentication\AccountLocked;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Notifications\Domain\Contracts\AlertLedgerInterface;
 
 /**
- * Module 16, Point 3 (`D-153`) — the two system alerts raised the moment their
+ * Module 16, Points 3 and 5 (`D-153`) — the system alerts raised the moment their
  * cause happens, to every active Super Admin (hidden included, §3.12 rule 6).
  * A repeat on the same subject is one alert with one more occurrence, unread
  * again. `ClearResolvedAlerts` (`J-17`) clears them.
@@ -19,6 +21,8 @@ final readonly class RaiseSystemAlerts
     public const ACCOUNT_LOCKED = 'account_locked';
 
     public const JOB_FAILED = 'job_failed';
+
+    public const BACKUP_FAILED = 'backup_failed';
 
     public function __construct(
         private UserFactsInterface $users,
@@ -43,5 +47,19 @@ final readonly class RaiseSystemAlerts
             'job' => $short,
             'queue' => $queue,
         ]);
+    }
+
+    /** Module 16 · 5 (`BK-05`): each night that fails is news — one more occurrence, unread again. */
+    public function backupFailed(BackupFailed $event): void
+    {
+        $this->alerts->occurred(self::BACKUP_FAILED, null, $this->users->superAdminIds(), [
+            'started_at' => $event->startedAt->format(DATE_ATOM),
+        ]);
+    }
+
+    /** The next good backup clears it, the row kept. */
+    public function backupSucceeded(BackupSucceeded $event): void
+    {
+        $this->alerts->clearAllBut(self::BACKUP_FAILED, []);
     }
 }

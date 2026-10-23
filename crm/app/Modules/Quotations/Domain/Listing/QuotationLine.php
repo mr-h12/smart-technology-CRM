@@ -6,7 +6,7 @@ namespace App\Modules\Quotations\Domain\Listing;
 
 /**
  * One `quotation_items` row as `GET /{id}` reads it (Module 7 Point 3.5) —
- * every column Point 1.3 built, as the decimal text PostgreSQL returns (`DB-07`).
+ * every column Point 1.3 built, and QS.1's `catalog_item_id` (`D-155`), as the decimal text PostgreSQL returns (`DB-07`).
  *
  * The four `unit_cost*` fields, `marginPercent` and `lineCost` are §3.5's
  * "view cost & margin" ({@see self::COST_FIELDS}) — carried here
@@ -23,6 +23,7 @@ final readonly class QuotationLine
         public string $id,
         public int $lineNo,
         public string $supplierQuotationItemId,
+        public string $catalogItemId,
         public string $unitCost,
         public string $unitCostCurrency,
         public string $unitCostFxRateAtTime,
@@ -45,6 +46,7 @@ final readonly class QuotationLine
     {
         return [
             'supplier_quotation_item_id' => $this->supplierQuotationItemId,
+            'catalog_item_id' => $this->catalogItemId,
             'quantity' => $this->quantity,
             'unit_price' => $this->unitPrice,
             'line_total' => $this->lineTotal,

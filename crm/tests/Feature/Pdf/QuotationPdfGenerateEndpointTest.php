@@ -7,6 +7,7 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
+use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Presentation\RenderQuotationPdfJob;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SystemSettingsSeeder;
@@ -193,6 +194,40 @@ final class QuotationPdfGenerateEndpointTest extends TestCase
         self::assertSame(0, DB::table('pdf_generations')->count());
         self::assertSame(0, DB::table('audit_log')->where('event', 'QUOTATION_PDF_REQUESTED')->count());
         Queue::assertNothingPushed();
+    }
+
+    /** QS.1 · `D-155`: the line names its own product, so a supplier's edit that soft-deleted its offer line refuses no PDF. */
+    public function test_that_a_quotation_on_a_deleted_offer_generates_its_pdf(): void
+    {
+        $quotationId = $this->pricedQuotation('draft', null, 'EGP', '1000', lineCosts: ['1000']);
+        DB::table('supplier_quotation_items')->update(['deleted_at' => now()]);
+
+        $jobId = $this->postJson($this->endpoint($quotationId), ['locale' => 'en'], $this->bearerFor(RoleName::Manager))
+            ->assertStatus(202)
+            ->assertJsonPath('data.status', 'queued')
+            ->json('data.job_id');
+
+        self::assertIsString($jobId);
+        Queue::assertPushedOn('pdf', RenderQuotationPdfJob::class, fn (RenderQuotationPdfJob $job): bool => $job->generationId === $jobId);
+    }
+
+    /**
+     * QS.1 · `D-155`, `D-107`: the mapper describes a line by its own catalog item, and gives it that item's unit,
+     * with the line's offer line gone. The bound mapper, over the database, so the test names no port.
+     */
+    public function test_that_a_line_on_a_deleted_offer_maps_its_description_and_its_unit(): void
+    {
+        $quotationId = $this->pricedQuotation('draft', null, 'EGP', '1000', lineCosts: ['1000']);
+        DB::table('enum_lists')->insert([
+            'id' => Uuid::uuid7()->toString(), 'list' => 'units', 'code' => 'qs1-piece', 'label_en' => 'Piece', 'label_ar' => 'قطعة',
+            'position' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('catalog_items')->update(['unit' => 'qs1-piece']);
+        DB::table('supplier_quotation_items')->update(['deleted_at' => now()]);
+
+        $line = $this->app->make(CustomerQuotationViewMapper::class)->forQuotation($quotationId)->lines[0];
+
+        self::assertSame(['Widget', 'Piece', 'قطعة'], [$line->description, $line->unitEn, $line->unitAr]);
     }
 
     public function test_that_an_unknown_quotation_is_a_404(): void

@@ -124,6 +124,8 @@ final readonly class PriceQuotation
 
             $itemRows[] = [
                 'supplier_quotation_item_id' => $itemId,
+                // `D-155`: the line names its own product.
+                'catalog_item_id' => $price->catalogItemId,
                 'unit_cost' => $price->unitPrice,
                 'unit_cost_currency' => $supplierCurrency->code()->value,
                 'unit_cost_fx_rate_at_time' => $rate->rate(),

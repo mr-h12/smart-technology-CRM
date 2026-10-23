@@ -6,7 +6,6 @@ namespace Tests\Feature\Pdf;
 
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
-use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerNamesInterface;
 use App\Modules\Deals\Domain\Contracts\DealTitlesInterface;
@@ -15,14 +14,11 @@ use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use App\Modules\Pdf\Domain\View\CustomerTerm;
 use App\Modules\Pdf\Domain\View\CustomerViewIncomplete;
-use App\Modules\Pdf\Infrastructure\CatalogLineDescriptions;
 use App\Modules\Quotations\Domain\Contracts\QuotationReaderInterface;
 use App\Modules\Quotations\Domain\Listing\QuotationAdditionalLine;
 use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationNotFound;
-use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
-use App\Modules\SupplierQuotations\Domain\Pricing\SupplierItemPrice;
 use ArrayObject;
 use DateTimeImmutable;
 use LogicException;
@@ -59,6 +55,18 @@ final class CustomerQuotationViewMapperTest extends TestCase
         '0199a000-0000-7000-8000-00000000a001' => ['unitCost' => '4111.17', 'unitCostBase' => '4111.1700', 'lineCost' => '8222.34', 'marginPercent' => '17.25'],
         '0199a000-0000-7000-8000-00000000a002' => ['unitCost' => '4222.28', 'unitCostBase' => '4222.2800', 'lineCost' => '12666.84', 'marginPercent' => '18.35'],
         '0199a000-0000-7000-8000-00000000a003' => ['unitCost' => '4333.39', 'unitCostBase' => '4333.3900', 'lineCost' => '4333.39', 'marginPercent' => '19.45'],
+    ];
+
+    /**
+     * QS.1 · `D-155`: the catalog item each supplier item quotes — what a line
+     * names, and what its description and unit are keyed by.
+     *
+     * @var array<string, string>
+     */
+    private const CATALOG_ITEMS = [
+        '0199a000-0000-7000-8000-00000000a001' => '0199a000-0000-7000-8000-00000000ca01',
+        '0199a000-0000-7000-8000-00000000a002' => '0199a000-0000-7000-8000-00000000ca02',
+        '0199a000-0000-7000-8000-00000000a003' => '0199a000-0000-7000-8000-00000000ca03',
     ];
 
     private const DEFAULT_MARGIN = '21.75';
@@ -151,53 +159,12 @@ final class CustomerQuotationViewMapperTest extends TestCase
     public function test_that_an_undescribed_line_is_refused_naming_the_line(): void
     {
         $descriptions = self::descriptions();
-        unset($descriptions['0199a000-0000-7000-8000-00000000a003']);
+        unset($descriptions['0199a000-0000-7000-8000-00000000ca03']);
 
         $this->expectException(CustomerViewIncomplete::class);
         $this->expectExceptionMessageMatches('/no description for line\(s\) 3\.$/');
 
         $this->mapper(descriptions: $descriptions)->map(self::quotation());
-    }
-
-    public function test_that_an_archived_supplier_line_is_refused_through_the_catalog_lookup(): void
-    {
-        // Point 3.2 — the bound `CatalogLineDescriptions`, not a fake of its
-        // port. Line 3's offer was archived, so `priceFor()` answers null, the
-        // line has no description, and the document is refused, not blanked.
-        [$first, $second] = array_keys(self::SUPPLIER_ITEMS);
-
-        $pricing = new class([$first => 'c1', $second => 'c2']) implements SupplierItemPricingInterface
-        {
-            /**
-             * @param  array<string, string>  $catalogBySupplierLine
-             */
-            public function __construct(private readonly array $catalogBySupplierLine) {}
-
-            public function priceFor(string $supplierQuotationItemId): ?SupplierItemPrice
-            {
-                $catalogItemId = $this->catalogBySupplierLine[$supplierQuotationItemId] ?? null;
-
-                return $catalogItemId === null ? null : new SupplierItemPrice('1.000000', null, '0.0000', '1.0000', $catalogItemId);
-            }
-        };
-
-        $labels = new class implements CatalogItemLabelsInterface
-        {
-            public function labelsOf(array $catalogItemIds): array
-            {
-                return array_intersect_key(['c1' => 'Formatter M428dw', 'c2' => 'Toner CF259A'], array_flip($catalogItemIds));
-            }
-
-            public function unitsOf(array $catalogItemIds): array
-            {
-                return [];
-            }
-        };
-
-        $this->expectException(CustomerViewIncomplete::class);
-        $this->expectExceptionMessageMatches('/no description for line\(s\) 3\.$/');
-
-        $this->mapper(lineDescriptions: new CatalogLineDescriptions($pricing, $labels))->map(self::quotation());
     }
 
     public function test_that_descriptions_are_asked_for_once_with_each_item_once(): void
@@ -208,7 +175,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         $this->mapper(lineDescriptions: self::lineDescriptions(self::descriptions(), $asked))
             ->map(self::quotation(repeatFirstItem: true));
 
-        self::assertSame([array_keys(self::SUPPLIER_ITEMS)], $asked->getArrayCopy());
+        self::assertSame([array_values(self::CATALOG_ITEMS)], $asked->getArrayCopy());
     }
 
     public function test_that_the_terms_cross_in_order_and_an_empty_body_is_left_out(): void
@@ -299,7 +266,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
     /** `D-107`: a catalog item with no unit prints `—`, so it maps, with no unit. */
     public function test_a_line_with_no_unit_maps_with_none(): void
     {
-        $first = array_key_first(self::SUPPLIER_ITEMS);
+        $first = self::CATALOG_ITEMS['0199a000-0000-7000-8000-00000000a001'];
 
         $line = $this->mapper(units: [$first => ['en' => 'Piece', 'ar' => 'قطعة']])->map(self::quotation())->lines[1];
 
@@ -653,16 +620,16 @@ final class CustomerQuotationViewMapperTest extends TestCase
              */
             public function __construct(private readonly array $descriptions, private readonly ArrayObject $asked, private readonly array $units) {}
 
-            public function descriptionsOf(array $supplierQuotationItemIds): array
+            public function descriptionsOf(array $catalogItemIds): array
             {
-                $this->asked->append($supplierQuotationItemIds);
+                $this->asked->append($catalogItemIds);
 
-                return array_intersect_key($this->descriptions, array_flip($supplierQuotationItemIds));
+                return array_intersect_key($this->descriptions, array_flip($catalogItemIds));
             }
 
-            public function unitsOf(array $supplierQuotationItemIds): array
+            public function unitsOf(array $catalogItemIds): array
             {
-                return array_intersect_key($this->units, array_flip($supplierQuotationItemIds));
+                return array_intersect_key($this->units, array_flip($catalogItemIds));
             }
         };
     }
@@ -672,7 +639,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
      */
     private static function units(): array
     {
-        return array_combine(array_keys(self::SUPPLIER_ITEMS), [
+        return array_combine(array_values(self::CATALOG_ITEMS), [
             ['en' => 'Piece', 'ar' => 'قطعة'],
             ['en' => 'Box', 'ar' => 'علبة'],
             ['en' => 'Piece', 'ar' => 'قطعة'],
@@ -684,7 +651,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
      */
     private static function descriptions(): array
     {
-        return array_combine(array_keys(self::SUPPLIER_ITEMS), ['Formatter M428dw', 'Toner CF259A', 'Fuser RM2-5399']);
+        return array_combine(array_values(self::CATALOG_ITEMS), ['Formatter M428dw', 'Toner CF259A', 'Fuser RM2-5399']);
     }
 
     /**
@@ -717,10 +684,12 @@ final class CustomerQuotationViewMapperTest extends TestCase
         $items = [];
         foreach ($ids as $index => $id) {
             $costs = self::SUPPLIER_ITEMS[$id];
+            $supplierItem = $repeatFirstItem && $index === 2 ? $ids[0] : $id;
             $items[] = new QuotationLine(
                 id: '0199a000-0000-7000-8000-00000000b00'.($index + 1),
                 lineNo: $index + 1,
-                supplierQuotationItemId: $repeatFirstItem && $index === 2 ? $ids[0] : $id,
+                supplierQuotationItemId: $supplierItem,
+                catalogItemId: self::CATALOG_ITEMS[$supplierItem],
                 unitCost: $costs['unitCost'],
                 unitCostCurrency: 'USD',
                 unitCostFxRateAtTime: self::FX_RATE,
@@ -736,7 +705,7 @@ final class CustomerQuotationViewMapperTest extends TestCase
         if ($repeatFirstItem) {
             // Two lines quoting the same supplier item: asked for once, and
             // the third item still asked for through a fourth line.
-            $items[] = new QuotationLine('0199a000-0000-7000-8000-00000000b004', 4, $ids[2], '4333.39', 'USD', self::FX_RATE, '4333.3900', '19.45', '5418.00', '1', '5418.00', '4333.39');
+            $items[] = new QuotationLine('0199a000-0000-7000-8000-00000000b004', 4, $ids[2], self::CATALOG_ITEMS[$ids[2]], '4333.39', 'USD', self::FX_RATE, '4333.3900', '19.45', '5418.00', '1', '5418.00', '4333.39');
         }
 
         return new QuotationDetail(

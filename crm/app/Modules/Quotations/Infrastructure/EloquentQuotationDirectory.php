@@ -682,6 +682,7 @@ final readonly class EloquentQuotationDirectory implements ExpiringQuotationsInt
                 id: self::text($row, 'id'),
                 lineNo: self::int($row, 'line_no'),
                 supplierQuotationItemId: self::text($row, 'supplier_quotation_item_id'),
+                catalogItemId: self::text($row, 'catalog_item_id'),
                 unitCost: self::text($row, 'unit_cost'),
                 unitCostCurrency: self::text($row, 'unit_cost_currency'),
                 unitCostFxRateAtTime: self::text($row, 'unit_cost_fx_rate_at_time'),
@@ -876,16 +877,16 @@ final readonly class EloquentQuotationDirectory implements ExpiringQuotationsInt
 
     public function sentVersionLines(): array
     {
-        /** @var list<object{quotation_id: string, supplier_quotation_item_id: string, line_total: numeric-string}> $rows */
+        /** @var list<object{quotation_id: string, catalog_item_id: string, line_total: numeric-string}> $rows */
         $rows = $this->connection->select(<<<'SQL'
-            SELECT i.quotation_id, i.supplier_quotation_item_id, i.line_total
+            SELECT i.quotation_id, i.catalog_item_id, i.line_total
             FROM quotation_items i JOIN quotations q ON q.id = i.quotation_id
             WHERE i.deleted_at IS NULL AND q.deleted_at IS NULL AND q.sent_at IS NOT NULL
             ORDER BY i.quotation_id, i.line_no
             SQL);
 
         return array_map(static fn (object $r): array => [
-            'quotation_id' => $r->quotation_id, 'supplier_quotation_item_id' => $r->supplier_quotation_item_id, 'line_total' => $r->line_total,
+            'quotation_id' => $r->quotation_id, 'catalog_item_id' => $r->catalog_item_id, 'line_total' => $r->line_total,
         ], $rows);
     }
 }

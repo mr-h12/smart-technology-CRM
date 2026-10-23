@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Ramsey\Uuid\Uuid;
+use stdClass;
 use Tests\TestCase;
 
 /**
@@ -556,6 +557,26 @@ final class CreateQuotationTest extends TestCase
         ));
 
         self::assertSame([], $result->quantityWarnings);
+    }
+
+    // ──────────────────────────────────────────────────────────── QS.1 · D-155
+
+    /** The saved line names its own product — its supplier line's catalog item, on the line's own row. */
+    public function test_that_a_saved_line_names_its_own_product(): void
+    {
+        $line = $this->supplierLine('100', '1', $this->egpId);
+        $product = DB::table('supplier_quotation_items')->where('id', $line)->value('catalog_item_id');
+        self::assertIsString($product);
+
+        $result = $this->create($this->payload(
+            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
+            additional: [],
+            overrides: [],
+        ));
+
+        $row = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)->first();
+        self::assertInstanceOf(stdClass::class, $row);
+        self::assertSame($product, $row->catalog_item_id ?? null);
     }
 
     // ────────────────────────────────────────────────────────────────── helpers

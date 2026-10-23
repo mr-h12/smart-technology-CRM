@@ -2024,6 +2024,12 @@ would hide them behind `OD-03` indefinitely.
 - [ ] **The Arabic guides lag the English ones on tax and OD-01** — *revealed by the same audit, 2026-10-22.*
       `arabic/CLAUDE_AR.md` and `arabic/AGENTS_AR.md` lack the discount-before-tax (`D-64`), additional-items (`D-62`)
       and optional-rounding (`D-65`) lines, and still show OD-01 open with the «أيوه» assumption, which `D-62` closed.
+- [ ] **The dashboard still guards a null product that nothing writes** — *revealed by QS.1's waste audit, 2026-10-23.*
+      Since QS.1 every sent line carries its own `catalog_item_id` (NOT NULL), so `RefreshDashboardAggregates::sentLines()`
+      always writes a product. Still shaped for the old null: `dashboard_sent_lines.catalog_item_id` is nullable
+      (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
+      `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
+      Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
 
 ## Agent guide revisions — owner-directed
 
@@ -4895,6 +4901,27 @@ owner's order of 2026-10-22, replacing "resumes after this pass" above.
 - [x] **F.5** The deals table's header floats over its rows on a phone (owner's iPhone report, 2026-10-21).
       Below 640 the frame scrolls sideways (owner, 2026-10-14), so the sticky header stuck to the frame,
       123 px down, over the second row. *(2026-10-21, #416 — header `max-sm:static`, frame `relative` so the Edit header's sr-only text no longer widens the page; the A-40 guard's exemption removed)*
+
+## Quotation-screen redesign — owner-directed, 2026-10-22
+
+The owner's quotation-screen workflow change: a quotation line owns its supplier, catalog item, unit, entered
+price, tax and margin, and no supplier-quotation document is made (`D-154`…`D-165`, proposed, merged #426).
+Five slices, each described to the owner before it starts and divided by the owner: 1 the line owns its
+facts → 2 the new screen (line tax and margin, the toggle, `pricing_mode`) → 3 inline supplier, product and
+unit → 4 retire the supplier-offer screen and `D-81` → 5 delete the legacy code (the tables stay). Module 13
+resumes at 8.3 after the redesign unless the owner reorders.
+
+### Point list — slice 1 approved 2026-10-23 as one point (owner, in chat: "make it one point")
+
+- [x] **QS.1** The line names its own product (`D-155`) — migration A gives each `quotation_items` row its
+      `catalog_item_id` (NOT NULL, foreign key), backfilled from the line's supplier-offer line even when that
+      offer line is soft-deleted, reversible; the existing builder's save and the version copy fill it; the
+      quotation detail's product names, the PDF's description and unit, and the dashboard's best and worst
+      products read the line, not the supplier offer. A quotation whose lines point at a deleted offer shows
+      its product names and generates its PDF. Cut to one column by the owner, 2026-10-23: the line's
+      supplier, unit code, entered price and tax rate have no reader before slice 2 and arrive with it
+      (migration B). Not in it: `pricing_mode` and the new pricing (slice 2).
+      *(2026-10-23, #429 — all 348 dev lines named, the 52 on deleted offer lines included; QT-2026-0129's PDF generates, refused before; dashboard 71/71 sent lines carry a product)*
 
 ## Shell revisions — owner-directed
 

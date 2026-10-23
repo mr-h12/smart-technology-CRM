@@ -192,6 +192,22 @@ final class QuotationNewVersionEndpointTest extends TestCase
         }
     }
 
+    /** QS.1 · `D-155`: the copy's line names the parent line's product, even after the supplier edited that offer line away. */
+    public function test_that_a_copy_carries_the_lines_product(): void
+    {
+        $parentId = $this->answered($this->deal(null), 'partial');
+        $product = DB::table('supplier_quotation_items')->where('id', $this->lineId)->value('catalog_item_id');
+        self::assertIsString($product);
+        DB::table('supplier_quotation_items')->where('id', $this->lineId)->update(['deleted_at' => now()]);
+
+        $copyId = $this->newVersion($parentId, RoleName::Manager)->assertStatus(201)->json('data.id');
+        self::assertIsString($copyId);
+
+        $line = DB::table('quotation_items')->where('quotation_id', $copyId)->first();
+        self::assertInstanceOf(stdClass::class, $line);
+        self::assertSame($product, $line->catalog_item_id ?? null);
+    }
+
     /** The source row is not touched: its status, its token and its lines stand. */
     public function test_that_the_parent_is_left_as_it_was(): void
     {

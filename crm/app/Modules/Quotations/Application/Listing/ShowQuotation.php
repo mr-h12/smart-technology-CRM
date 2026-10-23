@@ -128,12 +128,9 @@ final readonly class ShowQuotation
     }
 
     /**
-     * F-16 · 1.1: what each line is — its supplier line's catalog item, by
-     * §7.3's label. A line whose supplier line is gone (`priceFor()` null: the
-     * offer was archived) is left out, and the wire carries null.
-     *
-     * ponytail: one `priceFor()` read per line, as `movedLines()` already does;
-     * a batch read on `SupplierItemPricingInterface` when a quotation carries dozens.
+     * F-16 · 1.1, QS.1 · `D-155`: what each line is — its own catalog item, by
+     * §7.3's label. An item the catalog cannot name is left out, and the wire
+     * carries null.
      *
      * @return array<string, string> quotation line id => label
      */
@@ -142,11 +139,7 @@ final readonly class ShowQuotation
         $catalogIds = [];
 
         foreach ($quotation->items as $line) {
-            $price = $this->supplierPrices->priceFor($line->supplierQuotationItemId);
-
-            if ($price !== null) {
-                $catalogIds[$line->id] = $price->catalogItemId;
-            }
+            $catalogIds[$line->id] = $line->catalogItemId;
         }
 
         $labels = $this->catalogLabels->labelsOf(array_values(array_unique($catalogIds)));

@@ -39,6 +39,8 @@ final class QuotationItemSchemaMigrationTest extends TestCase
 
     private string $supplierLineId;
 
+    private string $catalogItemId;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -47,7 +49,7 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         $dealId = Uuid::uuid4()->toString();
         $currencyId = Uuid::uuid4()->toString();
         $supplierId = Uuid::uuid4()->toString();
-        $catalogItemId = Uuid::uuid4()->toString();
+        $this->catalogItemId = Uuid::uuid4()->toString();
         $supplierQuotationId = Uuid::uuid4()->toString();
 
         $this->quotationId = Uuid::uuid4()->toString();
@@ -87,7 +89,7 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         ]);
 
         DB::table('catalog_items')->insert([
-            'id' => $catalogItemId,
+            'id' => $this->catalogItemId,
             'kind' => 'product',
             'name' => 'Switch 24-port',
             'created_at' => now(),
@@ -105,7 +107,7 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         DB::table('supplier_quotation_items')->insert([
             'id' => $this->supplierLineId,
             'supplier_quotation_id' => $supplierQuotationId,
-            'catalog_item_id' => $catalogItemId,
+            'catalog_item_id' => $this->catalogItemId,
             'unit_price' => '1000.000000',
             'quantity' => '5.0000',
             'created_at' => now(),
@@ -326,6 +328,23 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         );
     }
 
+    /** `D-155`: a line names its own product. */
+    public function test_that_a_line_without_a_product_is_refused(): void
+    {
+        self::assertSame(
+            self::NOT_NULL_VIOLATION,
+            $this->refusedWith(fn () => $this->insert(['catalog_item_id' => null])),
+        );
+    }
+
+    public function test_that_a_line_naming_an_unknown_product_is_refused(): void
+    {
+        self::assertSame(
+            self::FOREIGN_KEY_VIOLATION,
+            $this->refusedWith(fn () => $this->insert(['catalog_item_id' => Uuid::uuid4()->toString()])),
+        );
+    }
+
     public function test_that_a_line_without_a_quotation_is_refused(): void
     {
         self::assertSame(
@@ -339,15 +358,6 @@ final class QuotationItemSchemaMigrationTest extends TestCase
         self::assertSame(
             self::FOREIGN_KEY_VIOLATION,
             $this->refusedWith(fn () => $this->insert(['quotation_id' => Uuid::uuid4()->toString()])),
-        );
-    }
-
-    /** The product is reached through the supplier line; a second path could disagree with it. */
-    public function test_that_the_line_does_not_name_the_product_twice(): void
-    {
-        self::assertFalse(
-            Schema::hasColumn('quotation_items', 'catalog_item_id'),
-            'a second path to the product lets a line and its supplier line name different items.',
         );
     }
 
@@ -404,6 +414,7 @@ final class QuotationItemSchemaMigrationTest extends TestCase
             'id' => Uuid::uuid4()->toString(),
             'quotation_id' => $this->quotationId,
             'supplier_quotation_item_id' => $this->supplierLineId,
+            'catalog_item_id' => $this->catalogItemId,
             'line_no' => 1,
             'unit_cost' => '1000.000000',
             'unit_cost_currency' => 'USD',

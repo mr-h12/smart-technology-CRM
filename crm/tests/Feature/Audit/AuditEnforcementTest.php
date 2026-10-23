@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Audit;
 
+use App\Modules\Admin\Infrastructure\DatabaseBackupRuns;
 use App\Modules\Admin\Infrastructure\DatabaseSettingsRepository;
 use App\Modules\Admin\Infrastructure\DatabaseSystemLimitRepository;
 use App\Modules\Audit\Domain\AuditEvent;
@@ -451,6 +452,10 @@ final class AuditEnforcementTest extends TestCase
             DatabaseAlertInbox::class => 'AUD-01 does not apply: marking an alert read changes only its reader\'s '
                     .'own display state (read_at) on a row addressed to them; no business record, no other person\'s '
                     .'view and no decision changes, and the alert itself is raised and cleared by the jobs that own it.',
+            // Module 16 · 5 (`D-153`, `BK-04`): J-10's own record of each run.
+            DatabaseBackupRuns::class => 'AUD-01 does not apply: backup_runs is the system\'s own log of each '
+                    .'nightly backup (started, finished, artefacts, checksums or the reason it failed), written on a '
+                    .'schedule with no actor; it records no business change and is itself the history BK-04 asks for.',
             // Module 16 · 2 (`D-153`): J-16 and the later alert jobs.
             DatabaseAlertLedger::class => 'AUD-01 does not apply: alerts are derived from records already audited '
                     .'when they were written (a quotation\'s status, owner and valid_until), raised and cleared on a '

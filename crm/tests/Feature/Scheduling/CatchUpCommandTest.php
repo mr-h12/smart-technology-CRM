@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Scheduling;
 
+use App\Modules\Admin\Presentation\RunBackupJob;
 use App\Modules\Deals\Presentation\RecomputeStaleCustomerStatusesJob;
 use App\Modules\Notifications\Presentation\RaiseQuotationExpiryAlertsJob;
 use App\Modules\Quotations\Presentation\ExpireQuotationsJob;
@@ -33,7 +34,7 @@ final class CatchUpCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_that_the_catch_up_dispatches_j01_j04_j05_j06_j07_j08_and_j16_onto_maintenance_in_that_order(): void
+    public function test_that_the_catch_up_dispatches_j01_j04_j05_j06_j07_j08_j16_and_j10_onto_maintenance_in_that_order(): void
     {
         Queue::fake();
 
@@ -47,9 +48,11 @@ final class CatchUpCommandTest extends TestCase
         Queue::assertPushedOn(QueueName::Maintenance->value, ArchiveOldReportsJob::class);
         // Module 16 · 2 (`D-153`): J-16 last, after J-01 has expired what it should.
         Queue::assertPushedOn(QueueName::Maintenance->value, RaiseQuotationExpiryAlertsJob::class);
+        // Module 16 · 5 (`D-153`, §15 ✅): J-10 last — a day already backed up is skipped by the job itself.
+        Queue::assertPushedOn(QueueName::Maintenance->value, RunBackupJob::class);
 
         self::assertMatchesRegularExpression(
-            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\..*J-07 dispatched\..*J-08 dispatched\..*J-16 dispatched\./s',
+            '/J-01 dispatched\..*J-04 dispatched\..*J-05 dispatched\..*J-06 dispatched\..*J-07 dispatched\..*J-08 dispatched\..*J-16 dispatched\..*J-10 dispatched\./s',
             Artisan::output(),
         );
     }

@@ -184,7 +184,10 @@ const label = computed(() => (unread.value > 0 ? t('alerts.bellCount', { count: 
                 >
                     <span v-if="!alert.read" class="alert-bell__dot mt-2 size-2 shrink-0 rounded-full" aria-hidden="true" />
                     <div class="min-w-0 flex-1">
-                        <RouterLink :to="destination(alert)" class="row-link text-table [overflow-wrap:anywhere]" @click="open = false">{{ sentence(alert) }}</RouterLink>
+                        <!-- `block` (Module 16 · 6's browser check): a sentence that wraps is one tap target,
+                             not two line boxes with a gap between them at 375px, and at least
+                             44px tall like every other control here. -->
+                        <RouterLink :to="destination(alert)" class="row-link block min-h-11 text-table [overflow-wrap:anywhere]" @click="open = false">{{ sentence(alert) }}</RouterLink>
                         <span v-if="!alert.read" class="sr-only">{{ t('alerts.unread') }}</span>
                         <span
                             v-if="alert.occurrences > 1"

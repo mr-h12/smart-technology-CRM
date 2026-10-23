@@ -8,6 +8,7 @@ use App\Modules\Catalog\Domain\Contracts\CatalogItemLabelsInterface;
 use App\Modules\Customers\Domain\Contracts\CustomerContactsInterface;
 use App\Modules\Identity\Domain\Contracts\UserFactsInterface;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
+use App\Modules\Pdf\Domain\Contracts\LineDescriptionsInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -15,52 +16,57 @@ use Tests\TestCase;
 
 /**
  * F-40 · 1.4 — the three facts `D-107`'s Commercial Offer reads from other
- * modules, against the real database: each catalog item's unit (`units`
- * managed list, both languages), the signer's job title (`D-107` ruling 2,
- * F-40 · 1.3's columns), and the customer's contact person with `D-104`'s
- * English title label.
+ * modules, against the real database: each line's unit by its `units` code
+ * (QS.2a: the line owns its unit, `D-155`; both languages), the signer's job
+ * title (`D-107` ruling 2, F-40 · 1.3's columns), and the customer's contact
+ * person with `D-104`'s English title label.
  */
 final class CustomerDocumentFactsTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Catalog: the unit ───────────────────────────────────────────────────
+    // ── Catalog: the unit, by its code (QS.2a) ──────────────────────────────
 
-    public function test_a_catalog_item_carries_its_units_labels_and_one_without_has_no_entry(): void
+    /** Catalog's seam and the PDF's, which forwards to it: the same answer. */
+    private const UNIT_SEAMS = [CatalogItemLabelsInterface::class, LineDescriptionsInterface::class];
+
+    /** QS.2a: a line names its unit by its `units` code (`D-155`); a code the list never held has no entry, so the PDF prints `—`. */
+    public function test_a_unit_code_carries_its_labels_and_an_unlisted_code_has_no_entry(): void
     {
         $this->unit('carton', 'Carton', 'كرتونة');
 
-        $withUnit = $this->catalogItem('carton');
-        $withoutUnit = $this->catalogItem(null);
-        $unlisted = $this->catalogItem('not_on_the_list');
-
-        self::assertSame(
-            [$withUnit => ['en' => 'Carton', 'ar' => 'كرتونة']],
-            $this->app->make(CatalogItemLabelsInterface::class)->unitsOf([$withUnit, $withoutUnit, $unlisted]),
-        );
+        foreach (self::UNIT_SEAMS as $seam) {
+            self::assertSame(
+                ['carton' => ['en' => 'Carton', 'ar' => 'كرتونة']],
+                $this->app->make($seam)->unitsOf(['carton', 'not_on_the_list']),
+                "{$seam} does not name a unit by its code.",
+            );
+        }
     }
 
-    /** An archived unit still names an item that chose it; a live entry of the same code wins. */
-    public function test_an_archived_unit_still_names_its_item_and_the_live_entry_wins(): void
+    /** An archived unit still names a line that chose it; a live entry of the same code wins. */
+    public function test_an_archived_unit_still_names_its_code_and_the_live_entry_wins(): void
     {
         $this->unit('crate', 'Old Crate', 'صندوق قديم', archived: true);
-        $archivedOnly = $this->catalogItem('crate');
-
         $this->unit('carton', 'Old Carton', 'كرتونة قديمة', archived: true);
         $this->unit('carton', 'Carton', 'كرتونة');
-        $relisted = $this->catalogItem('carton');
 
-        self::assertSame(
-            self::byKey([$archivedOnly => ['en' => 'Old Crate', 'ar' => 'صندوق قديم'], $relisted => ['en' => 'Carton', 'ar' => 'كرتونة']]),
-            self::byKey($this->app->make(CatalogItemLabelsInterface::class)->unitsOf([$archivedOnly, $relisted])),
-        );
+        foreach (self::UNIT_SEAMS as $seam) {
+            self::assertSame(
+                self::byKey(['crate' => ['en' => 'Old Crate', 'ar' => 'صندوق قديم'], 'carton' => ['en' => 'Carton', 'ar' => 'كرتونة']]),
+                self::byKey($this->app->make($seam)->unitsOf(['crate', 'carton'])),
+                "{$seam} does not prefer the live entry, or forgets an archived one.",
+            );
+        }
     }
 
-    public function test_no_catalog_ids_is_no_query(): void
+    public function test_no_unit_codes_is_no_query(): void
     {
         DB::enableQueryLog();
 
-        self::assertSame([], $this->app->make(CatalogItemLabelsInterface::class)->unitsOf([]));
+        foreach (self::UNIT_SEAMS as $seam) {
+            self::assertSame([], $this->app->make($seam)->unitsOf([]));
+        }
         self::assertCount(0, DB::getQueryLog());
     }
 
@@ -163,18 +169,6 @@ final class CustomerDocumentFactsTest extends TestCase
             'label_en' => $en, 'label_ar' => $ar, 'position' => 1,
             'created_at' => now(), 'updated_at' => now(), 'deleted_at' => $archived ? now() : null,
         ]);
-    }
-
-    private function catalogItem(?string $unit): string
-    {
-        $id = Uuid::uuid4()->toString();
-
-        DB::table('catalog_items')->insert([
-            'id' => $id, 'kind' => 'product', 'name' => 'Item '.$id, 'unit' => $unit,
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        return $id;
     }
 
     /** @param  array<string, mixed>  $overrides */

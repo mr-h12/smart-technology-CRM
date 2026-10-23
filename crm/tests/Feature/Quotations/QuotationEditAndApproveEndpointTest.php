@@ -31,6 +31,7 @@ use Tests\TestCase;
  */
 final class QuotationEditAndApproveEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -114,16 +115,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         $this->editAndApprove($id, $etag, $this->payload(), RoleName::Manager)->assertStatus(200);
     }
 
-    /** §3.5 `edit tax`, the same way. */
-    public function test_that_changing_the_tax_needs_the_edit_tax_grant(): void
-    {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
-        DB::table('permissions')->where('resource', 'quotation')->where('action', 'edit_tax')->delete();
-
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)->assertStatus(403);
-        self::assertSame('pending', DB::table('quotations')->where('id', $id)->value('status'));
-    }
-
     // ──────────────────────────────────────────────────── optimistic locking
 
     public function test_that_a_missing_if_match_is_a_400(): void
@@ -175,25 +166,43 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
 
     // ─────────────────────────────────────────────────────── the happy path
 
-    /** A margin edit is re-priced (3.6's path) and the row approved, in one answer with 3.5's body. */
-    public function test_that_a_margin_edit_is_priced_and_the_quotation_approved(): void
+    /**
+     * A margin edit is re-priced (3.6's path) and the row approved, in one answer with 3.5's body. QS.2a: the
+     * body is the line-owned one (`D-155`); example 1's line moved from 20 % to 25 % — 100 net → 125.00 × 3 =
+     * 375.00, 10 % off, its 14 % on 337.50 = 47.25, delivery 50 → 434.75 — with no quotation margin (`D-156`).
+     */
+    public function test_that_a_line_margin_edit_is_priced_and_the_quotation_approved(): void
     {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
+        $line = $this->lineBody();
+        $dealId = $this->deal($this->userWith(RoleName::IndoorSales)->id);
+        $id = $this->postJson(self::ENDPOINT, ['deal_id' => $dealId, 'customer_id' => $this->customerId, ...$this->e1Body($line)], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::IndoorSales))
+            ->assertStatus(201)
+            ->json('data.id');
+        self::assertIsString($id);
+        $etag = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::IndoorSales))->assertStatus(200)->json('data.etag');
+        self::assertIsString($etag);
+        $etag = $this->patchJson(self::ENDPOINT.'/'.$id.'/submit-for-approval', [], [...$this->bearerFor(RoleName::IndoorSales), 'If-Match' => $etag])
+            ->assertStatus(200)
+            ->json('data.etag');
+        self::assertIsString($etag);
 
-        $this->editAndApprove($id, $etag, $this->payload(['default_margin' => '25']), RoleName::Manager)
+        $this->editAndApprove($id, $etag, $this->e1Body(['margin_percent' => '25'] + $line), RoleName::Manager)
             ->assertStatus(200)
             ->assertJsonPath('data.id', $id)
             ->assertJsonPath('data.status', 'approved')
             ->assertJsonPath('data.is_self_approved', false)
-            ->assertJsonPath('data.default_margin', '25.000')
-            ->assertJsonPath('data.items.0.unit_price', '12.500000')
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.items.0.margin_percent', '25.000')
+            ->assertJsonPath('data.items.0.unit_price', '125.000000')
+            ->assertJsonPath('data.tax_amount', '47.250000')
+            ->assertJsonPath('data.final_total', '434.750000')
             ->assertJsonPath('data.version', 1)
             ->assertJsonPath('data.etag', 'quotation:'.$id.':4');
 
         $row = DB::table('quotations')->where('id', $id)->first();
         self::assertInstanceOf(stdClass::class, $row);
         self::assertSame('approved', $row->status);
-        self::assertSame('25.000', $row->default_margin);
         self::assertNotNull($row->submitted_at, 'the submission moment survives the approval.');
     }
 
@@ -246,29 +255,6 @@ final class QuotationEditAndApproveEndpointTest extends TestCase
         self::assertInstanceOf(stdClass::class, $approved);
         self::assertGreaterThanOrEqual($updated->id, $approved->id, 'the edit is recorded before the approval.');
         self::assertNull($this->auditRow($id, 'SELF_APPROVAL'));
-    }
-
-    /** A tax edit likewise: `tax_percent` old → new inside `QUOTATION_UPDATED`. */
-    public function test_that_a_tax_edit_is_audited_old_to_new(): void
-    {
-        [$id, $etag] = $this->pending(RoleName::IndoorSales);
-
-        $this->editAndApprove($id, $etag, $this->payload(['tax_percents' => ['14']]), RoleName::Manager)
-            ->assertStatus(200)
-            ->assertJsonPath('data.tax_percent', '14.000');
-
-        $updated = $this->auditRow($id, 'QUOTATION_UPDATED');
-        self::assertInstanceOf(stdClass::class, $updated);
-        self::assertIsString($updated->old_values);
-        self::assertIsString($updated->new_values);
-        $old = json_decode($updated->old_values, true);
-        $new = json_decode($updated->new_values, true);
-        self::assertIsArray($old);
-        self::assertIsArray($new);
-        self::assertNull($old['tax_percent'] ?? null);
-        self::assertSame('14.000', $new['tax_percent'] ?? null);  // D-118: the sum, at the percent scale
-        self::assertSame([], $old['tax_percents'] ?? null);
-        self::assertSame(['14.000'], $new['tax_percents'] ?? null);
     }
 
     public function test_that_an_unknown_id_is_a_404(): void

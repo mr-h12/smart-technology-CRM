@@ -32,6 +32,7 @@ use Tests\TestCase;
  */
 final class QuotationNewVersionEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -206,6 +207,27 @@ final class QuotationNewVersionEndpointTest extends TestCase
         $line = DB::table('quotation_items')->where('quotation_id', $copyId)->first();
         self::assertInstanceOf(stdClass::class, $line);
         self::assertSame($product, $line->catalog_item_id ?? null);
+    }
+
+    /** QS.2a · `D-08` over `D-155`: a Partial's copy carries what each line was typed with, and the quotation's pricing mode. */
+    public function test_that_a_copy_carries_what_each_line_was_typed_with_and_the_pricing_mode(): void
+    {
+        $line = $this->lineBody();
+        $parentId = $this->postJson(self::ENDPOINT, ['deal_id' => $this->deal(null), 'customer_id' => $this->customerId, ...$this->e1Body($line)], [
+            ...$this->bearerFor(RoleName::Manager),
+            'Idempotency-Key' => Uuid::uuid4()->toString(),
+        ])->assertStatus(201)->json('data.id');
+        self::assertIsString($parentId);
+        $this->markAs($parentId, 'partial');
+
+        $copyId = $this->newVersion($parentId, RoleName::Manager)->assertStatus(201)->json('data.id');
+        self::assertIsString($copyId);
+
+        self::assertSame('tax_included', DB::table('quotations')->where('id', $copyId)->value('pricing_mode'));
+        self::assertSame(
+            ['supplier_quotation_item_id' => null, 'supplier_id' => $line['supplier_id'], 'unit_code' => 'piece', 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000'],
+            (array) DB::table('quotation_items')->where('quotation_id', $copyId)->first(['supplier_quotation_item_id', 'supplier_id', 'unit_code', 'entered_unit_price', 'tax_percent']),
+        );
     }
 
     /** The source row is not touched: its status, its token and its lines stand. */

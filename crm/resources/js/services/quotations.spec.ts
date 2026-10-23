@@ -12,6 +12,7 @@ import {
     readQuotation,
     submitQuotation,
     updateQuotation,
+    type QuotationCreateDraft,
 } from '@/services/quotations';
 
 /**
@@ -88,14 +89,22 @@ const PAGINATION = {
     has_previous_page: false,
 };
 
-const DRAFT = {
+/** QS.2a — contract §4's save payload: `pricing_mode` and each line's seven facts; no quotation margin or tax rates. */
+const DRAFT: QuotationCreateDraft = {
     deal_id: SUMMARY.deal_id,
     customer_id: SUMMARY.customer_id,
     currency: 'EGP',
-    default_margin: '20',
+    pricing_mode: 'tax_included',
     discount_percent: '0',
-    tax_percents: [],
-    lines: [{ supplier_quotation_item_id: '0192f000-0000-7000-8000-000000000601', quantity: '2', margin_percent: null }],
+    lines: [{
+        supplier_id: '0192f000-0000-7000-8000-000000000301',
+        catalog_item_id: '0192f000-0000-7000-8000-000000000401',
+        unit_code: 'pcs',
+        entered_unit_price: '114',
+        tax_percent: '14',
+        margin_percent: '20',
+        quantity: '3',
+    }],
     additional_items: [],
 };
 
@@ -194,16 +203,14 @@ describe('the quotation API catalogue', () => {
 
     // ──────────────────────────────────────────────────────────────── the read
 
-    it('reads one quotation and its price-drift warnings', async () => {
-        fetchMock.mockResolvedValue(
-            json(200, envelope(DETAIL, { warnings: [{ field: 'lines.1.unit_cost', code: 'supplier_price_changed', message: 'moved' }] })),
-        );
+    // D-161: the price-drift warning retired with D-36, so the read is the quotation alone.
+    it('reads one quotation', async () => {
+        fetchMock.mockResolvedValue(json(200, envelope(DETAIL)));
 
         const read = await readQuotation(DETAIL.id);
 
         expect(requestFor().url).toContain(`/quotations/${DETAIL.id}`);
         expect(read.quotation.etag).toBe(DETAIL.etag);
-        expect(read.warnings).toEqual([{ field: 'lines.1.unit_cost', code: 'supplier_price_changed', message: 'moved' }]);
     });
 
     it('reads no warnings as an empty list, not undefined', async () => {
@@ -214,10 +221,9 @@ describe('the quotation API catalogue', () => {
 
     // ─────────────────────────────────────────────────────────────── the writes
 
-    it('creates with the Idempotency-Key the caller minted and returns the quantity warnings', async () => {
-        fetchMock.mockResolvedValue(
-            json(201, envelope({ id: 'q1', code: 'QT-2026-0001' }, { warnings: [{ field: 'lines.1.quantity', code: 'quantity_exceeds_recorded', message: 'over' }] })),
-        );
+    // D-161: the over-quantity warning retired with D-81; the create answers the id and the code.
+    it('creates with the Idempotency-Key the caller minted and sends the line-pricing payload as given', async () => {
+        fetchMock.mockResolvedValue(json(201, envelope({ id: 'q1', code: 'QT-2026-0001' })));
 
         const created = await createQuotation(DRAFT, 'key-1');
 
@@ -226,7 +232,7 @@ describe('the quotation API catalogue', () => {
         expect(requestFor().headers.get('Idempotency-Key')).toBe('key-1');
         expect(requestFor().headers.get('Content-Type')).toBe('application/json');
         expect(await bodyOf()).toEqual(DRAFT);
-        expect(created.warnings[0]?.code).toBe('quantity_exceeds_recorded');
+        expect(created.quotation).toEqual({ id: 'q1', code: 'QT-2026-0001' });
     });
 
     it('updates with If-Match carrying the etag it was given', async () => {

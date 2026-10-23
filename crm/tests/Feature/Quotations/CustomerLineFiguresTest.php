@@ -86,4 +86,37 @@ final class CustomerLineFiguresTest extends TestCase
         self::assertSame('35104.100000', CustomerLineFigures::excludingVat('34854.10', '250.00'));
         self::assertSame('1000.000000', CustomerLineFigures::excludingVat('1000.00', '0.00'));
     }
+
+    // ── QS.2a: a tax-included PDF prints prices including tax (`D-156`, `D-157`) ──
+
+    /**
+     * `D-156`'s first example: unit price 120.00 at the line's 14 % prints
+     * round2(120.00 × 1.14) = 136.80. A 0 % line inside a tax-included
+     * quotation (allowed, `D-157`) prints its price unchanged.
+     */
+    public function test_a_gross_unit_price_adds_the_lines_own_tax(): void
+    {
+        self::assertSame('136.800000', CustomerLineFigures::grossUnitPrice('120.00', '14.000'));
+        self::assertSame('60.000000', CustomerLineFigures::grossUnitPrice('60.00', '0.000'));
+    }
+
+    /** `D-142` on the gross figures: the printed gross unit × quantity is the printed gross line, 136.80 × 3 = 410.40. */
+    public function test_a_gross_line_is_the_gross_unit_price_times_the_quantity(): void
+    {
+        self::assertSame('410.400000', CustomerLineFigures::grossLineTotal('136.800000', '3.0000'));
+    }
+
+    /**
+     * The unit rounds to 2 places before the quantity multiplies it (`D-142`,
+     * half away from zero): 33.33 × 1.14 = 37.9962 → 38.00, and 38.00 × 3 =
+     * 114.00 — the gross line a reader can check against the printed unit.
+     * Taken from the unrounded unit it would be 37.9962 × 3 = 113.9886 → 113.99.
+     */
+    public function test_a_gross_unit_price_rounds_before_the_quantity_multiplies_it(): void
+    {
+        $unit = CustomerLineFigures::grossUnitPrice('33.33', '14.000');
+
+        self::assertSame('38.000000', $unit);
+        self::assertSame('114.000000', CustomerLineFigures::grossLineTotal($unit, '3'));
+    }
 }

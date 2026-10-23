@@ -7,6 +7,7 @@ namespace Tests\Feature\Pdf;
 use App\Modules\Admin\Domain\Contracts\SettingsRepositoryInterface;
 use App\Modules\Admin\Domain\Settings\SystemSetting;
 use App\Modules\Identity\Domain\Rbac\Role as RoleName;
+use App\Modules\Pdf\Application\CustomerQuotationHtml;
 use App\Modules\Pdf\Application\CustomerQuotationViewMapper;
 use App\Modules\Pdf\Presentation\RenderQuotationPdfJob;
 use Database\Seeders\RolePermissionSeeder;
@@ -212,22 +213,35 @@ final class QuotationPdfGenerateEndpointTest extends TestCase
     }
 
     /**
-     * QS.1 · `D-155`, `D-107`: the mapper describes a line by its own catalog item, and gives it that item's unit,
-     * with the line's offer line gone. The bound mapper, over the database, so the test names no port.
+     * QS.1 · `D-155`, `D-107`: the mapper describes a line by its own catalog item, with the line's offer line gone.
+     * QS.2a (contract §5): the PDF prints the line's own unit — its `unit_code` — not its catalog item's `unit`.
+     * The bound mapper and template, over the database, so the test names no port.
      */
-    public function test_that_a_line_on_a_deleted_offer_maps_its_description_and_its_unit(): void
+    public function test_that_a_line_on_a_deleted_offer_maps_its_description_and_prints_its_own_unit(): void
     {
         $quotationId = $this->pricedQuotation('draft', null, 'EGP', '1000', lineCosts: ['1000']);
-        DB::table('enum_lists')->insert([
-            'id' => Uuid::uuid7()->toString(), 'list' => 'units', 'code' => 'qs1-piece', 'label_en' => 'Piece', 'label_ar' => 'قطعة',
-            'position' => 0, 'created_at' => now(), 'updated_at' => now(),
-        ]);
+        foreach ([['qs1-piece', 'Piece', 'قطعة'], ['qs2a-box', 'Box', 'علبة']] as $position => [$code, $en, $ar]) {
+            DB::table('enum_lists')->insert([
+                'id' => Uuid::uuid7()->toString(), 'list' => 'units', 'code' => $code, 'label_en' => $en, 'label_ar' => $ar,
+                'position' => $position, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
         DB::table('catalog_items')->update(['unit' => 'qs1-piece']);
+        // Migration B's column, written directly: the line was saved as a box, whatever its catalog item now says.
+        DB::table('quotation_items')->where('quotation_id', $quotationId)->update(['unit_code' => 'qs2a-box']);
         DB::table('supplier_quotation_items')->update(['deleted_at' => now()]);
 
-        $line = $this->app->make(CustomerQuotationViewMapper::class)->forQuotation($quotationId)->lines[0];
+        $view = $this->app->make(CustomerQuotationViewMapper::class)->forQuotation($quotationId);
+        $line = $view->lines[0];
 
-        self::assertSame(['Widget', 'Piece', 'قطعة'], [$line->description, $line->unitEn, $line->unitAr]);
+        self::assertSame(['Widget', 'Box', 'علبة'], [$line->description, $line->unitEn, $line->unitAr]);
+
+        foreach (['en' => ['Box', 'Piece'], 'ar' => ['علبة', 'قطعة']] as $locale => [$unit, $catalogUnit]) {
+            $html = $this->app->make(CustomerQuotationHtml::class)->render($view, $locale);
+
+            self::assertMatchesRegularExpression('/<td[^>]*>\s*'.preg_quote($unit, '/').'\s*<\/td>/u', $html, "The {$locale} page does not print the line's unit.");
+            self::assertStringNotContainsString($catalogUnit, $html, "The {$locale} page prints the catalog item's unit.");
+        }
     }
 
     public function test_that_an_unknown_quotation_is_a_404(): void

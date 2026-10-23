@@ -11,6 +11,7 @@ use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,11 +25,13 @@ use Tests\TestCase;
  * `CreateQuotationTest` proves §5's arithmetic; this file proves the boundary
  * around it: §3.5's `create` row at the API (`SEC-07`, `SEC-08`), the Form
  * Request's mirror of the table's CHECKs (so the database never answers 500),
- * `OpenAPI §4.1`'s `201`, the `meta.warnings` a §5.6 over-quantity produces,
- * and the `422 business_rule_blocked` mapping of `QuotationNotPriceable`.
+ * and `OpenAPI §4.1`'s `201`. QS.2a (`D-155`…`D-165`): the body a line is
+ * typed with, `D-156`'s worked examples stored to the figure, and one refusal
+ * per field the new body takes or no longer takes.
  */
 final class QuotationWriteEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -39,8 +42,6 @@ final class QuotationWriteEndpointTest extends TestCase
     private array $users = [];
 
     private string $egpId;
-
-    private string $usdId;
 
     private string $customerId;
 
@@ -54,7 +55,6 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
 
         $this->egpId = $this->currency('EGP', '1', false, true);
-        $this->usdId = $this->currency('USD', '0.01', true, false);
         $this->customerId = $this->customer();
         $this->dealId = $this->deal($this->customerId, null);
     }
@@ -193,33 +193,75 @@ final class QuotationWriteEndpointTest extends TestCase
         self::assertSame(['id', 'code'], array_keys((array) $response->json('data')));
     }
 
-    /** §5.6: a quantity above the supplier's recorded amount warns — in `meta`, per line, and does not block. */
-    public function test_that_an_over_quantity_line_warns_in_meta_without_blocking(): void
+    /**
+     * QS.2a · `D-156` example 1, stored to the figure: 114 typed including 14 % is 100 net (the unit cost,
+     * `D-164`: in the quotation's own currency at rate 1), +20 % is 120.00, × 3 is 360.00; 10 % off before the
+     * tax (`D-64`), the line's own 14 % on 324.00 is 45.36 (`D-157`), the delivery untaxed (`D-62`) → 419.36.
+     * No quotation margin, no quotation tax rates, no supplier offer behind the line (`D-155`). `D-161`: no
+     * warning, so no `meta.warnings` key — a client testing it for truthiness and for presence agree.
+     */
+    public function test_that_a_tax_included_line_is_priced_from_what_was_typed(): void
     {
-        $fine = $this->supplierLine('100', '5', $this->egpId);
-        $over = $this->supplierLine('100', '5', $this->egpId);
+        $line = $this->lineBody();
 
-        $this->postJson(self::ENDPOINT, $this->payload(['lines' => [
-            ['supplier_quotation_item_id' => $fine, 'quantity' => '5'],
-            ['supplier_quotation_item_id' => $over, 'quantity' => '6'],
-        ]]), $this->bearerFor(RoleName::Manager))
+        $id = $this->postBody($this->e1Body($line))
             ->assertStatus(201)
-            ->assertJsonCount(1, 'meta.warnings')
-            ->assertJsonPath('meta.warnings.0.code', 'quantity_exceeds_recorded')
-            ->assertJsonPath('meta.warnings.0.field', 'lines.1.quantity')
-            ->assertJsonPath('meta.warnings.0.message', __('quotations.warnings.quantity_exceeds_recorded'));
+            ->assertJsonMissingPath('meta.warnings')
+            ->json('data.id');
+        self::assertIsString($id);
+
+        self::assertSame([
+            'pricing_mode' => 'tax_included', 'default_margin' => null, 'tax_percent' => null, 'tax_percents' => '[]',
+            'subtotal' => '360.000000', 'discount_amount' => '36.000000', 'tax_base' => '324.000000', 'tax_amount' => '45.360000',
+            'additional_total' => '50.000000', 'net_amount' => '374.000000', 'total_before_round' => '419.360000',
+            'final_total' => '419.360000', 'rounding_diff' => '0.000000',
+        ], (array) DB::table('quotations')->where('id', $id)->first([
+            'pricing_mode', 'default_margin', 'tax_percent', 'tax_percents', 'subtotal', 'discount_amount', 'tax_base', 'tax_amount',
+            'additional_total', 'net_amount', 'total_before_round', 'final_total', 'rounding_diff',
+        ]));
+
+        self::assertSame([
+            'supplier_quotation_item_id' => null, 'supplier_id' => $line['supplier_id'], 'catalog_item_id' => $line['catalog_item_id'],
+            'unit_code' => 'piece', 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
+            'unit_cost' => '100.000000', 'unit_cost_currency' => 'EGP', 'unit_cost_fx_rate_at_time' => '1.00000000', 'unit_cost_base' => '100.000000',
+            'unit_price' => '120.000000', 'quantity' => '3.0000', 'line_total' => '360.000000', 'line_cost' => '300.000000',
+        ], (array) DB::table('quotation_items')->where('quotation_id', $id)->first([
+            'supplier_quotation_item_id', 'supplier_id', 'catalog_item_id', 'unit_code', 'entered_unit_price', 'tax_percent', 'margin_percent',
+            'unit_cost', 'unit_cost_currency', 'unit_cost_fx_rate_at_time', 'unit_cost_base', 'unit_price', 'quantity', 'line_total', 'line_cost',
+        ]));
     }
 
-    /** No warning, no key — a client testing `meta.warnings` for truthiness and for presence agree. */
-    public function test_that_a_quotation_without_warnings_carries_no_warnings_key(): void
+    /** `D-65` (`D-165`: unchanged): the quotation currency's rounding, when on, rounds the final total alone — 419.36 → 419, −0.36 stored. */
+    public function test_that_the_currencys_rounding_rounds_a_tax_included_total(): void
     {
-        $line = $this->supplierLine('100', '5', $this->egpId);
+        DB::table('currencies')->where('id', $this->egpId)->update(['rounding_enabled' => true]);
 
-        $this->postJson(self::ENDPOINT, $this->payload(['lines' => [
-            ['supplier_quotation_item_id' => $line, 'quantity' => '5'],
-        ]]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201)
-            ->assertJsonMissingPath('meta.warnings');
+        $id = $this->postBody($this->e1Body())->assertStatus(201)->json('data.id');
+        self::assertIsString($id);
+
+        self::assertSame(
+            ['total_before_round' => '419.360000', 'final_total' => '419.000000', 'rounding_diff' => '-0.360000'],
+            (array) DB::table('quotations')->where('id', $id)->first(['total_before_round', 'final_total', 'rounding_diff']),
+        );
+    }
+
+    /**
+     * `D-157` example 3, the toggle off: no tax at all — no tax line, not a zero (`D-63`) — and the typed 100
+     * used as-is, no extraction: 120.00 × 3 = 360.00 − 36.00 + 50.00 = 374.00.
+     */
+    public function test_that_a_tax_exempt_quotation_has_no_tax_line_and_uses_the_typed_price(): void
+    {
+        $id = $this->postBody($this->e3Body())->assertStatus(201)->json('data.id');
+        self::assertIsString($id);
+
+        self::assertSame(
+            ['pricing_mode' => 'tax_exempt', 'tax_percent' => null, 'tax_amount' => null, 'net_amount' => '374.000000', 'final_total' => '374.000000'],
+            (array) DB::table('quotations')->where('id', $id)->first(['pricing_mode', 'tax_percent', 'tax_amount', 'net_amount', 'final_total']),
+        );
+        self::assertSame(
+            ['entered_unit_price' => '100.000000', 'tax_percent' => null, 'unit_cost_base' => '100.000000', 'unit_price' => '120.000000', 'line_total' => '360.000000'],
+            (array) DB::table('quotation_items')->where('quotation_id', $id)->first(['entered_unit_price', 'tax_percent', 'unit_cost_base', 'unit_price', 'line_total']),
+        );
     }
 
     public function test_that_a_create_is_written_to_the_audit_log(): void
@@ -267,93 +309,14 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['terms' => array_fill(0, 16, ['key' => null, 'title' => 'Note', 'body' => 'Text'])], 'terms');
     }
 
-    // ─────────────────────────────────── §5.6 blocks → 422 business_rule_blocked
-
-    public function test_that_a_line_without_a_usable_price_is_blocked_by_code_and_line(): void
-    {
-        $line = $this->supplierLine('100', '1', $this->egpId);
-        DB::table('supplier_quotation_items')->where('id', $line)->update(['deleted_at' => now()]);
-
-        $this->postJson(self::ENDPOINT, $this->payload(['lines' => [
-            ['supplier_quotation_item_id' => $line, 'quantity' => '1'],
-        ]]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'supplier_price_missing')
-            ->assertJsonPath('error.details.0.field', 'lines.0.supplier_quotation_item_id')
-            ->assertJsonPath('error.details.0.message', __('quotations.errors.supplier_price_missing'));
-
-        self::assertSame(0, DB::table('quotations')->count());
-    }
-
-    /** The owner's 2026-09-11 ruling: a missing FX rate is its own code, so the fix named is "record a rate". */
-    public function test_that_a_line_with_no_fx_rate_is_blocked_with_its_own_code(): void
-    {
-        $usdLine = $this->supplierLine('1000', '1', $this->usdId);   // USD line, EGP quotation, no rate
-
-        $this->postJson(self::ENDPOINT, $this->payload(['lines' => [
-            ['supplier_quotation_item_id' => $this->supplierLine('100', '1', $this->egpId), 'quantity' => '1'],
-            ['supplier_quotation_item_id' => $usdLine, 'quantity' => '1'],
-        ]]), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(422)
-            ->assertJsonPath('error.code', 'business_rule_blocked')
-            ->assertJsonPath('error.details.0.code', 'fx_rate_missing')
-            ->assertJsonPath('error.details.0.field', 'lines.1.supplier_quotation_item_id');
-
-        self::assertSame(0, DB::table('quotations')->count());
-        self::assertSame(0, DB::table('quotation_items')->count());
-    }
-
     // ──────────────────────────────── the boundary mirrors the table's CHECKs
 
     /** `DB-07`: a JSON number is a float by the time PHP sees it; only a decimal string passes. */
     public function test_that_a_json_number_is_refused_where_a_decimal_string_is_required(): void
     {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-
-        $this->post422(['lines' => [['supplier_quotation_item_id' => $line, 'quantity' => 2.5]]], 'lines.0.quantity');
-        $this->post422(['default_margin' => 20], 'default_margin');
+        $this->post422(['lines' => [['quantity' => 2.5] + $this->lineBody()]], 'lines.0.quantity');
+        $this->post422(['lines' => [['entered_unit_price' => 114] + $this->lineBody()]], 'lines.0.entered_unit_price');
         $this->post422(['discount_percent' => 0], 'discount_percent');
-    }
-
-    /** `D-63` + `D-118`: no tax is an empty list; zero or a negative is not a rate. */
-    public function test_that_a_zero_or_negative_tax_rate_is_refused(): void
-    {
-        $this->post422(['tax_percents' => ['0']], 'tax_percents.0');
-        $this->post422(['tax_percents' => ['14', '-5']], 'tax_percents.1');
-    }
-
-    /** `D-118` + D-68: a rate has at most three decimals — a finer one would be cut, `0.0004` to a refused zero. */
-    public function test_that_a_rate_finer_than_the_percent_scale_is_refused(): void
-    {
-        $this->post422(['tax_percents' => ['0.0004']], 'tax_percents.0');
-    }
-
-    /** `D-118`: the sum fits `tax_percent`'s NUMERIC(6,3) — 999.999 at most — so the database never answers 500. */
-    public function test_that_rates_summing_past_the_column_are_refused(): void
-    {
-        $this->post422(['tax_percents' => ['500', '500']], 'tax_percents');
-    }
-
-    /** `D-118`: up to five rates. */
-    public function test_that_more_than_five_tax_rates_are_refused(): void
-    {
-        $this->post422(['tax_percents' => ['1', '1', '1', '1', '1', '1']], 'tax_percents');
-    }
-
-    public function test_that_an_empty_tax_rate_list_is_accepted_and_returned(): void
-    {
-        $this->readBack(['tax_percents' => []])
-            ->assertJsonPath('data.tax_percents', [])
-            ->assertJsonPath('data.tax_percent', null);
-    }
-
-    /** `D-118`: the rates come back as entered, beside their sum. */
-    public function test_that_the_tax_rates_are_returned_beside_their_sum(): void
-    {
-        $this->readBack(['tax_percents' => ['14', '5']])
-            ->assertJsonPath('data.tax_percents', ['14.000', '5.000'])
-            ->assertJsonPath('data.tax_percent', '19.000');
     }
 
     /** `D-118`: the old single field is refused, not silently dropped with its tax. */
@@ -365,17 +328,60 @@ final class QuotationWriteEndpointTest extends TestCase
     }
 
     /**
-     * @param  array<string, mixed>  $overrides
-     * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
+     * QS.2a (contract §4): each field the line-owned body requires, and each one it no longer takes — the
+     * quotation's margin and tax rates (`D-156`, `D-157`), the `legacy` mode (`D-165`), a supplier offer line
+     * (`D-155`) — refused on its own field; and every bound a column or a CHECK would otherwise answer with a
+     * 500: `entered_unit_price >= 0`, `tax_percent` NUMERIC(6,3) and `>= 0`, `unit_price >= 0` (so a margin
+     * floor of −100 %, now that no quotation margin moves it, `D-106` retired by `D-156`).
+     *
+     * @return array<string, array{array<string, mixed>, list<string>, string}> what to set, what to remove, the refused field
      */
-    private function readBack(array $overrides): TestResponse
+    public static function refusedLineOwnedBodies(): array
     {
-        $id = $this->postJson(self::ENDPOINT, $this->payload($overrides), $this->bearerFor(RoleName::Manager))
-            ->assertStatus(201)
-            ->json('data.id');
-        self::assertIsString($id);
+        return [
+            'no pricing mode' => [[], ['pricing_mode'], 'pricing_mode'],
+            'the legacy mode' => [['pricing_mode' => 'legacy'], [], 'pricing_mode'],
+            'a quotation margin' => [['default_margin' => '20'], [], 'default_margin'],
+            'quotation tax rates' => [['tax_percents' => ['14']], [], 'tax_percents'],
+            'a line without its supplier' => [[], ['lines.0.supplier_id'], 'lines.0.supplier_id'],
+            'a line without its product' => [[], ['lines.0.catalog_item_id'], 'lines.0.catalog_item_id'],
+            'a line without its unit' => [[], ['lines.0.unit_code'], 'lines.0.unit_code'],
+            'a line without its entered price' => [[], ['lines.0.entered_unit_price'], 'lines.0.entered_unit_price'],
+            'a line without its quantity' => [[], ['lines.0.quantity'], 'lines.0.quantity'],
+            'a line without its margin' => [[], ['lines.0.margin_percent'], 'lines.0.margin_percent'],
+            'a tax-included line without its tax' => [[], ['lines.0.tax_percent'], 'lines.0.tax_percent'],
+            'a tax on a tax-exempt quotation' => [['pricing_mode' => 'tax_exempt'], [], 'lines.0.tax_percent'],
+            'a supplier offer line' => [['lines.0.supplier_quotation_item_id' => Uuid::uuid4()->toString()], [], 'lines.0.supplier_quotation_item_id'],
+            'an unknown supplier' => [['lines.0.supplier_id' => Uuid::uuid4()->toString()], [], 'lines.0.supplier_id'],
+            'an unknown product' => [['lines.0.catalog_item_id' => Uuid::uuid4()->toString()], [], 'lines.0.catalog_item_id'],
+            'an unknown unit' => [['lines.0.unit_code' => 'parsec'], [], 'lines.0.unit_code'],
+            'a negative entered price' => [['lines.0.entered_unit_price' => '-1'], [], 'lines.0.entered_unit_price'],
+            'a negative tax' => [['lines.0.tax_percent' => '-1'], [], 'lines.0.tax_percent'],
+            'a tax finer than three places' => [['lines.0.tax_percent' => '0.0004'], [], 'lines.0.tax_percent'],
+            'a tax past its column' => [['lines.0.tax_percent' => '1000'], [], 'lines.0.tax_percent'],
+            'a margin below minus a hundred' => [['lines.0.margin_percent' => '-100.001'], [], 'lines.0.margin_percent'],
+        ];
+    }
 
-        return $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))->assertStatus(200);
+    /**
+     * @param  array<string, mixed>  $set
+     * @param  list<string>  $forget
+     */
+    #[DataProvider('refusedLineOwnedBodies')]
+    public function test_that_a_line_owned_body_is_refused_on_the_field_at_fault(array $set, array $forget, string $field): void
+    {
+        $body = $this->e1Body();
+        foreach ($set as $path => $value) {
+            Arr::set($body, $path, $value);
+        }
+        Arr::forget($body, $forget);
+        /** @var array<string, mixed> $body Arr::set() and Arr::forget() keep the top-level keys strings */
+        $this->postBody($body)
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'validation_failed')
+            ->assertJsonFragment(['field' => $field, 'code' => 'invalid']);
+
+        self::assertSame(0, DB::table('quotations')->count());
     }
 
     /** CHECK `discount_percent >= 0 AND < 100`. */
@@ -417,42 +423,20 @@ final class QuotationWriteEndpointTest extends TestCase
         $this->post422(['additional_items' => [['description' => 'Delivery', 'amount' => '-1']]], 'additional_items.0.amount');
     }
 
-    /** `D-106`, the owner's ruling (a) of 2026-10-09: −20 on a 20% quotation sells the line at cost. */
-    public function test_that_a_negative_line_margin_is_accepted_and_sells_at_cost(): void
+    /** `D-106`'s ruling (a), kept by `D-156` on the line's own margin: −20 sells 100 net at 80.00. */
+    public function test_that_a_negative_line_margin_is_accepted(): void
     {
-        $line = $this->supplierLine('100', '5', $this->egpId);
+        $id = $this->postBody($this->e1Body($this->lineBody(margin: '-20')))->assertStatus(201)->json('data.id');
 
-        $id = $this->postJson(self::ENDPOINT, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-20']],
-        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
-
-        self::assertSame('100.000000', DB::table('quotation_items')->where('quotation_id', $id)->value('unit_price'));
+        self::assertSame('80.000000', DB::table('quotation_items')->where('quotation_id', $id)->value('unit_price'));
     }
 
-    /** CHECK `unit_price >= 0`: a whole margin below −100% would price below zero, so it is a 422, never a 500. */
-    public function test_that_a_line_margin_taking_the_whole_margin_below_minus_a_hundred_is_refused(): void
+    /** The bound itself: −100 % prices the line at zero, which CHECK `unit_price >= 0` allows; −100.001 is in the refusals above. */
+    public function test_that_a_line_margin_of_exactly_minus_a_hundred_is_accepted(): void
     {
-        $line = $this->supplierLine('100', '5', $this->egpId);
+        $id = $this->postBody($this->e1Body($this->lineBody(margin: '-100')))->assertStatus(201)->json('data.id');
 
-        $this->post422(['lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-120.001']]], 'lines.0.margin_percent');
-    }
-
-    /** `margin_percent` is NUMERIC(6,3): a negative extra past −999.999 is a 422, even when the header would allow it. */
-    public function test_that_a_line_margin_past_the_columns_range_is_refused_not_a_500(): void
-    {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-
-        $this->post422(['default_margin' => '950', 'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-1050']]], 'lines.0.margin_percent');
-    }
-
-    /** The bound itself: 20 − 120 = −100% prices the line at zero, which the CHECK allows. */
-    public function test_that_a_whole_margin_of_exactly_minus_a_hundred_is_accepted(): void
-    {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-
-        $this->postJson(self::ENDPOINT, $this->payload([
-            'lines' => [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => '-120']],
-        ]), $this->bearerFor(RoleName::Manager))->assertStatus(201);
+        self::assertSame('0.000000', DB::table('quotation_items')->where('quotation_id', $id)->value('unit_price'));
     }
 
     // ───────────────────────────────────── the deal, at the boundary
@@ -598,6 +582,17 @@ final class QuotationWriteEndpointTest extends TestCase
             'lines' => [],
             'additional_items' => [],
         ], $overrides);
+    }
+
+    /**
+     * QS.2a's body, `$body` (`e1Body()`, `e3Body()`) on setUp's deal, as the Manager.
+     *
+     * @param  array<string, mixed>  $body
+     * @return TestResponse<\Symfony\Component\HttpFoundation\Response>
+     */
+    private function postBody(array $body): TestResponse
+    {
+        return $this->postJson(self::ENDPOINT, ['deal_id' => $this->dealId, 'customer_id' => $this->customerId, ...$body], $this->bearerFor(RoleName::Manager));
     }
 
     /** @param  array<string, mixed>  $overrides */

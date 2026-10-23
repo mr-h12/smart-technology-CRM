@@ -228,6 +228,120 @@ final class CustomerQuotationHtmlTest extends TestCase
         }
     }
 
+    // ── QS.2a: «شامل الضريبة» on (`D-156`, `D-157`; the owner, 2026-10-23) ──
+
+    /**
+     * The unit and the line print including tax, so there is **no VAT column**
+     * — no header and no cell, the additional item's included — while the
+     * totals block stays as it is: Total Amount Excl. VAT (360.00 + 50.00),
+     * Discount, the lines' VAT, Total. The terms keep «The price includes VAT».
+     */
+    public function test_that_a_tax_included_page_prints_prices_including_tax_and_no_vat_column(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...self::taxIncluded());
+
+            $vat = preg_quote(e((string) Lang::get('pdf.table.vat', [], $locale)), '/');
+            self::assertDoesNotMatchRegularExpression('/<th[^>]*>\s*'.$vat.'\s*<\/th>/u', $html, "The tax-included {$locale} page has a VAT column.");
+
+            // Each row whole, `<tr>` to `</tr>`: five cells, the gross figures, no VAT cell.
+            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '136.80', '410.40'), $html, "The {$locale} line does not print 136.80 and 410.40 in five cells.");
+            self::assertMatchesRegularExpression(self::row('Delivery & Installation', '—', '1', '50.00', '50.00'), $html, "The {$locale} additional item keeps a VAT cell.");
+
+            $total = static fn (string $key, string $value): string => '<td[^>]*>\s*'.preg_quote(e((string) Lang::get('pdf.totals.'.$key, [], $locale)), '/').'\s*<\/td>\s*<td[^>]*>\s*'.preg_quote($value, '/').'\s*<\/td>';
+            self::assertMatchesRegularExpression(
+                '/'.$total('excl_vat', '410.00').'.*?'.$total('discount', '36.00').'.*?'.$total('tax', '45.36').'.*?class="final".*?'.$total('final', '419.36 EGP').'/su',
+                $html,
+                "The {$locale} totals block is not D-156's 410.00 · 36.00 · 45.36 · 419.36.",
+            );
+            self::assertStringContainsString('id="vat-included"', $html, "The {$locale} terms lost «The price includes VAT».");
+
+            // §3.12 rule 2, §14.6: the entered price (114.00), the net cost
+            // (100.00 a unit, 300.00 the line) and the margin never print.
+            foreach (['114.00', '100.00', '300.00', '20.000'] as $leak) {
+                self::assertStringNotContainsString($leak, $html, "\"{$leak}\" is the entered price, a cost or the margin.");
+            }
+        }
+    }
+
+    /**
+     * The owner, 2026-10-23: «السعر شامل الضريبة» directly under the line
+     * table — after its last page's table, before the totals — as well as in
+     * the terms.
+     */
+    public function test_that_a_tax_included_page_says_the_price_includes_vat_directly_under_the_table(): void
+    {
+        foreach (['ar', 'en'] as $locale) {
+            $note = preg_quote(e((string) Lang::get('pdf.conditions.vat_included', [], $locale)), '/');
+
+            self::assertMatchesRegularExpression(
+                '/<\/table>\s*<(\w+)\b[^>]*\bid="prices-include-tax"[^>]*>\s*'.$note.'\s*<\/\1>\s*<table class="totals"/u',
+                $this->html($locale, ...self::taxIncluded()),
+                "The {$locale} page does not say the price includes VAT directly under the table.",
+            );
+
+            // Under the table, once — not under every page's table.
+            self::assertSame(1, substr_count($this->html($locale, ...[...self::taxIncluded(), 'lines' => self::lines(9)]), 'id="prices-include-tax"'), "The {$locale} note is not printed once.");
+        }
+    }
+
+    /** `D-157` toggle off (`D-156`'s third example) and `D-165`'s legacy page: neither carries the note under the table. */
+    public function test_that_only_a_tax_included_page_carries_the_note_under_the_table(): void
+    {
+        $exempt = [
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '120.000000', '360.000000', 'Pcs', 'قطعة', null)],
+            'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '50.000000')],
+            'subtotal' => '360.000000', 'additionalTotal' => '50.000000', 'totalExcludingVat' => '410.000000',
+            'discountPercent' => '10.000', 'discountAmount' => '36.000000', 'taxBase' => '324.000000',
+            'taxPercent' => null, 'taxAmount' => null, 'netAmount' => '374.000000', 'finalTotal' => '374.000000',
+        ];
+
+        foreach (['ar', 'en'] as $locale) {
+            $html = $this->html($locale, ...$exempt);
+            self::assertStringNotContainsString('id="prices-include-tax"', $html, "The exempt {$locale} page says the price includes VAT.");
+            self::assertStringNotContainsString('id="tax-row"', $html);
+            self::assertMatchesRegularExpression(self::row('Formatter M428dw', $locale === 'ar' ? 'قطعة' : 'Pcs', '3', '120.00', '360.00'), $html);
+
+            self::assertStringNotContainsString('id="prices-include-tax"', $this->html(locale: $locale), "The legacy {$locale} page gained the note.");
+        }
+    }
+
+    /**
+     * `D-156`'s first example, toggle on, as the mapper hands it over: 120.00
+     * × 1.14 = 136.80 a unit, 136.80 × 3 = 410.40 the line; the header carries
+     * no single rate (`D-165`) and its VAT is the lines' sum, 45.36.
+     *
+     * @return array<string, mixed>
+     */
+    private static function taxIncluded(): array
+    {
+        return [
+            'pricesIncludeTax' => true,
+            'lines' => [new CustomerQuotationLine(1, 'Formatter M428dw', '3.0000', '136.800000', '410.400000', 'Pcs', 'قطعة', '45.360000')],
+            'additionalItems' => [new CustomerAdditionalLine(1, 'Delivery & Installation', '50.000000')],
+            'subtotal' => '360.000000',
+            'additionalTotal' => '50.000000',
+            'totalExcludingVat' => '410.000000',
+            'discountPercent' => '10.000',
+            'discountAmount' => '36.000000',
+            'taxBase' => '324.000000',
+            'taxPercent' => null,
+            'taxAmount' => '45.360000',
+            'netAmount' => '374.000000',
+            'finalTotal' => '419.360000',
+            'roundingDiff' => '0.000000',
+        ];
+    }
+
+    /** One table row, `<tr>` to `</tr>`, its cells exactly these. */
+    private static function row(string ...$cells): string
+    {
+        return '/<tr>\s*'.implode('\s*', array_map(
+            static fn (string $cell): string => '<td[^>]*>\s*'.preg_quote(e($cell), '/').'\s*<\/td>',
+            $cells,
+        )).'\s*<\/tr>/u';
+    }
+
     public function test_that_the_totals_are_d107s_rows_in_order(): void
     {
         // Total Amount Excl. VAT · Discount · VAT · Total — neither label

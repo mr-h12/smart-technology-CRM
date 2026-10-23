@@ -23,10 +23,12 @@ use Tests\TestCase;
  * §3.5's `view` row at the API (`SEC-07`, `SEC-08`) with "own" resolved against
  * the deal's `owner_id` (owner ruling 2026-09-11); `OpenAPI §5.1`'s one 404 for
  * absent-or-invisible; `§9.2`'s `etag`; and `view cost & margin` deciding
- * whether the cost fields are in the body at all.
+ * whether the cost fields are in the body at all — since QS.2a (`D-155`)
+ * what each line was typed with, and the builder's `entry`, among them.
  */
 final class QuotationReadEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/quotations';
@@ -449,16 +451,19 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertMatchesRegularExpression('/^QT-\d{4}-\d{4}$/', $code);
     }
 
-    /** `D-106`, the owner's ruling (b): the detail carries the line's whole margin, computed by the server. */
+    /**
+     * `D-148` over `D-156`: the margin is the line's own — no quotation margin is added to it any more
+     * (`D-106` retired) — and the stored figures achieve it: (120.00 − 100 net) / 100 = 20 %.
+     */
     public function test_that_the_detail_carries_the_effective_margin_of_a_line_with_its_own(): void
     {
-        $id = $this->quotation($this->deal(null), lineMargin: '10');
+        $id = $this->lineOwned($this->deal(null));
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.items.0.margin_percent', '10.000')
-            ->assertJsonPath('data.items.0.effective_margin_percent', '30.000')
-            ->assertJsonPath('data.items.0.unit_price', '13.000000');
+            ->assertJsonPath('data.items.0.margin_percent', '20.000')
+            ->assertJsonPath('data.items.0.effective_margin_percent', '20.000')
+            ->assertJsonPath('data.items.0.unit_price', '120.000000');
     }
 
     /**
@@ -594,21 +599,74 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.items.0.product_name', 'Widget');
     }
 
-    // ─────────────────────────────────────────── §10.3 price drift (Point 4.5)
+    // ─────────────────────────────────── QS.2a · what each line was typed with
 
-    /** `D-36`: the quotation keeps its captured price and warns, per line, in `meta.warnings`. */
-    public function test_that_a_moved_supplier_price_warns_on_a_draft(): void
+    /**
+     * `D-155`: a cost viewer reads what each line was typed with — its supplier, named through Suppliers'
+     * port, its unit, the entered price and its tax — and `entry`, the values the builder loads.
+     */
+    public function test_that_a_cost_viewer_reads_what_each_line_was_typed_with(): void
     {
-        $id = $this->quotation($this->deal(null));
-        $this->moveSupplierPrice($id, '11');
+        $line = $this->lineBody();
+        $id = $this->lineOwned($this->deal(null), $line);
+
+        $entry = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.default_margin', null)
+            ->assertJsonPath('data.items.0.unit_code', 'piece')
+            ->assertJsonPath('data.items.0.supplier_id', $line['supplier_id'])
+            ->assertJsonPath('data.items.0.supplier_name', 'Alpha Supplies')
+            ->assertJsonPath('data.items.0.entered_unit_price', '114.000000')
+            ->assertJsonPath('data.items.0.tax_percent', '14.000')
+            ->json('data.entry');
+
+        self::assertEquals([
+            'pricing_mode' => 'tax_included',
+            'lines' => [[
+                'supplier_id' => $line['supplier_id'], 'supplier_name' => 'Alpha Supplies',
+                'catalog_item_id' => $line['catalog_item_id'], 'product_name' => 'Widget', 'unit_code' => 'piece',
+                'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000', 'quantity' => '3.0000',
+            ]],
+        ], $entry);
+    }
+
+    /**
+     * §3.5 `view cost & margin`, withdrawn: the line still says its unit and the quotation its pricing mode
+     * — what the customer's document shows — but not the supplier, the price typed or its tax, and no `entry`.
+     */
+    public function test_that_without_the_cost_grant_a_line_keeps_its_unit_and_hides_what_was_typed(): void
+    {
+        $id = $this->lineOwned($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'view_cost_and_margin')->delete();
+
+        $line = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.pricing_mode', 'tax_included')
+            ->assertJsonPath('data.items.0.unit_code', 'piece')
+            ->assertJsonMissingPath('data.entry')
+            ->json('data.items.0');
+
+        self::assertIsArray($line);
+        foreach (['supplier_id', 'supplier_name', 'entered_unit_price', 'tax_percent'] as $hidden) {
+            self::assertArrayNotHasKey($hidden, $line);
+        }
+    }
+
+    /**
+     * `D-161` retires `D-36`'s price-drift and `D-81`'s over-quantity warnings: a legacy Draft whose
+     * supplier price moved (100 → 110) and whose 3 pass the offer's recorded 2 carries neither.
+     */
+    public function test_that_a_legacy_draft_carries_no_retired_warning(): void
+    {
+        $offerLine = $this->supplierLine('100', '2');
+        $id = $this->legacyQuotation($this->deal(null), $this->customerId, $offerLine);
+        DB::table('supplier_quotation_items')->where('id', $offerLine)->update(['unit_price' => '110']);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
-            ->assertJsonPath('data.items.0.unit_cost', '10.000000')
-            ->assertJsonCount(1, 'meta.warnings')
-            ->assertJsonPath('meta.warnings.0.field', 'lines.0.unit_cost')
-            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed')
-            ->assertJsonPath('meta.warnings.0.message', (string) __('quotations.warnings.supplier_price_changed'));
+            ->assertJsonPath('data.pricing_mode', 'legacy')
+            ->assertJsonMissingPath('meta.warnings');
     }
 
     /** §6.5 / `D-50`: the yellow badge on the list (Module 8 · 3.3) reads a row field, not the detail. */
@@ -623,73 +681,7 @@ final class QuotationReadEndpointTest extends TestCase
             ->assertJsonPath('data.0.is_self_approved', true);
     }
 
-    /** §10.3's first row names Draft **or Pending**. */
-    public function test_that_a_moved_supplier_price_warns_on_a_pending_quotation(): void
-    {
-        $id = $this->quotation($this->deal(null));
-        DB::table('quotations')->where('id', $id)->update(['status' => 'pending']);
-        $this->moveSupplierPrice($id, '11');
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200)
-            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed');
-    }
-
-    /** §10.3: "Sent or beyond — completely unaffected, fixed snapshot": nothing is compared. */
-    public function test_that_a_sent_quotation_is_silent_about_a_moved_supplier_price(): void
-    {
-        $id = $this->quotation($this->deal(null));
-        DB::table('quotations')->where('id', $id)->update(['status' => 'sent']);
-        $this->moveSupplierPrice($id, '11');
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200)
-            ->assertJsonMissingPath('meta.warnings');
-    }
-
-    /** The captured currency is part of the comparison: the same number in another currency is a change. */
-    public function test_that_a_moved_supplier_currency_warns(): void
-    {
-        $this->currency('USD', '1', false, false);
-        $id = $this->quotation($this->deal(null));
-        DB::table('supplier_quotations')->where('id', $this->offerOf($id))->update(['currency_id' => $this->currencyId('USD')]);
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200)
-            ->assertJsonPath('meta.warnings.0.code', 'supplier_price_changed');
-    }
-
-    /** `D-09`: the FX rate is captured once; a moved rate is not a moved supplier price. The compare reads `unit_cost`, never `unit_cost_base`. */
-    public function test_that_a_moved_fx_rate_alone_carries_no_warning(): void
-    {
-        $id = $this->quotation($this->deal(null));
-        DB::table('quotation_items')->where('quotation_id', $id)->update(['unit_cost_fx_rate_at_time' => '2', 'unit_cost_base' => '20']);
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200)
-            ->assertJsonMissingPath('meta.warnings');
-    }
-
-    /** The key is absent, not an empty list, when nothing moved (`store()`'s convention). */
-    public function test_that_an_unmoved_supplier_price_carries_no_warning(): void
-    {
-        $id = $this->quotation($this->deal(null));
-
-        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
-            ->assertStatus(200)
-            ->assertJsonMissingPath('meta.warnings');
-    }
-
     // ────────────────────────────────────────────────────────────── fixtures
-
-    /** Changes the supplier's price under the quotation's only line, after the quotation captured it. */
-    private function moveSupplierPrice(string $quotationId, string $unitPrice): void
-    {
-        $lineId = DB::table('quotation_items')->where('quotation_id', $quotationId)->value('supplier_quotation_item_id');
-        self::assertIsString($lineId);
-
-        DB::table('supplier_quotation_items')->where('id', $lineId)->update(['unit_price' => $unitPrice]);
-    }
 
     /** Overwrites the quotation's only line with chosen stored figures, rate 1, as a line priced earlier would hold them. */
     private function storeLine(string $quotationId, string $cost, string $price, ?string $lineMargin = null, ?string $base = null): void
@@ -702,20 +694,8 @@ final class QuotationReadEndpointTest extends TestCase
         ]);
     }
 
-    /** The `supplier_quotations` id behind the quotation's only line. */
-    private function offerOf(string $quotationId): string
-    {
-        $offerId = DB::table('quotation_items')
-            ->join('supplier_quotation_items', 'supplier_quotation_items.id', '=', 'quotation_items.supplier_quotation_item_id')
-            ->where('quotation_items.quotation_id', $quotationId)
-            ->value('supplier_quotation_items.supplier_quotation_id');
-        self::assertIsString($offerId);
-
-        return $offerId;
-    }
-
     /** Creates a quotation through Point 3.4's endpoint: one line of 2 × 10 at 20 % margin, plus a 5 delivery item. */
-    private function quotation(string $dealId, ?string $lineMargin = null): string
+    private function quotation(string $dealId): string
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
@@ -723,9 +703,26 @@ final class QuotationReadEndpointTest extends TestCase
             'currency' => 'EGP',
             'default_margin' => '20',
             'discount_percent' => '0',
-            'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']
-                + ($lineMargin === null ? [] : ['margin_percent' => $lineMargin])],
+            'lines' => [['supplier_quotation_item_id' => $this->supplierLine('10', '5'), 'quantity' => '2']],
             'additional_items' => [['description' => 'Delivery', 'amount' => '5']],
+        ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
+
+        self::assertIsString($id);
+
+        return $id;
+    }
+
+    /**
+     * QS.2a: a quotation saved through the line-owned body — `D-156` example 1 — on `$line`, or a line of its own.
+     *
+     * @param  array<string, string>|null  $line
+     */
+    private function lineOwned(string $dealId, ?array $line = null): string
+    {
+        $id = $this->postJson(self::ENDPOINT, [
+            'deal_id' => $dealId,
+            'customer_id' => $this->dealCustomers[$dealId],
+            ...$this->e1Body($line),
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);

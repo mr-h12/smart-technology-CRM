@@ -14,9 +14,11 @@ import { useAuth, type AuthenticatedUser } from '@/stores/auth';
  * The screen collects what `SaveQuotationRequest` accepts and sends it once
  * as `POST /quotations` with an `Idempotency-Key` minted when the form opened
  * (`OpenAPI §9.1`): a retry replays, a new form mints anew. Every figure is a
- * string (`DB-07`); nothing is priced here (`D-67`). A missing supplier price
- * blocks the save at the line it names; a quantity above the recorded one is
- * a red line that does not block (`§5.6`, `Design System §7.2`).
+ * string (`DB-07`); nothing is priced here (`D-67`). QS.2a: a line is typed
+ * in an entry row — supplier, product, unit, entered price, tax, margin,
+ * quantity — and Enter moves it into a table (`D-155`); the «شامل الضريبة»
+ * toggle is the preparer's (`D-157`); no quotation margin, no quotation tax
+ * rates, no supplier offer (`D-154`, `D-156`); no warning rides a save (`D-161`).
  */
 
 function json(status: number, body: unknown): Response {
@@ -54,6 +56,12 @@ const TERMS = [
     { code: 'at_customer_site', label_en: 'Delivered to the customer’s site', label_ar: 'التسليم في موقع العميل', position: 3 },
 ];
 
+/** QS.2a — `GET /managed-lists/units`: the entry row's unit is picked from it, by code. */
+const UNITS = [
+    { code: 'pcs', label_en: 'Piece', label_ar: 'قطعة', position: 1 },
+    { code: 'm', label_en: 'Metre', label_ar: 'متر', position: 2 },
+];
+
 /** What `POST /quotations` really answers — `QuotationPayload::of()`: no etag, no detail (F-03 found the SPA assuming one). */
 const CREATED = { id: 'q9', code: 'QT-2026-0009' };
 
@@ -74,6 +82,58 @@ const QUOTATION = {
     ],
     additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '100.000000' }],
     created_by: 'u1', updated_by: 'u1',
+};
+
+/**
+ * QS.2a — `GET /quotations/{id}`'s `entry` (contract §4), what the builder loads
+ * into its table: D-156's E1 (entered 114 at 14 % tax, 20 % margin, quantity 3)
+ * and a 0 % line (owner, 2026-10-22 answer 5), as the server stores them.
+ */
+const ENTRY_LINES = [
+    { supplier_id: 's1', supplier_name: 'Nile Pumps Co', catalog_item_id: 'ci1', product_name: 'Pump 5HP', unit_code: 'pcs', entered_unit_price: '114.000000', tax_percent: '14.000', margin_percent: '20.000', quantity: '3.0000' },
+    { supplier_id: 's2', supplier_name: 'Delta Valves', catalog_item_id: 'ci2', product_name: 'Installation', unit_code: 'm', entered_unit_price: '500.000000', tax_percent: '0.000', margin_percent: '10.000', quantity: '1.0000' },
+];
+
+/** A Draft saved under the new pricing (`D-165` `tax_included`): no quotation margin, no quotation tax rate. */
+const PRICED = {
+    ...QUOTATION,
+    pricing_mode: 'tax_included', default_margin: null, tax_percent: null, tax_percents: [],
+    final_total: '914.360000', subtotal: '910.000000', additional_total: '50.000000', discount_amount: '91.000000', tax_base: '819.000000', tax_amount: '45.360000',
+    net_amount: '869.000000', total_before_round: '914.360000', rounding_diff: '0.000000', rounding_enabled: false,
+    items: [
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: null, catalog_item_id: 'ci1', product_name: 'Pump 5HP', supplier_id: 's1', supplier_name: 'Nile Pumps Co', unit_code: 'pcs', entered_unit_price: '114.000000', tax_percent: '14.000', quantity: '3.0000', unit_price: '120.000000', line_total: '360.000000', unit_cost: '100.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '100.000000', margin_percent: '20.000' },
+        { id: 'l2', line_no: 2, supplier_quotation_item_id: null, catalog_item_id: 'ci2', product_name: 'Installation', supplier_id: 's2', supplier_name: 'Delta Valves', unit_code: 'm', entered_unit_price: '500.000000', tax_percent: '0.000', quantity: '1.0000', unit_price: '550.000000', line_total: '550.000000', unit_cost: '500.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '500.000000', margin_percent: '10.000' },
+    ],
+    additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '50.000000' }],
+    entry: { pricing_mode: 'tax_included', lines: ENTRY_LINES },
+};
+
+/** What a save sends for `ENTRY_LINES` — the stored strings without their trailing zeros (U-5), nothing priced (`D-67`). */
+const SENT_LINES = [
+    { supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '114', tax_percent: '14', margin_percent: '20', quantity: '3' },
+    { supplier_id: 's2', catalog_item_id: 'ci2', unit_code: 'm', entered_unit_price: '500', tax_percent: '0', margin_percent: '10', quantity: '1' },
+];
+
+/**
+ * `D-165`'s E4 (contract §3): a taxed legacy Draft — default margin 10, line extra 5,
+ * cost 100, quotation tax 14 %. Its `entry` is the server's conversion: `tax_included`,
+ * entered 100 × 1.14 = 114, margin 10 + 5 = 15.
+ */
+const LEGACY = {
+    ...QUOTATION,
+    pricing_mode: 'legacy', default_margin: '10.000', tax_percent: '14.000', tax_percents: ['14.000'],
+    items: [
+        { id: 'l1', line_no: 1, supplier_quotation_item_id: 'sqi1', catalog_item_id: 'ci1', product_name: 'Pump 5HP', supplier_id: 's1', supplier_name: 'Nile Pumps Co', unit_code: 'pcs', entered_unit_price: '100.000000', tax_percent: '14.000', quantity: '3.0000', unit_price: '115.000000', line_total: '345.000000', unit_cost: '100.000000', unit_cost_currency: 'EGP', unit_cost_fx_rate_at_time: '1.000000', unit_cost_base: '100.000000', margin_percent: '5.000' },
+    ],
+    additional_items: [{ id: 'a1', line_no: 1, description: 'Delivery', amount: '50.000000' }],
+    entry: { pricing_mode: 'tax_included', lines: [{ ...ENTRY_LINES[0], margin_percent: '15.000' }] },
+};
+
+/** `D-157`'s toggle off — E3: the typed price as-is, no tax at all, so no line tax either. */
+const EXEMPT = {
+    ...PRICED,
+    pricing_mode: 'tax_exempt', tax_amount: null,
+    entry: { pricing_mode: 'tax_exempt', lines: [{ ...ENTRY_LINES[0], entered_unit_price: '100.000000', tax_percent: null }] },
 };
 
 const APPROVER: AuthenticatedUser = {
@@ -194,6 +254,10 @@ function respond(options: {
             return termsStatus === 200 ? json(200, envelope(terms)) : refusal(termsStatus, 'forbidden');
         }
 
+        if (url.includes('/managed-lists/units')) {
+            return json(200, envelope(UNITS));
+        }
+
         const field = /\/user-term-suggestions\?field=(\w+)$/.exec(url)?.[1] as keyof typeof suggestions | undefined;
 
         if (field !== undefined && suggestions[field] !== undefined) {
@@ -275,6 +339,78 @@ async function fillHeader(wrapper: Awaited<ReturnType<typeof render>>['wrapper']
     await wrapper.find(id('discount_percent')).setValue('10');
 }
 
+type View = Awaited<ReturnType<typeof render>>['wrapper'];
+
+/** QS.2a — one line as the entry row takes it. A field left out is not touched: supplier, tax and margin stay after Enter. */
+interface Typed {
+    supplier?: string;
+    product?: string;
+    /** A `units` code — the row's unit is a `<select>` over the managed list. */
+    unit?: string;
+    price?: string;
+    tax?: string;
+    margin?: string;
+    quantity?: string;
+}
+
+/** `D-156`'s E1, as the preparer types it. */
+const E1: Typed = { supplier: 'Nile Pumps Co', product: 'Pump 5HP', unit: 'pcs', price: '114', tax: '14', margin: '20', quantity: '3' };
+
+/** A second product from the second supplier, at 0 % tax. */
+const SECOND: Typed = { supplier: 'Delta Valves', product: 'Installation', unit: 'm', price: '500', tax: '0', margin: '10', quantity: '1' };
+
+/** A server-searched combobox (`SearchCombobox`): open it, take the option that names `name`. */
+async function choose(wrapper: View, box: string, name: string): Promise<void> {
+    await wrapper.get(id(box)).trigger('focus');
+    await flushPromises();
+
+    const option = wrapper.findAll(id(`${box}-option`)).find((row) => row.text().includes(name));
+
+    expect(option, `no «${name}» option in ${box}`).toBeDefined();
+    await option?.trigger('mousedown');
+}
+
+async function typeEntry(wrapper: View, typed: Typed): Promise<void> {
+    if (typed.supplier !== undefined) {
+        await choose(wrapper, 'entry-supplier', typed.supplier);
+    }
+
+    if (typed.product !== undefined) {
+        await choose(wrapper, 'entry-product', typed.product);
+    }
+
+    if (typed.unit !== undefined) {
+        await wrapper.get(id('entry-unit')).setValue(typed.unit);
+    }
+
+    for (const [field, value] of [['price', typed.price], ['tax', typed.tax], ['margin', typed.margin], ['quantity', typed.quantity]] as const) {
+        if (value !== undefined) {
+            await wrapper.get(id(`entry-${field}`)).setValue(value);
+        }
+    }
+}
+
+/** Types a line and presses Enter in its quantity — the key that moves the row into the table. */
+async function enterLine(wrapper: View, typed: Typed = E1): Promise<void> {
+    await typeEntry(wrapper, typed);
+    await wrapper.get(id('entry-quantity')).trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+}
+
+/** The table's rows, in order. */
+function rows(wrapper: View) {
+    return wrapper.findAll('[data-testid="quotation-builder-lines"] tbody tr');
+}
+
+/** One cell of the table: `line-0-price`, `line-1-unit`… */
+function cell(wrapper: View, row: number, field: string): string {
+    return wrapper.get(id(`line-${row}-${field}`)).text();
+}
+
+function value(wrapper: View, field: string): string {
+    return (wrapper.get(id(field)).element as HTMLInputElement).value;
+}
+
 describe('the quotation builder (create)', () => {
     beforeEach(() => {
         vi.unstubAllGlobals();
@@ -284,17 +420,20 @@ describe('the quotation builder (create)', () => {
 
     // ──────────────────────────────────────────────────────────── the opening
 
-    it('opens on the deal named by ?deal=, its customer by name, and the deal’s supplier quotations first', async () => {
+    // QS.2a (D-154): the entry row names a supplier, not a supplier offer.
+    it('opens on the deal named by ?deal=, its customer by name, and the entry row’s supplier box lists the suppliers', async () => {
         const { wrapper } = await render(respond());
 
         expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
         expect(wrapper.find(id('customer')).text()).toBe('Acme Industrial');
 
-        await wrapper.find(id('add-supplier')).trigger('click');
+        await wrapper.get(id('entry-supplier')).trigger('focus');
+        await flushPromises();
 
-        const options = wrapper.find(id('supplier-0-pick')).findAll('option').map((option) => option.text());
+        const options = wrapper.findAll(id('entry-supplier-option')).map((option) => option.text());
 
-        expect(options).toEqual([en.quotations.builder.supplierQuotationNone, 'SQ-2026-0001 — Nile Pumps Co', 'SQ-2026-0002 — Delta Valves']);
+        expect(options.some((text) => text.includes('Nile Pumps Co'))).toBe(true);
+        expect(options.some((text) => text.includes('Delta Valves'))).toBe(true);
     });
 
     it('says the deal could not be opened, never which of the two reasons', async () => {
@@ -311,175 +450,250 @@ describe('the quotation builder (create)', () => {
         expect(wrapper.find(id('form')).exists()).toBe(false);
     });
 
-    // ──────────────────────────────────────────────────────────── suppliers
+    // ──────────────────────────────────────────────────────────── the entry row (QS.2a)
 
-    it('lists a picked supplier quotation’s lines with the catalog name, the supplier price and the available quantity', async () => {
+    // The owner, 2026-10-22: Enter moves the typed row into the table; supplier, tax and margin stay
+    // (answer 9). The table shows what was typed — no figure is computed here (D-67), QS.2b previews.
+    it('moves the entry row into the table on Enter, showing what was typed and no computed figure', async () => {
         const { wrapper } = await render(respond());
 
-        await wrapper.find(id('add-supplier')).trigger('click');
-        await wrapper.find(id('supplier-0-pick')).setValue('sq1');
-        await flushPromises();
+        await enterLine(wrapper);
 
-        expect(wrapper.find(id('line-0-0-label')).text()).toBe('Pump 5HP');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('1000.000000');
-        // F-05 (D-81): the figure beside the price is what is left of the offer, not what it recorded.
-        expect(wrapper.find(id('line-0-0-recorded')).text()).toContain('available quantity 3');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('5.000');
-        expect(wrapper.find(id('line-0-0-recorded')).text()).not.toContain('3.0000');
-        // A-16: the balance is said once, in the line above; the box itself stays empty.
-        expect(wrapper.find(id('line-0-0-quantity')).attributes('placeholder')).toBeUndefined();
-        expect(wrapper.find(id('line-0-1-label')).text()).toBe('Installation');
+        expect(rows(wrapper)).toHaveLength(1);
+        expect(cell(wrapper, 0, 'supplier')).toBe('Nile Pumps Co');
+        expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
+        expect(cell(wrapper, 0, 'unit')).toBe('Piece');
+        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
+        expect(cell(wrapper, 0, 'margin')).toMatch(/^20\s*%?$/);
+        expect(cell(wrapper, 0, 'quantity')).toBe('3');
+        // E1's net 100, unit 120, line 360 and gross 136.80 are the server's, after the save.
+        expect(rows(wrapper)[0]?.text()).not.toMatch(/\b(100\.00|120|360|136\.8)\b/);
     });
 
-    // D-148: the supplier's price says its currency — the offer's currency_id looked up in GET /currencies.
-    it('shows the recorded supplier price with the offer’s currency code, and without one when the list is refused', async () => {
-        const offer = { ...SQ_DETAIL, total_price: '1000.000000', currency_id: 'cur-usd' };
-        const listed = await render(respond({ offer }));
-        await listed.wrapper.find(id('add-supplier')).trigger('click');
-        await listed.wrapper.find(id('supplier-0-pick')).setValue('sq1');
-        await flushPromises();
-
-        expect(listed.wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00 USD');
-
-        const refused = await render(respond({ offer, currenciesStatus: 403 }));
-        await refused.wrapper.find(id('add-supplier')).trigger('click');
-        await refused.wrapper.find(id('supplier-0-pick')).setValue('sq1');
-        await flushPromises();
-
-        expect(refused.wrapper.find(id('line-0-0-recorded')).text()).toContain('1,000.00');
-        expect(refused.wrapper.find(id('line-0-0-recorded')).text()).not.toContain('USD');
-    });
-
-    /** F-42 · 5.16 (A-41): a block says it is loading its offer, and an offer that fails says so in the block, not at the page top. */
-    it('shows a loading line in the block while its offer loads, and the block’s own error when it fails', async () => {
-        let answer: (response: Response) => void = () => {};
-        const base = respond();
-        const fetchMock = vi.fn((input: string, init?: RequestInit) =>
-            String(input).includes('/supplier-quotations/sq1') ? new Promise<Response>((resolve) => { answer = resolve; }) : (base as unknown as typeof fetch)(input, init));
-        const { wrapper } = await render(fetchMock);
-
-        await wrapper.find(id('add-supplier')).trigger('click');
-        await wrapper.find(id('supplier-0-pick')).setValue('sq1');
-
-        expect(wrapper.find(id('supplier-0-loading')).text()).toBe(en.state.loading);
-
-        answer(json(500, { error: { code: 'internal_error', message: 'The offer could not be read.' }, meta: { request_id: 'r1' } }));
-        await flushPromises();
-
-        expect(wrapper.find(id('supplier-0-loading')).exists()).toBe(false);
-        expect(wrapper.find(id('supplier-0')).find(id('supplier-0-error')).text()).toBe('The offer could not be read.');
-        expect(wrapper.find(id('form-error')).exists()).toBe(false);
-    });
-
-    it('stops at ten suppliers (§6.1)', async () => {
+    it('keeps supplier, tax and margin in the entry row after Enter, and clears product, price, quantity and unit', async () => {
         const { wrapper } = await render(respond());
 
-        for (let index = 0; index < 10; index += 1) {
-            await wrapper.find(id('add-supplier')).trigger('click');
-        }
+        await enterLine(wrapper);
 
-        expect(wrapper.findAll('[data-testid^="quotation-builder-supplier-"][data-testid$="-pick"]')).toHaveLength(10);
-        expect(wrapper.find(id('add-supplier')).attributes('disabled')).toBeDefined();
+        expect(value(wrapper, 'entry-supplier')).toBe('Nile Pumps Co');
+        expect(value(wrapper, 'entry-tax')).toBe('14');
+        expect(value(wrapper, 'entry-margin')).toBe('20');
+        expect(value(wrapper, 'entry-product')).toBe('');
+        expect(value(wrapper, 'entry-price')).toBe('');
+        expect(value(wrapper, 'entry-quantity')).toBe('');
+        expect(value(wrapper, 'entry-unit')).toBe('');
+
+        // The next product of the same supplier needs only what changed.
+        await enterLine(wrapper, { product: 'Installation', unit: 'm', price: '500', quantity: '1' });
+
+        expect(rows(wrapper)).toHaveLength(2);
+        expect(cell(wrapper, 1, 'supplier')).toBe('Nile Pumps Co');
+        expect(cell(wrapper, 1, 'tax')).toMatch(/^14\s*%?$/);
+        expect(cell(wrapper, 1, 'margin')).toMatch(/^20\s*%?$/);
     });
 
-    it('removes a supplier block', async () => {
+    it('moves the entry row into the table with the Add button too', async () => {
         const { wrapper } = await render(respond());
 
-        await wrapper.find(id('add-supplier')).trigger('click');
-        await wrapper.find(id('supplier-0-remove')).trigger('click');
-
-        expect(wrapper.find(id('supplier-0-pick')).exists()).toBe(false);
-    });
-
-    it('adds the supplier quotation Module 6’s form just saved as a new block', async () => {
-        const { wrapper } = await render(respond());
-
-        await wrapper.find(id('new-supplier-quotation')).trigger('click');
-
-        const modal = wrapper.findComponent({ name: 'SupplierQuotationFormModal' });
-
-        expect(modal.props('open')).toBe(true);
-
-        modal.vm.$emit('saved', { ...SQ_OTHER, id: 'sq1', deal_id: 'd1' });
+        await typeEntry(wrapper, E1);
+        await wrapper.get(id('entry-add')).trigger('click');
         await flushPromises();
 
-        expect((wrapper.find(id('supplier-0-pick')).element as HTMLSelectElement).value).toBe('sq1');
-        expect(wrapper.find(id('line-0-0-quantity')).exists()).toBe(true);
+        expect(rows(wrapper)).toHaveLength(1);
+        expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
+    });
+
+    it('removes a table row with its trash button', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterLine(wrapper);
+        await enterLine(wrapper, SECOND);
+        await wrapper.get(id('line-0-remove')).trigger('click');
+
+        expect(rows(wrapper)).toHaveLength(1);
+        expect(cell(wrapper, 0, 'product')).toBe('Installation');
+    });
+
+    it('sends a row back to the entry fields and takes it out of the table', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterLine(wrapper);
+        // The sticky fields moved on; the row's own values win.
+        await wrapper.get(id('entry-margin')).setValue('30');
+        await wrapper.get(id('line-0-send-back')).trigger('click');
+        await flushPromises();
+
+        expect(rows(wrapper)).toHaveLength(0);
+        expect(value(wrapper, 'entry-supplier')).toBe('Nile Pumps Co');
+        expect(value(wrapper, 'entry-product')).toBe('Pump 5HP');
+        expect(value(wrapper, 'entry-unit')).toBe('pcs');
+        expect(value(wrapper, 'entry-price')).toBe('114');
+        expect(value(wrapper, 'entry-tax')).toBe('14');
+        expect(value(wrapper, 'entry-margin')).toBe('20');
+        expect(value(wrapper, 'entry-quantity')).toBe('3');
+    });
+
+    // A-39: the lines are a table that reads as cards below 640 px, as the detail's tables do.
+    it('labels every table cell for the card form below 640 px (A-39)', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterLine(wrapper);
+
+        const table = wrapper.get(id('lines'));
+
+        expect(table.element.tagName).toBe('TABLE');
+        expect(table.classes()).toContain('card-table');
+        expect(table.findAll('tbody td').every((td) => (td.attributes('data-label') ?? '') !== '')).toBe(true);
+    });
+
+    // ──────────────────────────────────────────────────────────── «شامل الضريبة» (D-157)
+
+    it.each([
+        { locale: 'en' as const, label: 'Prices include tax' },
+        { locale: 'ar' as const, label: 'شامل الضريبة' },
+    ])('opens a new quotation with the $locale «Prices include tax» toggle on (owner, 2026-10-22 answer 4)', async ({ locale, label }) => {
+        const { wrapper } = await render(respond(), '/quotations/new?deal=d1', locale);
+        const toggle = wrapper.get(id('tax-included'));
+
+        expect((toggle.element as HTMLInputElement).type).toBe('checkbox');
+        expect((toggle.element as HTMLInputElement).checked).toBe(true);
+        expect(toggle.element.closest('label')?.textContent).toContain(label);
+    });
+
+    it('hides the tax field and the table’s tax column when the toggle is off', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterLine(wrapper);
+        expect(wrapper.find(id('line-0-tax')).exists()).toBe(true);
+
+        await wrapper.get(id('tax-included')).setValue(false);
+
+        expect(wrapper.find(id('entry-tax')).exists()).toBe(false);
+        expect(wrapper.find(id('line-0-tax')).exists()).toBe(false);
+        // The header loses its column with the cells: one heading per cell.
+        expect(wrapper.get(id('lines')).findAll('thead th')).toHaveLength(rows(wrapper)[0]?.findAll('td').length ?? -1);
     });
 
     // ──────────────────────────────────────────────────────────── the payload
 
-    it('sends what the form holds, money as strings, only lines with a quantity, and an Idempotency-Key', async () => {
+    it('sends §4’s payload — pricing_mode, each line’s seven facts as typed, and an Idempotency-Key — and none of the retired fields', async () => {
         const fetchMock = respond();
         const { wrapper, router } = await render(fetchMock);
 
-        await fillHeader(wrapper);
-        await wrapper.find(id('tax-0')).setValue('14');
-        await wrapper.find(id('add-tax')).trigger('click');
-        await wrapper.find(id('tax-1')).setValue('5');
+        await wrapper.find(id('currency')).setValue('EGP');
+        await wrapper.find(id('discount_percent')).setValue('10');
         await wrapper.find(id('quotation_date')).setValue('2026-09-14');
         await wrapper.find(id('valid_until')).setValue('2026-10-14');
         await wrapper.find(id('term-0-body')).setValue('50% advance');
-        await pickFirstLine(wrapper, '2.5');
-        await wrapper.find(id('line-0-0-margin_percent')).setValue('30');
         await wrapper.find(id('add-item')).trigger('click');
         await wrapper.find(id('item-0-description')).setValue('Delivery');
-        await wrapper.find(id('item-0-amount')).setValue('100');
+        await wrapper.find(id('item-0-amount')).setValue('50');
+        await enterLine(wrapper);
+        await enterLine(wrapper, SECOND);
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
         const [save] = saves(fetchMock);
 
+        // toEqual: an extra key — default_margin, tax_percents, supplier_quotation_item_id — fails it.
         expect(save?.body).toEqual({
             deal_id: 'd1',
             customer_id: 'c1',
             currency: 'EGP',
-            default_margin: '25',
+            pricing_mode: 'tax_included',
             discount_percent: '10',
-            tax_percents: ['14', '5'],
             quotation_date: '2026-09-14',
             valid_until: '2026-10-14',
-            // D-103: the three ready terms, unnamed; an empty one is kept, its body null (the owner, 2026-10-08).
             terms: [
                 { key: 'payment_terms', title: null, body: '50% advance' },
                 { key: 'warranty', title: null, body: null },
                 { key: 'delivery_terms', title: null, body: null },
             ],
-            lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2.5', margin_percent: '30' }],
-            additional_items: [{ description: 'Delivery', amount: '100' }],
+            lines: SENT_LINES,
+            additional_items: [{ description: 'Delivery', amount: '50' }],
         });
         expect(save?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
         expect(router.currentRoute.value.path).toBe('/quotations/q9');
     });
 
-    it('sends no tax when the field is empty — an empty list, not a zero (D-63, D-118)', async () => {
+    // D-157: off is no tax at all — the typed price is used as-is, and a line names no rate.
+    it('sends pricing_mode tax_exempt and no line tax_percent when the toggle is off', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock);
+        // The tax field is gone with the toggle, so nothing is typed into it.
+        const { tax: _gone, ...untaxed } = E1;
 
-        await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
+        await wrapper.find(id('currency')).setValue('EGP');
+        await wrapper.get(id('tax-included')).setValue(false);
+        await enterLine(wrapper, untaxed);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
-        expect((saves(fetchMock)[0]?.body as { tax_percents: unknown }).tax_percents).toEqual([]);
+        const body = saves(fetchMock)[0]?.body as { pricing_mode: string; lines: Array<Record<string, unknown>> };
+
+        expect(body.pricing_mode).toBe('tax_exempt');
+        expect(body.lines).toEqual([{ supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '114', margin_percent: '20', quantity: '3' }]);
+        expect(body).not.toHaveProperty('tax_percents');
+        expect(body).not.toHaveProperty('tax_percent');
     });
 
-    it('adds a tax rate with «+» and removes one, never below a single field (D-118)', async () => {
+    // D-154 (no offer picker, no offer form), D-156 (no quotation margin), D-157 (no quotation tax rates).
+    it('has no default margin, no tax-rate fields, no supplier-offer picker and no new-supplier-quotation button, and reads no offer', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock);
 
-        expect(wrapper.find(id('tax-0-remove')).exists()).toBe(false);
-        await wrapper.find(id('add-tax')).trigger('click');
-        await wrapper.find(id('tax-0')).setValue('14');
-        await wrapper.find(id('tax-1')).setValue('5');
-        await wrapper.find(id('tax-0-remove')).trigger('click');
-
-        expect(wrapper.find(id('tax-1')).exists()).toBe(false);
-        expect((wrapper.find(id('tax-0')).element as HTMLInputElement).value).toBe('5');
-        expect(wrapper.find(id('tax-0-remove')).exists()).toBe(false);
+        expect(wrapper.find(id('form')).exists()).toBe(true);
+        expect(wrapper.find(id('default_margin')).exists()).toBe(false);
+        expect(wrapper.find(id('tax-0')).exists()).toBe(false);
+        expect(wrapper.find(id('add-tax')).exists()).toBe(false);
+        expect(wrapper.find(id('add-supplier')).exists()).toBe(false);
+        expect(wrapper.find(id('new-supplier-quotation')).exists()).toBe(false);
+        expect(wrapper.findComponent({ name: 'SupplierQuotationFormModal' }).exists()).toBe(false);
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/supplier-quotations'))).toBe(false);
     });
+
+    // D-159: the note sits with the additional items, and they sit above the lines table.
+    it('puts the additional items above the lines table, with the note that they carry no margin and no tax', async () => {
+        const arabic = await render(respond(), '/quotations/new?deal=d1', 'ar');
+
+        await enterLine(arabic.wrapper);
+
+        const table = arabic.wrapper.get(id('lines')).element;
+
+        expect(arabic.wrapper.get(id('items-note')).text()).toBe('لا يُضاف على البند الإضافي ربح ولا ضريبة (مثل التوصيل والتركيب)');
+
+        for (const before of ['items-note', 'add-item']) {
+            expect(arabic.wrapper.get(id(before)).element.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING, before).toBeTruthy();
+        }
+
+        const english = await render(respond());
+
+        expect(english.wrapper.get(id('items-note')).text()).toMatch(/margin/i);
+        expect(english.wrapper.get(id('items-note')).text()).toMatch(/tax/i);
+    });
+
+    // ──────────────────────────────────────────────────────────── a refused line
+
+    // OpenAPI §5: a 422 names `lines.N.<field>`, and N is the table's row N.
+    it.each(['supplier_id', 'catalog_item_id', 'unit_code', 'entered_unit_price', 'tax_percent', 'margin_percent', 'quantity'])(
+        'lands a 422 on lines.1.%s on the table’s second row, not the first',
+        async (field) => {
+            const fetchMock = respond({ saves: [refusal(422, 'validation_failed', [{ field: `lines.1.${field}`, code: 'invalid', message: 'Row two is wrong.' }])] });
+            const { wrapper, router } = await render(fetchMock);
+
+            await wrapper.find(id('currency')).setValue('EGP');
+            await enterLine(wrapper);
+            await enterLine(wrapper, SECOND);
+            await wrapper.find(id('form')).trigger('submit');
+            await flushPromises();
+
+            expect(wrapper.get(id('line-1-error')).text()).toBe('Row two is wrong.');
+            expect(wrapper.find(id('line-0-error')).exists()).toBe(false);
+            expect(router.currentRoute.value.path).toBe('/quotations/new');
+        },
+    );
 
     it('reuses the Idempotency-Key on a retry (OpenAPI §9.1)', async () => {
         const fetchMock = respond({ saves: [refusal(500, 'unexpected'), json(201, envelope(CREATED))] });
@@ -530,42 +744,6 @@ describe('the quotation builder (create)', () => {
 
     // ──────────────────────────────────────────────────────────── refusals
 
-    it('blocks the save at the line whose supplier price is missing (§5.6)', async () => {
-        const fetchMock = respond({
-            saves: [refusal(422, 'business_rule_blocked', [
-                { field: 'lines.1.supplier_quotation_item_id', code: 'supplier_price_missing', message: 'This supplier line has no usable price — the line is gone, or its supplier quotation has no currency — so the quotation cannot be saved.' },
-            ])],
-        });
-        const { wrapper, router } = await render(fetchMock);
-
-        await fillHeader(wrapper);
-        await pickFirstLine(wrapper, '1');
-        await wrapper.find(id('line-0-1-quantity')).setValue('3');
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        expect(wrapper.find(id('line-0-0-error')).exists()).toBe(false);
-        expect(wrapper.find(id('line-0-1-error')).text()).toContain('no usable price');
-        expect(router.currentRoute.value.path).toBe('/quotations/new');
-    });
-
-    it('shows a missing FX rate at the form, not at a line', async () => {
-        const fetchMock = respond({
-            saves: [refusal(422, 'business_rule_blocked', [
-                { field: 'lines.0.supplier_quotation_item_id', code: 'fx_rate_missing', message: 'No exchange rate is recorded to convert this supplier line. Record the rate first.' },
-            ])],
-        });
-        const { wrapper } = await render(fetchMock);
-
-        await fillHeader(wrapper);
-        await pickFirstLine(wrapper);
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        expect(wrapper.find(id('form-error')).text()).toContain('No exchange rate');
-        expect(wrapper.find(id('line-0-0-error')).exists()).toBe(false);
-    });
-
     it('lands a validation sentence on the header field it names', async () => {
         const fetchMock = respond({
             saves: [refusal(422, 'validation_failed', [{ field: 'discount_percent', code: 'lt', message: 'The discount must be below 100.' }])],
@@ -579,46 +757,6 @@ describe('the quotation builder (create)', () => {
         await flushPromises();
 
         expect(wrapper.find(id('discount_percent-error')).text()).toBe('The discount must be below 100.');
-    });
-
-    /**
-     * F-03 (owner, 2026-09-16): the warning must not freeze the form. The draft
-     * exists, so the form stays **editable** and the next save is a `PATCH` on
-     * it with its token — a second `POST` under the same key would be a 409.
-     */
-    it('keeps the saved draft on screen with the quantity warning red on its line, editable, and saves again as a PATCH (§5.6)', async () => {
-        const fetchMock = respond({
-            saves: [json(201, envelope(CREATED, {
-                warnings: [{ field: 'lines.0.quantity', code: 'quantity_exceeds_recorded', message: 'The requested quantity exceeds what the supplier recorded.' }],
-            }))],
-            updates: [json(200, envelope({ ...QUOTATION, ...CREATED, etag: '"q9-v2"' }))],
-        });
-        const { wrapper, router } = await render(fetchMock);
-
-        await fillHeader(wrapper);
-        await pickFirstLine(wrapper, '9');
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        expect(router.currentRoute.value.path).toBe('/quotations/new');
-        expect(wrapper.find(id('line-0-0-warning')).text()).toContain('exceeds');
-        expect(wrapper.find(id('saved')).text()).toContain('QT-2026-0009');
-        expect(wrapper.find(id('saved-link')).attributes('href')).toBe('/quotations/q9');
-        expect(wrapper.find(id('save')).exists()).toBe(true);
-        expect((wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).disabled).toBe(false);
-        // The 201 carries no etag; the token is the draft's own, read once after the warned create.
-        expect(fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/quotations/q9') && ((call[1] as RequestInit | undefined)?.method ?? 'GET') === 'GET')).toHaveLength(1);
-
-        await wrapper.find(id('line-0-0-quantity')).setValue('2');
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        const calls = saves(fetchMock);
-
-        expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual(['POST /quotations', 'PATCH /quotations/q9']);
-        expect(calls[1]?.ifMatch).toBe('"q9-v1"');
-        expect(calls[1]?.body).toMatchObject({ lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2' }] });
-        expect(router.currentRoute.value.path).toBe('/quotations/q9');
     });
 
     // ──────────────────────────────────────────────────────────── permission
@@ -693,65 +831,97 @@ describe('the quotation builder (edit)', () => {
 
     const EDIT = '/quotations/q1/edit';
 
-    it('loads the header, the lines and the additional items from the detail', async () => {
-        const { wrapper } = await render(respond(), EDIT);
+    // QS.2a: the table is filled from the payload's `entry` (contract §4), never from `items`.
+    it('loads the header, the entry lines into the table, and the additional items from the detail', async () => {
+        const { wrapper } = await render(respond({ quotations: [PRICED] }), EDIT);
 
         expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
         expect(wrapper.find(id('customer')).text()).toBe('Acme Industrial');
         expect((wrapper.find(id('currency')).element as HTMLInputElement).value).toBe('EGP');
-        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25');
         expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10');
-        expect((wrapper.find(id('tax-0')).element as HTMLInputElement).value).toBe('14');
         expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
+        expect((wrapper.get(id('tax-included')).element as HTMLInputElement).checked).toBe(true);
         // D-103: the quotation's own terms in their order — the deleted warranty stays deleted.
         expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
         expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Ex works');
         expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2');
-        expect((wrapper.find(id('existing-0-margin_percent')).element as HTMLInputElement).value).toBe('25');
-        // D-106: the field is an extra on top of the quotation margin, and says so.
-        expect(wrapper.find(id('existing-0-margin_percent')).element.closest('label')?.textContent).toContain('Extra line margin % (optional)');
-        // D-106 (a): a negative extra must be typeable — a phone's decimal pad has no minus key.
-        expect(wrapper.find(id('existing-0-margin_percent')).attributes('inputmode')).not.toBe('decimal');
-        // Design System §3 l.128: a negative extra reads "-20", never "20-", inside an RTL page.
-        expect(wrapper.find(id('existing-0-margin_percent')).attributes('dir')).toBe('ltr');
-        expect(wrapper.find(id('existing-0-cost')).text()).toContain('400.00 EGP');
-        expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('400.000000');
-        expect(wrapper.find(id('existing-0-product')).text()).toBe('Split unit 1.5HP');
-        expect(wrapper.find(id('existing-1-product')).exists()).toBe(false);
-        expect((wrapper.find(id('existing-1-margin_percent')).element as HTMLInputElement).value).toBe('');
+        expect(rows(wrapper)).toHaveLength(2);
+        expect(cell(wrapper, 0, 'supplier')).toBe('Nile Pumps Co');
+        expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
+        expect(cell(wrapper, 0, 'unit')).toBe('Piece');
+        // U-5: a stored figure is offered without its trailing zeros — trimmed, never rounded.
+        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
+        expect(cell(wrapper, 0, 'margin')).toMatch(/^20\s*%?$/);
+        expect(cell(wrapper, 0, 'quantity')).toBe('3');
+        expect(cell(wrapper, 1, 'supplier')).toBe('Delta Valves');
+        expect(cell(wrapper, 1, 'unit')).toBe('Metre');
+        expect(cell(wrapper, 1, 'tax')).toMatch(/^0\s*%?$/);
         expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
-        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('100');
+        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('50');
     });
 
-    // D-148 (U-4, QT-2026-0018): an existing line's cost converted into the quotation's currency, with its code.
-    it('shows an existing line’s cost in the quotation’s currency, not the supplier’s raw price', async () => {
-        const line = { ...QUOTATION.items[0], unit_cost: '877.190000', unit_cost_fx_rate_at_time: '0.018936', unit_cost_base: '16.610000' };
-        const { wrapper } = await render(respond({ quotations: [{ ...QUOTATION, currency: 'USD', currency_id: 'cur-usd', items: [line] }] }), EDIT);
+    // D-165 with contract §3's E4: a legacy Draft opens converted and saves through the new payload.
+    it('loads a legacy Draft’s converted entry with the toggle on, and saves it with no default margin (D-165, E4)', async () => {
+        const fetchMock = respond({ quotations: [LEGACY] });
+        const { wrapper } = await render(fetchMock, EDIT);
 
-        expect(wrapper.find(id('existing-0-cost')).text()).toContain('16.61 USD');
-        expect(wrapper.find(id('existing-0-cost')).text()).not.toContain('877.19');
+        expect((wrapper.get(id('tax-included')).element as HTMLInputElement).checked).toBe(true);
+        expect(cell(wrapper, 0, 'price')).toBe('114');
+        expect(cell(wrapper, 0, 'tax')).toMatch(/^14\s*%?$/);
+        expect(cell(wrapper, 0, 'margin')).toMatch(/^15\s*%?$/);
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        const body = saves(fetchMock)[0]?.body as Record<string, unknown>;
+
+        expect(body.pricing_mode).toBe('tax_included');
+        expect(body.lines).toEqual([{ ...SENT_LINES[0], margin_percent: '15' }]);
+
+        for (const retired of ['default_margin', 'tax_percents', 'tax_percent']) {
+            expect(body).not.toHaveProperty(retired);
+        }
+    });
+
+    it('loads a tax-exempt Draft with the toggle off and no tax column, and keeps it exempt on save (D-157, E3)', async () => {
+        const fetchMock = respond({ quotations: [EXEMPT] });
+        const { wrapper } = await render(fetchMock, EDIT);
+
+        expect((wrapper.get(id('tax-included')).element as HTMLInputElement).checked).toBe(false);
+        expect(wrapper.find(id('entry-tax')).exists()).toBe(false);
+        expect(wrapper.find(id('line-0-tax')).exists()).toBe(false);
+        expect(cell(wrapper, 0, 'price')).toBe('100');
+
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(saves(fetchMock)[0]?.body).toMatchObject({
+            pricing_mode: 'tax_exempt',
+            lines: [{ supplier_id: 's1', catalog_item_id: 'ci1', unit_code: 'pcs', entered_unit_price: '100', margin_percent: '20', quantity: '3' }],
+        });
+        expect((saves(fetchMock)[0]?.body as { lines: object[] }).lines[0]).not.toHaveProperty('tax_percent');
     });
 
     it('pre-fills a quantity and an amount without trailing zeros, every significant digit kept (U-5, D-99)', async () => {
-        // U-5: the stored `2.000` / `100.000000` above load as `2` / `100`; a trim, never a rounding —
-        // `0.125000` stays `0.125` (displayDecimals would print `0.13`), and a re-save sends the same number.
+        // U-5: a trim, never a rounding — `0.125000` stays `0.125` (displayDecimals would
+        // print `0.13`), and a re-save sends the same number.
         const fractional = {
-            ...QUOTATION,
-            items: [{ ...QUOTATION.items[0], quantity: '1.2500' }],
-            additional_items: [{ ...QUOTATION.additional_items[0], amount: '0.125000' }],
+            ...PRICED,
+            entry: { pricing_mode: 'tax_included', lines: [{ ...ENTRY_LINES[0], quantity: '1.2500' }] },
+            additional_items: [{ ...PRICED.additional_items[0], amount: '0.125000' }],
         };
         const fetchMock = respond({ quotations: [fractional] });
         const { wrapper } = await render(fetchMock, EDIT);
 
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1.25');
+        expect(cell(wrapper, 0, 'quantity')).toBe('1.25');
         expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('0.125');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
         expect(saves(fetchMock)[0]?.body).toMatchObject({
-            lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '1.25' }],
+            lines: [{ ...SENT_LINES[0], quantity: '1.25' }],
             additional_items: [{ description: 'Delivery', amount: '0.125' }],
         });
     });
@@ -762,13 +932,12 @@ describe('the quotation builder (edit)', () => {
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 
-    it('sends PATCH with If-Match, every editable field, the kept lines and the new one, no deal or customer', async () => {
-        const fetchMock = respond();
+    it('sends PATCH with If-Match, every editable field, the kept line and the new one, no deal or customer', async () => {
+        const fetchMock = respond({ quotations: [PRICED] });
         const { wrapper, router } = await render(fetchMock, EDIT);
 
-        await wrapper.find(id('existing-0-quantity')).setValue('3');
-        await wrapper.find(id('existing-1-remove')).trigger('click');
-        await pickFirstLine(wrapper, '4');
+        await wrapper.get(id('line-1-remove')).trigger('click');
+        await enterLine(wrapper, { ...SECOND, price: '250', tax: '14', margin: '5', quantity: '4' });
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -779,27 +948,26 @@ describe('the quotation builder (edit)', () => {
         expect(save?.idempotencyKey).toBeNull();
         expect(save?.body).toEqual({
             currency: 'EGP',
-            default_margin: '25',
+            pricing_mode: 'tax_included',
             discount_percent: '10',
-            tax_percents: ['14'],
             quotation_date: '2026-09-13',
             valid_until: '2026-10-13',
             terms: [{ key: 'payment_terms', title: null, body: '50% advance' }, { key: 'delivery_terms', title: null, body: 'Ex works' }],
             lines: [
-                { supplier_quotation_item_id: 'sqi1', quantity: '3', margin_percent: '25' },
-                { supplier_quotation_item_id: 'sqi1', quantity: '4' },
+                SENT_LINES[0],
+                { supplier_id: 's2', catalog_item_id: 'ci2', unit_code: 'm', entered_unit_price: '250', tax_percent: '14', margin_percent: '5', quantity: '4' },
             ],
-            additional_items: [{ description: 'Delivery', amount: '100' }],
+            additional_items: [{ description: 'Delivery', amount: '50' }],
         });
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 
     it('sends both lists even when emptied — an omitted list is a 422, not "keep them" (Point 3.6)', async () => {
-        const fetchMock = respond();
+        const fetchMock = respond({ quotations: [PRICED] });
         const { wrapper } = await render(fetchMock, EDIT);
 
-        await wrapper.find(id('existing-0-remove')).trigger('click');
-        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await wrapper.get(id('line-0-remove')).trigger('click');
+        await wrapper.get(id('line-0-remove')).trigger('click');
         await wrapper.find(id('item-0-remove')).trigger('click');
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -814,7 +982,7 @@ describe('the quotation builder (edit)', () => {
         });
         const { wrapper, router } = await render(fetchMock, EDIT);
 
-        await wrapper.find(id('existing-0-quantity')).setValue('3');
+        await wrapper.find(id('discount_percent')).setValue('15');
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -827,7 +995,7 @@ describe('the quotation builder (edit)', () => {
         await flushPromises();
 
         expect(wrapper.find(id('conflict')).exists()).toBe(false);
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('2');
+        expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -845,28 +1013,6 @@ describe('the quotation builder (edit)', () => {
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 
-    it('keeps the saved draft on screen when the 200 carries a quantity warning, red on the existing line', async () => {
-        const fetchMock = respond({
-            updates: [json(200, envelope(QUOTATION, { warnings: [{ field: 'lines.1.quantity', code: 'quantity_exceeds_recorded', message: 'exceeds' }] }))],
-        });
-        const { wrapper, router } = await render(fetchMock, EDIT);
-
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        expect(router.currentRoute.value.path).toBe(EDIT);
-        expect(wrapper.find(id('existing-1-warning')).text()).toContain('exceeds');
-        expect(wrapper.find(id('saved-link')).attributes('href')).toBe('/quotations/q1');
-        // F-03: still editable; a second save is a second PATCH.
-        expect(wrapper.find(id('save')).exists()).toBe(true);
-
-        await wrapper.find(id('existing-1-quantity')).setValue('1');
-        await wrapper.find(id('form')).trigger('submit');
-        await flushPromises();
-
-        expect(saves(fetchMock).map((call) => call.method)).toEqual(['PATCH', 'PATCH']);
-    });
-
     it('asks in the page before leaving with unsaved changes, and not otherwise (Design System §5.2, A-61)', async () => {
         // A-61: never `window.confirm` — it is neither translated nor RTL.
         const confirm = vi.fn().mockReturnValue(true);
@@ -879,7 +1025,7 @@ describe('the quotation builder (edit)', () => {
 
         await router.push(EDIT);
         await flushPromises();
-        await wrapper.find(id('existing-0-quantity')).setValue('3');
+        await wrapper.find(id('discount_percent')).setValue('15');
         await router.push('/quotations/q1');
         await flushPromises();
 
@@ -916,13 +1062,14 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
     });
 
     const APPROVE = '/quotations/q1/edit-and-approve';
-    const PENDING = { ...QUOTATION, status: 'pending' };
+    const PENDING = { ...PRICED, status: 'pending' };
 
     it('keeps a pending quotation on the form instead of sending it back to its page', async () => {
         const { wrapper, router } = await render(respond({ quotations: [PENDING] }), APPROVE, 'en', APPROVER);
 
         expect(router.currentRoute.value.path).toBe(APPROVE);
-        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('25');
+        // QS.2a: the approver edits the same table the preparer typed.
+        expect(cell(wrapper, 0, 'price')).toBe('114');
         expect(wrapper.find(id('save')).text()).toBe('Edit & approve');
     });
 
@@ -936,7 +1083,7 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         const fetchMock = respond({ quotations: [PENDING], updates: [json(200, envelope({ ...PENDING, status: 'approved' }))] });
         const { wrapper, router } = await render(fetchMock, APPROVE, 'en', APPROVER);
 
-        await wrapper.find(id('default_margin')).setValue('30');
+        await wrapper.find(id('discount_percent')).setValue('5');
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -947,8 +1094,9 @@ describe('the quotation builder (edit and approve, Module 8 · 3.2)', () => {
         expect(save?.path).toBe('/quotations/q1/edit-and-approve');
         expect(save?.ifMatch).toBe('"v1"');
         expect(save?.idempotencyKey).toBeNull();
-        expect(save?.body).toMatchObject({ default_margin: '30', currency: 'EGP', lines: [{ supplier_quotation_item_id: 'sqi1', quantity: '2', margin_percent: '25' }, { supplier_quotation_item_id: 'sqi2', quantity: '1' }], additional_items: [{ description: 'Delivery', amount: '100' }] });
+        expect(save?.body).toMatchObject({ pricing_mode: 'tax_included', discount_percent: '5', currency: 'EGP', lines: SENT_LINES, additional_items: [{ description: 'Delivery', amount: '50' }] });
         expect(save?.body).not.toHaveProperty('deal_id');
+        expect(save?.body).not.toHaveProperty('default_margin');
         expect(router.currentRoute.value.path).toBe('/quotations/q1');
     });
 });
@@ -976,7 +1124,6 @@ describe('the builder\'s currency control', () => {
         expect(control.findAll('option').map((option) => option.text())).toEqual([en.quotations.builder.currencyNone, 'EGP', 'USD']);
 
         await control.setValue('USD');
-        await wrapper.find(id('default_margin')).setValue('25');
         await pickFirstLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -993,7 +1140,6 @@ describe('the builder\'s currency control', () => {
         expect(control.element.tagName).toBe('INPUT');
 
         await control.setValue('egp');
-        await wrapper.find(id('default_margin')).setValue('25');
         await pickFirstLine(wrapper);
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -1048,14 +1194,15 @@ describe('the builder\'s delivery-terms control', () => {
         await flushPromises();
     }
 
-    it('reads the list once, page 1, when the builder opens', async () => {
+    // QS.2a: the entry row's unit comes from the `units` list, read beside the delivery terms.
+    it('reads the delivery terms and the units once each, page 1, when the builder opens', async () => {
         const fetchMock = respond({ terms: TERMS });
 
         await render(fetchMock);
 
         const asked = fetchMock.mock.calls.map((call) => String(call[0]).replace(/^.*\/api\/v1/, '')).filter((path) => path.startsWith('/managed-lists/'));
 
-        expect(asked).toEqual(['/managed-lists/delivery_terms?page=1']);
+        expect([...asked].sort()).toEqual(['/managed-lists/delivery_terms?page=1', '/managed-lists/units?page=1']);
     });
 
     it('makes the delivery field a combobox and leaves payment terms and warranty as text areas', async () => {
@@ -1453,9 +1600,9 @@ describe('the quotation builder (F-42 · P5)', () => {
     const EDIT = '/quotations/q1/edit';
     const DEAL_2 = { ...DEAL, id: 'd2', code: 'DL-2026-0002' };
 
-    /** `respond()`, with a second deal and whatever `extra` answers first. */
+    /** `respond()` on the new-pricing Draft (QS.2a), with a second deal and whatever `extra` answers first. */
     function respondWith(extra: (url: string) => Response | null = () => null): ReturnType<typeof vi.fn> {
-        const base = respond() as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+        const base = respond({ quotations: [PRICED] }) as unknown as (input: string, init?: RequestInit) => Promise<Response>;
 
         return vi.fn(async (input: string, init?: RequestInit) => {
             const url = String(input);
@@ -1480,15 +1627,15 @@ describe('the quotation builder (F-42 · P5)', () => {
 
         await router.push(EDIT);
         await flushPromises();
-        expect(wrapper.find(id('existing-0-quantity')).exists()).toBe(true);
+        expect(rows(wrapper)).toHaveLength(2);
 
         await router.push('/quotations/new?deal=d1');
         await flushPromises();
 
         expect(wrapper.find(id('deal')).text()).toBe('DL-2026-0001');
         expect(wrapper.find('h1').text()).toBe(en.quotations.builder.title);
-        expect(wrapper.find(id('existing-0-quantity')).exists()).toBe(false);
-        expect((wrapper.find(id('default_margin')).element as HTMLInputElement).value).toBe('');
+        expect(rows(wrapper)).toHaveLength(0);
+        expect(value(wrapper, 'entry-price')).toBe('');
     });
 
     it('A-17: Add item focuses the new row’s first field; a removed last row hands focus to Add once Undo expires', async () => {
@@ -1497,10 +1644,6 @@ describe('the quotation builder (F-42 · P5)', () => {
         await wrapper.find(id('add-item')).trigger('click');
         await flushPromises();
         expect(active()).toBe('quotation-builder-item-0-description');
-
-        await wrapper.find(id('add-supplier')).trigger('click');
-        await flushPromises();
-        expect(active()).toBe('quotation-builder-supplier-0-pick');
 
         await wrapper.find(id('add-term')).trigger('click');
         await flushPromises();
@@ -1517,87 +1660,57 @@ describe('the quotation builder (F-42 · P5)', () => {
         expect(active()).toBe('quotation-builder-add-item');
     });
 
-    it('A-35: Remove takes the line at once; Undo brings it back with what was typed, and expiry moves focus to the next line', async () => {
-        const { wrapper } = await render(respond(), EDIT, 'en', USER, true);
+    it('A-35: a row’s trash takes it at once, and Undo brings it back where it was', async () => {
+        const { wrapper } = await render(respondWith(), EDIT, 'en', USER, true);
 
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-        await wrapper.find(id('existing-0-quantity')).setValue('7');
-        await wrapper.find(id('existing-0-remove')).trigger('click');
+        await wrapper.get(id('line-0-remove')).trigger('click');
         await nextTick();
 
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('1');
-        expect(wrapper.find(id('existing-1-quantity')).exists()).toBe(false);
+        expect(rows(wrapper)).toHaveLength(1);
+        expect(cell(wrapper, 0, 'product')).toBe('Installation');
         expect(wrapper.find(id('undo-bar')).attributes('role')).toBe('status');
 
-        await wrapper.find(id('undo')).trigger('click');
+        await wrapper.get(id('undo')).trigger('click');
         await nextTick();
 
-        expect((wrapper.find(id('existing-0-quantity')).element as HTMLInputElement).value).toBe('7');
-        expect(wrapper.find(id('existing-1-quantity')).exists()).toBe(true);
+        expect(rows(wrapper)).toHaveLength(2);
+        expect(cell(wrapper, 0, 'product')).toBe('Pump 5HP');
         expect(wrapper.find(id('undo')).exists()).toBe(false);
-
-        await wrapper.find(id('existing-0-remove')).trigger('click');
-        await nextTick();
-        vi.runAllTimers();
-        await nextTick();
-        await nextTick();
-
-        expect(wrapper.find(id('undo')).exists()).toBe(false);
-        expect(active()).toBe('quotation-builder-existing-0-quantity');
     });
 
-    it('A-35: changing a block’s offer clears its typed values, and Undo brings them back', async () => {
-        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+    it('A-36: each row’s trash and send-back name their line by number', async () => {
+        const { wrapper } = await render(respondWith(), EDIT);
 
-        await pickFirstLine(wrapper, '2');
-        await wrapper.find(id('supplier-0-pick')).setValue('');
-        await flushPromises();
-
-        expect(wrapper.find(id('line-0-0-quantity')).exists()).toBe(false);
-
-        await wrapper.find(id('undo')).trigger('click');
-        await flushPromises();
-
-        expect((wrapper.find(id('supplier-0-pick')).element as HTMLSelectElement).value).toBe('sq1');
-        expect((wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).value).toBe('2');
-    });
-
-    it('A-36: each Remove names its row — lines by number, a block by its supplier', async () => {
-        const { wrapper } = await render(respond(), EDIT);
-
-        expect(wrapper.find(id('existing-0-remove')).attributes('aria-label')).toBe('Remove line 1');
-        expect(wrapper.find(id('existing-1-remove')).attributes('aria-label')).toBe('Remove line 2');
+        expect(wrapper.get(id('line-0-remove')).attributes('aria-label')).toBe('Remove line 1');
+        expect(wrapper.get(id('line-1-remove')).attributes('aria-label')).toBe('Remove line 2');
+        expect(wrapper.get(id('line-0-send-back')).attributes('aria-label')).toMatch(/\b1\b/);
+        expect(wrapper.get(id('line-1-send-back')).attributes('aria-label')).toMatch(/\b2\b/);
+        expect(wrapper.get(id('line-0-send-back')).attributes('aria-label')).not.toBe('Remove line 1');
         expect(wrapper.find(id('item-0-remove')).attributes('aria-label')).toBe('Remove item 1');
         expect(wrapper.find(id('term-0-remove')).attributes('aria-label')).toBe('Remove term 1');
-
-        await wrapper.find(id('add-supplier')).trigger('click');
-        expect(wrapper.find(id('supplier-0-remove')).attributes('aria-label')).toBe('Remove supplier 1');
-
-        await wrapper.find(id('supplier-0-pick')).setValue('sq1');
-        await flushPromises();
-        expect(wrapper.find(id('supplier-0-remove')).attributes('aria-label')).toBe('Remove Nile Pumps Co');
     });
 
-    it('A-37: Enter in a line field moves to the next field and sends nothing', async () => {
+    // The owner, 2026-10-22: Enter in the entry row moves it into the table; only Save submits.
+    it('A-37: Enter in the entry row moves it into the table and sends nothing', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock, undefined, 'en', USER, true);
 
-        await fillHeader(wrapper);
-        await pickFirstLine(wrapper, '2');
-        (wrapper.find(id('line-0-0-quantity')).element as HTMLInputElement).focus();
-        await wrapper.find(id('line-0-0-quantity')).trigger('keydown', { key: 'Enter' });
+        await wrapper.find(id('currency')).setValue('EGP');
+        await typeEntry(wrapper, E1);
+        (wrapper.get(id('entry-quantity')).element as HTMLInputElement).focus();
+        await wrapper.get(id('entry-quantity')).trigger('keydown', { key: 'Enter' });
         await flushPromises();
 
         expect(saves(fetchMock)).toEqual([]);
-        expect(active()).toBe('quotation-builder-line-0-0-margin_percent');
+        expect(rows(wrapper)).toHaveLength(1);
     });
 
-    it('A-62: a block line’s margin keeps the full keyboard, so a minus can be typed (D-106)', async () => {
+    it('A-62: the entry row’s margin keeps the full keyboard and reads left to right, so a minus can be typed (D-106)', async () => {
         const { wrapper } = await render(respond());
 
-        await pickFirstLine(wrapper);
-
-        expect(wrapper.find(id('line-0-0-margin_percent')).attributes('inputmode')).toBeUndefined();
+        expect(wrapper.get(id('entry-margin')).attributes('inputmode')).not.toBe('decimal');
+        expect(wrapper.get(id('entry-margin')).attributes('dir')).toBe('ltr');
     });
 
     it('A-03: a refused edit says the quotation cannot be edited, not that a deal is missing', async () => {

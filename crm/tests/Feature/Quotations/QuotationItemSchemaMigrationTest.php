@@ -307,19 +307,6 @@ final class QuotationItemSchemaMigrationTest extends TestCase
 
     // ─────────────────────────────────────────── §5.6's block-save, in schema
 
-    /**
-     * §5.6: "Product or price missing at the supplier → block save." A
-     * nullable column would be the schema holding open a state the
-     * specification closes, so §10.3's price-change warning stays possible.
-     */
-    public function test_that_a_line_without_a_supplier_line_is_refused(): void
-    {
-        self::assertSame(
-            self::NOT_NULL_VIOLATION,
-            $this->refusedWith(fn () => $this->insert(['supplier_quotation_item_id' => null])),
-        );
-    }
-
     public function test_that_an_unknown_supplier_line_is_refused(): void
     {
         self::assertSame(

@@ -28,6 +28,7 @@ use Tests\TestCase;
  */
 final class PurchaseOrderReadEndpointTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private const ENDPOINT = '/api/v1/purchase-orders';
@@ -301,16 +302,21 @@ final class PurchaseOrderReadEndpointTest extends TestCase
 
     // ──────────────────────────────────────────────────────────────── detail
 
-    /** The owner's detail: the list's fields, who and when, the deal, the status and the breakdown — no cost side. */
+    /**
+     * The owner's detail: the list's fields, who and when, the deal, the status and the breakdown — no cost side.
+     * QS.2a · `D-157`: the quotation is `tax_included` (example 1), so its tax is per line and the header's
+     * `tax_percent` null — the tax keys show because there is a tax amount, 45.36.
+     */
     public function test_the_detail_carries_the_deal_the_recorder_and_the_breakdown_and_no_cost_field(): void
     {
         $owner = $this->userWith(RoleName::IndoorSales);
         $deal = $this->deal($owner->id);
-        $order = $this->accepted($deal, '4500123987', '2026-09-20', ['discount_percent' => '10', 'tax_percents' => ['14']]);
+        $order = $this->accepted($deal, '4500123987', '2026-09-20', $this->e1Body());
 
         $data = $this->show($order['id'])->assertStatus(200)->json('data');
         self::assertIsArray($data);
         self::assertEqualsCanonicalizing([...self::DETAIL_FIELDS, 'tax_percent', 'tax_amount'], array_keys($data));
+        self::assertSame('45.360000', $data['tax_amount']);
 
         $quotation = $this->quotationRead($order['quotation_id']);
         self::assertSame($order['po_number'], $data['po_number']);
@@ -338,11 +344,11 @@ final class PurchaseOrderReadEndpointTest extends TestCase
         }
     }
 
-    /** `D-63`: an exempt quotation renders no tax line at all — the keys are absent, not null. */
+    /** `D-63`, `D-157`: a `tax_exempt` quotation (example 3) renders no tax line at all — the keys are absent, not null. */
     public function test_an_exempt_quotations_order_has_no_tax_keys(): void
     {
-        $order = $this->accepted($this->deal(null), 'REF-1');
-        self::assertNull(DB::table('quotations')->where('id', $order['quotation_id'])->value('tax_percent'));
+        $order = $this->accepted($this->deal(null), 'REF-1', '2026-09-23', $this->e3Body());
+        self::assertNull(DB::table('quotations')->where('id', $order['quotation_id'])->value('tax_amount'));
 
         $data = $this->show($order['id'])->assertStatus(200)->json('data');
         self::assertIsArray($data);
@@ -416,12 +422,12 @@ final class PurchaseOrderReadEndpointTest extends TestCase
      * A `sent` quotation accepted through 1.6's endpoint — the order is
      * written the one way the module writes it.
      *
-     * @param  array<string, string|list<string>>  $quotation  extra fields for the draft
+     * @param  array<string, mixed>|null  $body  the draft's body (QS.2a's `e1Body()`, `e3Body()`); null is `sent()`'s
      * @return array{id: string, po_number: string, quotation_id: string}
      */
-    private function accepted(string $dealId, string $reference, string $poDate = '2026-09-23', array $quotation = []): array
+    private function accepted(string $dealId, string $reference, string $poDate = '2026-09-23', ?array $body = null): array
     {
-        [$id, $etag] = $this->sent($dealId, $quotation);
+        [$id, $etag] = $this->sent($dealId, $body);
 
         $order = $this->patchJson(self::QUOTATIONS.'/'.$id.'/respond', [
             'response' => 'accepted',
@@ -436,21 +442,22 @@ final class PurchaseOrderReadEndpointTest extends TestCase
     }
 
     /**
-     * A draft through Point 3.4's endpoint, then set `sent` in place.
+     * A draft through Point 3.4's endpoint, then set `sent` in place: `$body`, or one line of 2 on setUp's offer.
      *
-     * @param  array<string, string|list<string>>  $extra
+     * @param  array<string, mixed>|null  $body
      * @return array{string, string} id and etag
      */
-    private function sent(string $dealId, array $extra = []): array
+    private function sent(string $dealId, ?array $body = null): array
     {
         $id = $this->postJson(self::QUOTATIONS, [
             'deal_id' => $dealId,
             'customer_id' => $this->customerId,
-            'currency' => 'EGP',
-            'default_margin' => '20',
-            'discount_percent' => '0',
-            ...$extra,
-            'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            ...($body ?? [
+                'currency' => 'EGP',
+                'default_margin' => '20',
+                'discount_percent' => '0',
+                'lines' => [['supplier_quotation_item_id' => $this->lineId, 'quantity' => '2']],
+            ]),
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
         self::assertIsString($id);
 

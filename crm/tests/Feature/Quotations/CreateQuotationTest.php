@@ -8,29 +8,29 @@ use App\Modules\Identity\Domain\Rbac\AuthorizationRefused;
 use App\Modules\Identity\Infrastructure\Eloquent\User;
 use App\Modules\Quotations\Application\Writing\CreateQuotation;
 use App\Modules\Quotations\Application\Writing\QuotationCreated;
-use App\Modules\Quotations\Domain\Pricing\QuotationNotPriceable;
 use App\Modules\Quotations\Infrastructure\Eloquent\Quotation;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Ramsey\Uuid\Uuid;
-use stdClass;
 use Tests\TestCase;
 
 /**
  * Module 7, Point 3.3 — `CreateQuotation`, the create §5 and §6 need.
  *
  * The highest-priority test surface in the project (`CLAUDE.md`): the full §5.1
- * line arithmetic, §5.2's totals in `D-64`'s order, `D-63`'s tax derivation,
- * `D-09`'s per-line FX capture, `D-65`'s optional rounding, and §5.6's two
- * outcomes — a missing price blocks, an over-quantity only warns.
+ * line arithmetic, §5.2's totals in `D-64`'s order, and `D-65`'s optional
+ * rounding. QS.2a (`D-156`, `D-157`): a line is priced from what was typed,
+ * taxed at its own rate, the toggle the preparer's; `D-161` retired §5.6's
+ * over-quantity warning, `D-164` the FX on a line, `D-155` the supplier offer
+ * a line was priced from.
  *
- * Driven through the use case, not HTTP: `POST /quotations` is Point 3.4. The
- * supplier prices are seeded as real rows because §5.6 puts them on the supplier
- * side and this use case reads them there.
+ * Driven through the use case, not HTTP: `POST /quotations` is Point 3.4.
  */
 final class CreateQuotationTest extends TestCase
 {
+    use QuotationLineFixtures;
     use RefreshDatabase;
 
     private string $actorId;
@@ -41,8 +41,6 @@ final class CreateQuotationTest extends TestCase
 
     private string $egpId;
 
-    private string $usdId;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,136 +50,75 @@ final class CreateQuotationTest extends TestCase
         $this->actorId = $actorId;
 
         $this->egpId = $this->currency('EGP', '1', true, true);
-        $this->usdId = $this->currency('USD', '0.01', true, false);
         $this->customerId = $this->customer(false);
         $this->dealId = $this->deal($this->customerId);
     }
 
-    // ─────────────────────────────────────────────── §5.1 · §5.2 · D-09 · D-64
+    // ──────────────────────────────────── QS.2a · D-156 · D-157 · D-62 · D-64
 
     /**
-     * The whole of §5, priced end to end: two USD lines converted to an EGP
-     * quotation at the captured rate, a line margin added to the quotation's (`D-106`),
-     * an untaxed additional item, a discount taken **before** tax, and 14% tax on
-     * the reduced base. Every figure is asserted against §5.1/§5.2 by hand.
+     * The whole of §5 as QS.2a prices it, end to end through the use case: each line's tax taken out of the
+     * price typed, then its own margin added (`D-156`) — 114 incl. 14 % → 100 → 120.00 × 3 = 360.00, and 50
+     * incl. 0 % (allowed, `D-157`) → 50 → 55.00 × 2 = 110.00 — the discount spread over the lines before tax
+     * (`D-64`, `D-158`), each line taxed at its own rate, the sum the VAT line: 360 × 0.9 × 14 % + 110 × 0.9
+     * × 0 % = 45.36; the delivery untaxed (`D-62`); `D-65`'s rounding (EGP, unit 1, on) on the final total
+     * alone. 470.00 + 50.00 − 47.00 + 45.36 = 518.36 → 518, −0.36 stored. Every figure by hand.
      */
-    public function test_that_a_quotation_is_priced_end_to_end(): void
+    public function test_that_each_line_is_priced_from_what_was_typed_and_taxed_at_its_own_rate(): void
     {
-        $this->fxRate($this->usdId, $this->egpId, '30');
-        $line1 = $this->supplierLine('1000', '5', $this->usdId);
-        $line2 = $this->supplierLine('500', '10', $this->usdId);
+        $taxed = $this->lineBody();
+        $zeroRated = $this->lineBody(entered: '50', tax: '0', margin: '10', quantity: '2');
 
-        $result = $this->create($this->payload(
-            lines: [
-                ['supplier_quotation_item_id' => $line1, 'quantity' => '2', 'margin_percent' => null],
-                ['supplier_quotation_item_id' => $line2, 'quantity' => '3', 'margin_percent' => '30'],
-            ],
-            additional: [['description' => 'Delivery', 'amount' => '1000']],
-            overrides: ['default_margin' => '20', 'discount_percent' => '10', 'tax_percents' => ['14']],
-        ));
+        $result = $this->create([
+            ...$this->e1Body($taxed),
+            'deal_id' => $this->dealId,
+            'customer_id' => $this->customerId,
+            'lines' => [$taxed, $zeroRated],
+        ]);
+        $id = $result->quotation->id;
 
-        self::assertSame([], $result->quantityWarnings);
-
-        $row = $this->stored($result->quotation->id);
-        self::assertSame($this->egpId, $row->currency_id);
-        self::assertSame('14.000', $row->tax_percent);
-        self::assertSame('139500.000000', $row->subtotal);       // 72000 + 67500
-        self::assertSame('1000.000000', $row->additional_total);
-        self::assertSame('13950.000000', $row->discount_amount);  // 139500 × 10%
-        self::assertSame('125550.000000', $row->tax_base);        // subtotal − discount (D-64)
-        self::assertSame('17577.000000', $row->tax_amount);       // 125550 × 14%
-        self::assertSame('126550.000000', $row->net_amount);      // 139500 + 1000 − 13950
-        self::assertSame('144127.000000', $row->total_before_round);
-        self::assertSame('144127.000000', $row->final_total);
-        self::assertSame('0.000000', $row->rounding_diff);
-
-        // §5.1 per line, with the supplier currency and rate captured (D-09).
-        $lines = DB::table('quotation_items')
-            ->where('quotation_id', $row->id)
-            ->orderBy('line_no')
-            ->get(['unit_cost', 'unit_cost_currency', 'unit_cost_fx_rate_at_time', 'unit_cost_base',
-                'margin_percent', 'unit_price', 'line_total', 'line_cost'])
-            ->map(static fn (object $r): array => (array) $r)
-            ->all();
+        self::assertSame([
+            'pricing_mode' => 'tax_included', 'default_margin' => null, 'tax_percent' => null, 'tax_percents' => '[]',
+            'subtotal' => '470.000000', 'additional_total' => '50.000000', 'discount_amount' => '47.000000', 'tax_base' => '423.000000',
+            'tax_amount' => '45.360000', 'net_amount' => '473.000000', 'total_before_round' => '518.360000',
+            'final_total' => '518.000000', 'rounding_diff' => '-0.360000',
+        ], (array) DB::table('quotations')->where('id', $id)->first([
+            'pricing_mode', 'default_margin', 'tax_percent', 'tax_percents', 'subtotal', 'additional_total', 'discount_amount', 'tax_base',
+            'tax_amount', 'net_amount', 'total_before_round', 'final_total', 'rounding_diff',
+        ]));
 
         self::assertSame([
             [
-                'unit_cost' => '1000.000000', 'unit_cost_currency' => 'USD',
-                'unit_cost_fx_rate_at_time' => '30.00000000', 'unit_cost_base' => '30000.000000',
-                'margin_percent' => null, 'unit_price' => '36000.000000',   // 30000 × 1.20
-                'line_total' => '72000.000000', 'line_cost' => '60000.000000',
+                'supplier_quotation_item_id' => null, 'entered_unit_price' => '114.000000', 'tax_percent' => '14.000', 'margin_percent' => '20.000',
+                'unit_cost' => '100.000000', 'unit_cost_base' => '100.000000', 'unit_price' => '120.000000', 'line_total' => '360.000000', 'line_cost' => '300.000000',
             ],
             [
-                'unit_cost' => '500.000000', 'unit_cost_currency' => 'USD',
-                'unit_cost_fx_rate_at_time' => '30.00000000', 'unit_cost_base' => '15000.000000',
-                'margin_percent' => '30.000', 'unit_price' => '22500.000000',  // 15000 × (1 + 0.20 + 0.30) (D-106)
-                'line_total' => '67500.000000', 'line_cost' => '45000.000000',
+                'supplier_quotation_item_id' => null, 'entered_unit_price' => '50.000000', 'tax_percent' => '0.000', 'margin_percent' => '10.000',
+                'unit_cost' => '50.000000', 'unit_cost_base' => '50.000000', 'unit_price' => '55.000000', 'line_total' => '110.000000', 'line_cost' => '100.000000',
             ],
-        ], $lines);
+        ], DB::table('quotation_items')->where('quotation_id', $id)->orderBy('line_no')
+            ->get(['supplier_quotation_item_id', 'entered_unit_price', 'tax_percent', 'margin_percent', 'unit_cost', 'unit_cost_base', 'unit_price', 'line_total', 'line_cost'])
+            ->map(static fn (object $r): array => (array) $r)
+            ->all());
 
         // AUD-01: the create is recorded.
-        self::assertSame(1, DB::table('audit_log')
-            ->where('event', 'QUOTATION_CREATED')
-            ->where('entity_id', $row->id)
-            ->count());
+        self::assertSame(1, DB::table('audit_log')->where('event', 'QUOTATION_CREATED')->where('entity_id', $id)->count());
     }
 
-    // ─────────────────────────────────────────────────────────────────── D-63
-
-    /** An exempt customer renders no tax line at all, even when the request sends a rate. */
-    public function test_that_an_exempt_customer_gets_no_tax_line(): void
+    /**
+     * `D-157` amends `D-63`: whether prices include tax is the preparer's toggle, not forced from the
+     * customer's exemption — a `tax_included` quotation to an exempt customer is taxed (example 1's 45.36).
+     */
+    public function test_that_an_exempt_customer_does_not_force_the_tax_off(): void
     {
         $exempt = $this->customer(true);
-        $deal = $this->deal($exempt);
-        $line = $this->supplierLine('100', '1', $this->egpId);
 
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [],
-            overrides: ['customer_id' => $exempt, 'deal_id' => $deal, 'tax_percents' => ['14']],
-        ));
+        $result = $this->create([...$this->e1Body(), 'deal_id' => $this->deal($exempt), 'customer_id' => $exempt]);
 
-        $row = $this->stored($result->quotation->id);
-        self::assertNull($row->tax_percent);
-        self::assertNull($row->tax_amount);
-        self::assertSame([], $this->taxPercents($row->id));
-    }
-
-    // ────────────────────────────────────────────────────────────────── D-118
-
-    /** `D-118`: two rates add on the one base — 14 + 5 = 19% of (subtotal − discount). */
-    public function test_that_several_rates_are_summed_on_the_same_base(): void
-    {
-        $line = $this->supplierLine('1000', '1', $this->egpId);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [['description' => 'Delivery', 'amount' => '100']],
-            overrides: ['default_margin' => '0', 'discount_percent' => '10', 'tax_percents' => ['14', '5']],
-        ));
-
-        $row = $this->stored($result->quotation->id);
-        self::assertSame('19.000', $row->tax_percent);
-        self::assertSame('900.000000', $row->tax_base);      // 1000 − 100 (D-64); delivery untaxed (D-62)
-        self::assertSame('171.000000', $row->tax_amount);    // 900 × 19%
-        self::assertSame(['14.000', '5.000'], $this->taxPercents($row->id));
-    }
-
-    /** `D-118` + `D-63`: an empty list is no tax — no line at all, not a zero. */
-    public function test_that_an_empty_rate_list_is_no_tax(): void
-    {
-        $line = $this->supplierLine('1000', '1', $this->egpId);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [],
-            overrides: ['tax_percents' => []],
-        ));
-
-        $row = $this->stored($result->quotation->id);
-        self::assertNull($row->tax_percent);
-        self::assertNull($row->tax_amount);
-        self::assertSame([], $this->taxPercents($row->id));
+        self::assertSame(
+            ['pricing_mode' => 'tax_included', 'tax_amount' => '45.360000'],
+            (array) DB::table('quotations')->where('id', $result->quotation->id)->first(['pricing_mode', 'tax_amount']),
+        );
     }
 
     // ────────────────────────────────────────────────────────────── D-65 rounding
@@ -400,183 +337,28 @@ final class CreateQuotationTest extends TestCase
         );
     }
 
-    /** A blocked save rolls the walk back with it: `DealOutcomeInterface` runs inside the caller's transaction. */
-    public function test_that_a_blocked_quotation_leaves_its_deal_where_it_was(): void
+    /**
+     * A failed save rolls the walk back with it: `DealOutcomeInterface` runs inside the caller's transaction.
+     * QS.2a: no supplier offer can block a line any more (`D-155`), so the failure is a line naming no
+     * supplier — refused at the boundary, and by `quotation_items.supplier_id`'s foreign key under it.
+     */
+    public function test_that_a_failed_save_leaves_its_deal_where_it_was(): void
     {
         DB::table('deals')->where('id', $this->dealId)->update(['status' => 'contacted']);
-        $line = $this->supplierLine('100', '1', $this->egpId);
-        DB::table('supplier_quotation_items')->where('id', $line)->update(['deleted_at' => now()]);
 
         try {
-            $this->create($this->payload(
-                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-                additional: [],
-                overrides: [],
-            ));
-            self::fail('A missing supplier price must block the save (§5.6).');
-        } catch (QuotationNotPriceable) {
+            $this->create([
+                ...$this->e1Body(['supplier_id' => Uuid::uuid4()->toString()] + $this->lineBody()),
+                'deal_id' => $this->dealId,
+                'customer_id' => $this->customerId,
+            ]);
+            self::fail('A line naming no supplier cannot be saved.');
+        } catch (QueryException|ValidationException) {
         }
 
         self::assertSame('contacted', DB::table('deals')->where('id', $this->dealId)->value('status'));
         self::assertSame(0, DB::table('audit_log')->where('event', 'DEAL_STATUS_CHANGED')->count());
-    }
-
-    // ────────────────────────────────────────────────────────────── §5.6 block
-
-    /** A supplier line whose price is gone blocks the whole save — nothing is written. */
-    public function test_that_a_missing_supplier_price_blocks_and_writes_nothing(): void
-    {
-        $line = $this->supplierLine('100', '1', $this->egpId);
-        DB::table('supplier_quotation_items')->where('id', $line)->update(['deleted_at' => now()]);
-
-        try {
-            $this->create($this->payload(
-                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-                additional: [],
-                overrides: [],
-            ));
-            self::fail('A missing supplier price must block the save (§5.6).');
-        } catch (QuotationNotPriceable $e) {
-            self::assertSame(QuotationNotPriceable::SUPPLIER_PRICE_MISSING, $e->reason);
-        }
-
         self::assertSame(0, DB::table('quotations')->count());
-        self::assertSame(0, DB::table('quotation_items')->count());
-    }
-
-    /** A supplier currency the quotation cannot convert — no FX rate — blocks too (`D-09`). */
-    public function test_that_a_missing_fx_rate_blocks(): void
-    {
-        $line = $this->supplierLine('1000', '1', $this->usdId);   // USD line, EGP quotation, no rate seeded
-
-        try {
-            $this->create($this->payload(
-                lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-                additional: [],
-                overrides: [],
-            ));
-            self::fail('A pair with no FX rate cannot be priced at creation (D-09).');
-        } catch (QuotationNotPriceable $e) {
-            self::assertSame(QuotationNotPriceable::FX_RATE_MISSING, $e->reason);
-        }
-
-        self::assertSame(0, DB::table('quotations')->count());
-    }
-
-    /**
-     * `D-115`, the owner's example: only `USD→EGP = 50` is recorded, and an EGP
-     * supplier price on a USD quotation converts through it — 30000 EGP is 600 USD.
-     */
-    public function test_that_an_egp_price_on_a_usd_quotation_converts_through_the_recorded_usd_to_egp_rate(): void
-    {
-        $this->fxRate($this->usdId, $this->egpId, '50');
-        $line = $this->supplierLine('30000', '1', $this->egpId);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [],
-            overrides: ['currency' => 'USD', 'default_margin' => '0', 'discount_percent' => '0'],
-        ));
-
-        $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
-            ->first(['unit_cost_currency', 'unit_cost_fx_rate_at_time', 'unit_cost_base']);
-        self::assertNotNull($item);
-        self::assertSame('EGP', $item->unit_cost_currency);
-        self::assertSame('0.02000000', $item->unit_cost_fx_rate_at_time);
-        self::assertSame('600.000000', $item->unit_cost_base);
-    }
-
-    /**
-     * `D-115`: the inverse divides by the recorded rate rather than multiplying
-     * by its truncated inverse — 30000 EGP at 30 is 1000 USD, not 999.9999.
-     */
-    public function test_that_an_inverse_rate_divides_rather_than_multiplying_a_truncated_inverse(): void
-    {
-        $this->fxRate($this->usdId, $this->egpId, '30');
-        $line = $this->supplierLine('30000', '1', $this->egpId);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [],
-            overrides: ['currency' => 'USD', 'default_margin' => '0', 'discount_percent' => '0'],
-        ));
-
-        $item = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)
-            ->first(['unit_cost_fx_rate_at_time', 'unit_cost_base']);
-        self::assertNotNull($item);
-        self::assertSame('0.03333333', $item->unit_cost_fx_rate_at_time);
-        self::assertSame('1000.000000', $item->unit_cost_base);
-    }
-
-    // ────────────────────────────────────────────────────────────── §5.6 warn
-
-    /** A requested quantity above the supplier's recorded amount warns and does not block. */
-    public function test_that_a_quantity_above_the_recorded_amount_warns_without_blocking(): void
-    {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '100', 'margin_percent' => null]],
-            additional: [],
-            overrides: [],
-        ));
-
-        self::assertSame([1], $result->quantityWarnings);
-        self::assertSame(1, DB::table('quotations')->where('id', $result->quotation->id)->count());
-    }
-
-    /**
-     * `D-81` (F-05 · 1.4): the ceiling §5.6 warns against is what is left of
-     * the offer, not what it started as. 5 recorded, 3 already drawn → 4 is
-     * within the offer and still over the balance.
-     */
-    public function test_that_a_quantity_within_the_recorded_amount_but_above_the_available_balance_warns(): void
-    {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-        DB::table('supplier_quotation_items')->where('id', $line)->update(['consumed_quantity' => '3']);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '4', 'margin_percent' => null]],
-            additional: [],
-            overrides: [],
-        ));
-
-        self::assertSame([1], $result->quantityWarnings);
-        self::assertSame(1, DB::table('quotations')->where('id', $result->quotation->id)->count());
-    }
-
-    public function test_that_a_quantity_at_exactly_the_available_balance_does_not_warn(): void
-    {
-        $line = $this->supplierLine('100', '5', $this->egpId);
-        DB::table('supplier_quotation_items')->where('id', $line)->update(['consumed_quantity' => '3']);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '2', 'margin_percent' => null]],
-            additional: [],
-            overrides: [],
-        ));
-
-        self::assertSame([], $result->quantityWarnings);
-    }
-
-    // ──────────────────────────────────────────────────────────── QS.1 · D-155
-
-    /** The saved line names its own product — its supplier line's catalog item, on the line's own row. */
-    public function test_that_a_saved_line_names_its_own_product(): void
-    {
-        $line = $this->supplierLine('100', '1', $this->egpId);
-        $product = DB::table('supplier_quotation_items')->where('id', $line)->value('catalog_item_id');
-        self::assertIsString($product);
-
-        $result = $this->create($this->payload(
-            lines: [['supplier_quotation_item_id' => $line, 'quantity' => '1', 'margin_percent' => null]],
-            additional: [],
-            overrides: [],
-        ));
-
-        $row = DB::table('quotation_items')->where('quotation_id', $result->quotation->id)->first();
-        self::assertInstanceOf(stdClass::class, $row);
-        self::assertSame($product, $row->catalog_item_id ?? null);
     }
 
     // ────────────────────────────────────────────────────────────────── helpers
@@ -628,19 +410,6 @@ final class CreateQuotationTest extends TestCase
         ]);
 
         return $id;
-    }
-
-    private function fxRate(string $fromId, string $toId, string $rate): void
-    {
-        DB::table('fx_rates')->insert([
-            'id' => Uuid::uuid4()->toString(),
-            'from_currency_id' => $fromId,
-            'to_currency_id' => $toId,
-            'rate' => $rate,
-            'effective_from' => now()->subDay(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
     }
 
     /** Seeds §4.1's chain and returns the `supplier_quotation_items` id a line points at. */
@@ -705,18 +474,6 @@ final class CreateQuotationTest extends TestCase
     private function create(array $validated, array $heldScopes = ['all']): QuotationCreated
     {
         return $this->app->make(CreateQuotation::class)->create($validated, $heldScopes, $this->actorId);
-    }
-
-    /** @return list<string> */
-    private function taxPercents(string $id): array
-    {
-        $raw = DB::table('quotations')->where('id', $id)->value('tax_percents');
-        self::assertIsString($raw);
-        $list = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        self::assertIsList($list);
-        self::assertContainsOnlyString($list);
-
-        return $list;
     }
 
     private function stored(string $id): Quotation

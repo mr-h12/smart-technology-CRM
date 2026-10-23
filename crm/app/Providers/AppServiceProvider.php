@@ -126,6 +126,7 @@ use App\Modules\Storage\Domain\Contracts\AttachmentPermissionInterface;
 use App\Modules\Storage\Domain\Contracts\FileRepositoryInterface;
 use App\Modules\Storage\Domain\Contracts\FileWriterInterface;
 use App\Modules\Storage\Domain\Contracts\StorageServiceInterface;
+use App\Modules\Storage\Domain\Contracts\StorageUsageInterface;
 use App\Modules\Storage\Domain\Contracts\UploadValidatorInterface;
 use App\Modules\Storage\Domain\Contracts\VirusScannerInterface;
 use App\Modules\Storage\Infrastructure\ClamAvScanner;
@@ -134,6 +135,7 @@ use App\Modules\Storage\Infrastructure\DatabaseFileWriter;
 use App\Modules\Storage\Infrastructure\EicarSignatureScanner;
 use App\Modules\Storage\Infrastructure\FinfoUploadValidator;
 use App\Modules\Storage\Infrastructure\LocalStorageService;
+use App\Modules\Storage\Infrastructure\LocalStorageUsage;
 use App\Modules\SupplierQuotations\Application\Access\SupplierQuotationAttachmentPermission;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemPricingInterface;
 use App\Modules\SupplierQuotations\Domain\Contracts\SupplierItemQuantityInterface;
@@ -272,6 +274,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AlertLedgerInterface::class, DatabaseAlertLedger::class);
         // Module 16 · 3: what `failed_jobs` still holds, for J-17.
         $this->app->bind(FailedJobsInterface::class, DatabaseFailedJobs::class);
+        // Module 16 · 4: how full the files volume is, for J-14.
+        $this->app->bind(StorageUsageInterface::class, LocalStorageUsage::class);
         // F-40 · 1.4: the Commercial Offer's *Att.* line (`D-107`, `D-104`).
         $this->app->bind(CustomerContactsInterface::class, EloquentCustomerContacts::class);
 

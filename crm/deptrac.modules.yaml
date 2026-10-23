@@ -925,6 +925,8 @@ deptrac:
       - IdentityContract
       # QuotationsContract: `ExpiringQuotationsInterface::sentExpiringBetween`.
       - QuotationsContract
+      # 4 (J-14) — StorageContract: `StorageUsageInterface::usage`, how full the files volume is.
+      - StorageContract
     # Pdf, Module 9 — empty until Point 1.2, whose mapper is the first class
     # that crosses. Each grant names what the customer's document needs.
     Pdf:

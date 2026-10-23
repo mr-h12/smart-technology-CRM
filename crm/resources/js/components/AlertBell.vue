@@ -105,6 +105,8 @@ function sentence(alert: Alert): string {
             return t('alerts.kind.account_locked', { name: text(d['name']) });
         case 'job_failed':
             return t('alerts.kind.job_failed', { job: text(d['job']) });
+        case 'storage_over_limit':
+            return t('alerts.kind.storage_over_limit', { used: text(d['used_percent']), limit: text(d['limit_percent']) });
         default:
             return t(`alerts.kind.${alert.kind}`);
     }

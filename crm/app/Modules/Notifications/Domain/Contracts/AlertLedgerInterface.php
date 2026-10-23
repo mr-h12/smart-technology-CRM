@@ -16,7 +16,7 @@ interface AlertLedgerInterface
      * counter and read state and takes the new details; an open one not wanted any
      * more is cleared, its row kept. Alerts of any other kind are untouched.
      *
-     * @param  list<array{user_id: string, subject_id: string, details: array<string, string>}>  $wanted
+     * @param  list<array{user_id: string, subject_id: string|null, details: array<string, string>}>  $wanted  a `null` subject is an alert with no record of its own (storage)
      * @return array{raised: int, cleared: int}
      */
     public function keepOpen(string $kind, array $wanted): array;

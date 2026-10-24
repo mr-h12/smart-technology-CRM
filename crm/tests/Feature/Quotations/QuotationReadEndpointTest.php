@@ -657,6 +657,93 @@ final class QuotationReadEndpointTest extends TestCase
         self::assertSame('14.000', $line['tax_percent'] ?? null);
     }
 
+    // ──────────────────────────────────────── QS.2d · each line's tax amount
+
+    /** `D-170`: a line carries `CustomerLineFigures::vat()` — no discount, 3 × 120.00 = 360 at 14 % → 50.40, at the money scale. */
+    public function test_each_line_carries_its_tax_amount(): void
+    {
+        $id = $this->lineOwned($this->deal(null), overrides: ['discount_percent' => '0']);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.items.0.line_total', '360.000000')
+            ->assertJsonPath('data.items.0.tax_amount', '50.400000');
+    }
+
+    /**
+     * `D-170` / `D-63`: no rate above zero is no figure — the key is there, its value null: a `tax_exempt` line
+     * (no rate; the body refuses one) and a line taxed at 0 %.
+     */
+    public function test_a_line_without_a_rate_above_zero_has_a_null_tax_amount(): void
+    {
+        $exempt = $this->lineOwned($this->deal(null), overrides: $this->e3Body());
+        $zero = $this->lineOwned($this->deal(null), overrides: ['lines' => [$this->lineBody(tax: '0')]]);
+
+        foreach ([$exempt, $zero] as $id) {
+            $item = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+                ->assertStatus(200)
+                ->json('data.items.0');
+
+            self::assertIsArray($item);
+            self::assertArrayHasKey('tax_amount', $item);
+            self::assertNull($item['tax_amount']);
+        }
+    }
+
+    /**
+     * `D-170` / `D-165`: a `legacy` line is taxed at the quotation's rate, not its own — the line's rate cleared,
+     * example 4's 345 − 10 % = 310.50 at the quotation's 14 % → 43.47.
+     */
+    public function test_a_legacy_line_is_taxed_at_the_quotation_rate(): void
+    {
+        $id = $this->legacyQuotation($this->deal(null), $this->customerId, $this->supplierLine('100', '3'));
+        DB::table('quotation_items')->where('quotation_id', $id)->update(['tax_percent' => null]);
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonPath('data.pricing_mode', 'legacy')
+            ->assertJsonPath('data.items.0.tax_amount', '43.470000');
+    }
+
+    /** `D-170` / `D-157`: under a discount each line is taxed on its discounted amount, so the column sums to the VAT row. */
+    public function test_the_line_taxes_sum_to_the_vat_row_under_a_discount(): void
+    {
+        $id = $this->lineOwned($this->deal(null), overrides: ['discount_percent' => '7', 'lines' => [
+            $this->lineBody(entered: '100', tax: '14', margin: '20', quantity: '3'),
+            $this->lineBody(entered: '33.33', tax: '5', margin: '10', quantity: '7'),
+        ]]);
+
+        $data = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->json('data');
+
+        self::assertIsArray($data);
+        self::assertIsArray($data['items']);
+        $sum = '0';
+        foreach ($data['items'] as $item) {
+            self::assertIsArray($item);
+            self::assertArrayHasKey('tax_amount', $item);
+            self::assertIsString($item['tax_amount']);
+            self::assertIsNumeric($item['tax_amount']);
+            $sum = bcadd($sum, $item['tax_amount'], 6);
+        }
+        self::assertIsString($data['tax_amount']);
+        self::assertIsNumeric($data['tax_amount']);
+        self::assertSame(0, bccomp($sum, $data['tax_amount'], 6), $sum.' ≠ '.$data['tax_amount']);
+    }
+
+    /** `D-170`: the tax amount is not a cost field — a viewer without `view cost & margin` reads it (example 1: 324 at 14 % → 45.36). */
+    public function test_that_without_the_cost_grant_a_line_still_carries_its_tax_amount(): void
+    {
+        $id = $this->lineOwned($this->deal(null));
+        DB::table('permissions')->where('resource', 'quotation')->where('action', 'view_cost_and_margin')->delete();
+
+        $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
+            ->assertStatus(200)
+            ->assertJsonMissingPath('data.items.0.unit_cost')
+            ->assertJsonPath('data.items.0.tax_amount', '45.360000');
+    }
+
     /**
      * `D-161` retires `D-36`'s price-drift and `D-81`'s over-quantity warnings: a legacy Draft whose
      * supplier price moved (100 → 110) and whose 3 pass the offer's recorded 2 carries neither.
@@ -739,16 +826,19 @@ final class QuotationReadEndpointTest extends TestCase
     }
 
     /**
-     * QS.2a: a quotation saved through the line-owned body — `D-156` example 1 — on `$line`, or a line of its own.
+     * QS.2a: a quotation saved through the line-owned body — `D-156` example 1 — on `$line`, or a line of its own,
+     * with `$overrides` laid over it (QS.2d).
      *
      * @param  array<string, string>|null  $line
+     * @param  array<string, mixed>  $overrides
      */
-    private function lineOwned(string $dealId, ?array $line = null): string
+    private function lineOwned(string $dealId, ?array $line = null, array $overrides = []): string
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->dealCustomers[$dealId],
             ...$this->e1Body($line),
+            ...$overrides,
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 
         self::assertIsString($id);

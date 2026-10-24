@@ -15,6 +15,7 @@ use App\Modules\Quotations\Domain\Listing\QuotationDetail;
 use App\Modules\Quotations\Domain\Listing\QuotationLine;
 use App\Modules\Quotations\Domain\Listing\QuotationPage;
 use App\Modules\Quotations\Domain\Listing\QuotationSummary;
+use App\Modules\Quotations\Domain\Pricing\CustomerLineFigures;
 use App\Modules\Quotations\Domain\Pricing\PricedLine;
 use App\Modules\Quotations\Domain\Writing\QuotationEtag;
 use App\Modules\Storage\Domain\StoredFile;
@@ -189,6 +190,8 @@ final class QuotationPayload
                     // `D-148` (over `D-106`'s ruling (b)): the margin the stored price achieves, computed here, never by the SPA —
                     // a cost field, so it goes with the others; read-only, so not in `asRow()`'s audit values.
                     ...($withCosts ? ['effective_margin_percent' => PricedLine::achievedMargin(Decimal::of($line->unitPrice, 'unit_price'), Decimal::of($line->unitCostBase, 'unit_cost_base'))] : []),
+                    // `D-170`: the line's VAT for every viewer (not a cost field); read-only, so not in `asRow()`'s audit values.
+                    'tax_amount' => self::lineTax($quotation, $line),
                 ],
                 $quotation->items,
             ),
@@ -207,6 +210,23 @@ final class QuotationPayload
             'updated_by' => $quotation->updatedBy,
             'updated_at' => $quotation->updatedAt->format(DATE_ATOM),
         ];
+    }
+
+    /**
+     * `D-170`: `CustomerLineFigures::vat()` at the rate the PDF uses (`D-157`; a `legacy` line at the quotation's, `D-165`);
+     * no rate above zero is no figure (`D-63`), as {@see \App\Modules\Quotations\Domain\Pricing\QuotationTotals} sums it.
+     *
+     * @return numeric-string|null
+     */
+    private static function lineTax(QuotationDetail $quotation, QuotationLine $line): ?string
+    {
+        $rate = CustomerLineFigures::rate($quotation, $line);
+        $rate = $rate === null ? null : Decimal::of($rate, 'tax_percent');
+
+        // The PDF prints 0.00 for a 0 % line; the view shows none (owner's call, `D-170`).
+        return $rate === null || bccomp($rate, '0', 3) <= 0
+            ? null
+            : CustomerLineFigures::vat(Decimal::of($line->lineTotal, 'line_total'), Decimal::of($quotation->discountPercent, 'discount_percent'), $rate);
     }
 
     /**

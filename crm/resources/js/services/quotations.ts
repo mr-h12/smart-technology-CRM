@@ -57,13 +57,14 @@ export interface QuotationLine {
     unit_code: string | null;
     supplier_id?: string;
     supplier_name?: string | null;
-    entered_unit_price?: string;
     tax_percent?: string | null;
     /** F-16 · 1.1: the catalog item's name (a service's `service_type`); null when its supplier line is archived. */
     product_name: string | null;
     quantity: string;
     unit_price: string;
     line_total: string;
+    /** `D-170`: the line's VAT as the server computed it, for every viewer; null with no rate above zero (`D-63`). */
+    tax_amount: string | null;
     unit_cost?: string;
     unit_cost_currency?: string;
     unit_cost_fx_rate_at_time?: string;

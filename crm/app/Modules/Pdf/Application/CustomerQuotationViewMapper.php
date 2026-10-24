@@ -197,8 +197,6 @@ final readonly class CustomerQuotationViewMapper
         )))));
 
         $discountPercent = Decimal::of($quotation->discountPercent, 'discount_percent');
-        $legacy = $quotation->pricingMode === PricingMode::Legacy;
-
         $lines = [];
         $undescribed = [];
 
@@ -211,8 +209,7 @@ final readonly class CustomerQuotationViewMapper
                 continue;
             }
 
-            // D-157: a line is taxed at its own rate; a legacy one at the quotation's (D-165).
-            $rate = $legacy ? $quotation->taxPercent : $line->taxPercent;
+            $rate = CustomerLineFigures::rate($quotation, $line);
             $vat = $rate === null ? null : CustomerLineFigures::vat(Decimal::of($line->lineTotal, 'line_total'), $discountPercent, Decimal::of($rate, 'tax_percent'));
 
             $unit = $line->unitCode === null ? null : ($units[$line->unitCode] ?? null);

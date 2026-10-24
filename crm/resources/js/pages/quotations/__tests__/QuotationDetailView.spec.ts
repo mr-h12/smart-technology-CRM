@@ -954,6 +954,8 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         unit_cost: '100.000000',
         unit_cost_base: '100.000000',
         margin_percent: '20.000',
+        // D-170: CustomerLineFigures::vat() — 360 less the 10 % discount, at 14 %.
+        tax_amount: '45.360000',
     };
 
     /** A `tax_included` quotation (D-165): no quotation margin, no quotation rate, the VAT the lines' sum (D-157). */
@@ -976,15 +978,39 @@ describe('the quotation detail view — line pricing (QS.2a)', () => {
         items: [PRICED_LINE],
     };
 
-    it('shows each line’s supplier, unit, entered price and tax when the payload carries them (D-155)', async () => {
+    // D-170 retires the entered-price column (under D-167 it repeated the unit cost); the next test pins its absence.
+    it('shows each line’s supplier, unit and tax when the payload carries them (D-155)', async () => {
         const { wrapper } = await render(respond({ quotation: PRICED }));
 
         expect(wrapper.get('[data-testid="quotation-line-supplier"]').text()).toBe('Nile Pumps Co');
         expect(wrapper.get('[data-testid="quotation-line-unit"]').text()).toBe('Piece');
-        // The cell's whole text: unit_cost_base is 100.000000 too, so a bare '100.00' would also pass on '1100.00'.
-        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).toBe('100.00 EGP');
-        expect(wrapper.get('[data-testid="quotation-line-entered_unit_price"]').text()).not.toContain('100.000000');
         expect(wrapper.get('[data-testid="quotation-line-tax_percent"]').text()).toMatch(/^14\s*%$/);
+    });
+
+    // D-170: the entered price leaves the view; quantity · unit cost · margin · unit price · tax % · tax amount · total.
+    it('drops the entered price and orders the line columns', async () => {
+        const d = en.quotations.detail as Record<string, string>;
+        const headers = (wrapper: Awaited<ReturnType<typeof render>>['wrapper']): string[] =>
+            wrapper.findAll('[data-testid="quotation-lines"] thead th').map((th) => th.text());
+
+        const costed = await render(respond({ quotation: PRICED }));
+        expect(headers(costed.wrapper)).toEqual(['#', d.supplier, d.product, d.unit, d.quantity, d.unitCost, d.margin, d.unitPrice, d.taxRate, d.lineTax, d.lineTotal]);
+        expect(costed.wrapper.find('[data-testid="quotation-line-entered_unit_price"]').exists()).toBe(false);
+
+        const stripped = { ...QUOTATION, items: [{ ...QUOTATION.items[0], unit_code: 'pcs', tax_percent: '14.000', tax_amount: '126.000000' }] };
+        const bare = await render(respond({ quotation: stripped }), READER);
+        expect(headers(bare.wrapper)).toEqual(['#', d.product, d.unit, d.quantity, d.unitPrice, d.taxRate, d.lineTax, d.lineTotal]);
+    });
+
+    // D-170 / D-63: the backend's figure with its code, one left-to-right run (A-26); no rate above zero is «—», not 0.00.
+    it('shows each line’s tax amount, a dash when null', async () => {
+        const taxed = await render(respond({ quotation: PRICED }));
+        const cell = taxed.wrapper.get('[data-testid="quotation-line-tax_amount"]');
+        expect(cell.text()).toBe('45.36 EGP');
+        expect(cell.find('bdi[dir="ltr"]').exists()).toBe(true);
+
+        const exempt = await render(respond({ quotation: { ...PRICED, items: [{ ...PRICED_LINE, tax_amount: null }] } }));
+        expect(exempt.wrapper.get('[data-testid="quotation-line-tax_amount"]').text()).toBe('—');
     });
 
     it('names the unit in the session’s language', async () => {

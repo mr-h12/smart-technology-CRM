@@ -5026,6 +5026,12 @@ resumes at 8.3 after the redesign unless the owner reorders.
 - [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
       with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
       and the totals block shows before Save.
+- [ ] **QS.2d** The quotation view's line columns (owner, 2026-10-24, in chat; approved the same day) — the
+      «السعر المُدخل» column leaves the view (under `D-167` it repeats the unit cost); the order becomes quantity ·
+      unit cost · margin · unit price before tax · tax % · **tax amount** · **total excl. tax**. Each API line carries
+      `tax_amount`, the backend's `CustomerLineFigures::vat()` — the PDF's figure (`D-157`; a `legacy` line at the
+      quotation's rate, `D-165`) — null when the line has no rate above zero (`D-63`), shown as «—» (`D-170`,
+      proposed). The builder, the pricing and the PDF do not change.
 
 ## Shell revisions — owner-directed
 

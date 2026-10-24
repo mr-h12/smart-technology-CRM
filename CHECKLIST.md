@@ -2051,6 +2051,12 @@ would hide them behind `OD-03` indefinitely.
       (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
       `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
       Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
+- [ ] **`RequestIdTest` fails when a random request id happens to contain `abc`** — *revealed by QS.2c's full suite, 2026-10-24.*
+      "a rejected correlation id never echoes" asserts the rejected value (`abc…`) appears nowhere in the response,
+      but the fresh UUID it gets back is random: `82490ddc-5d71-4abc-…` failed the run; alone it passed (43/43).
+      The needle should be something a UUID cannot contain (a non-hex letter), not fixed here — no PHP in this point.
+- [ ] **`removed()`'s `message` argument is the same at every caller** — *revealed by QS.2c's waste audit, 2026-10-24.*
+      All three callers pass `'quotations.builder.removed'`, as they did before the point; a constant would do.
 - [ ] **Text typed in an entry row but not added is dropped by Save, without a word** — *revealed by QS.2c, 2026-10-24.*
       The lines' entry row has always worked this way (`draft()` reads only the table; `snapshot()` ignores the
       entry), and QS.2c gives the additional items and the terms the same entry row, so all three now share it.

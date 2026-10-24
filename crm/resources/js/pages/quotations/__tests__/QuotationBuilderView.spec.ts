@@ -1043,12 +1043,12 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
 
         expect(value(wrapper, 'term-entry-body')).toBe('One year');
 
-        // Added back (it keeps its key), the entry row is fresh again; the delivery term has no recent terms.
+        // Added back to its own row (it keeps its key), the entry row is fresh again; the delivery term has no recent terms.
         await wrapper.get(id('term-entry-add')).trigger('click');
         await flushPromises();
         expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
 
-        await editRow(wrapper, 'term-1-edit');
+        await editRow(wrapper, 'term-2-edit');
 
         expect(value(wrapper, 'term-entry-body')).toBe('');
         expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
@@ -1075,7 +1075,8 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
     it('keeps a ready term’s chips when it is renamed or moves up, and gives an added term none (D-103 ruling 2)', async () => {
         const { wrapper } = await render(respond({ quotations: [KEYED], suggestions: { warranty: ['One year'], payment_terms: ['50% advance'] } }), KEYED_EDIT);
 
-        // Rename the warranty: it goes back into the table last, its key with it.
+        // Rename the warranty: it goes back to its own row (owner, 2026-10-24), its key with it; removing the
+        // payment term above moves it up.
         await editRow(wrapper, 'term-1-edit');
         await wrapper.get(id('term-entry-title')).setValue('Guarantee');
         await wrapper.get(id('term-entry-add')).trigger('click');
@@ -1083,9 +1084,9 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
         await wrapper.get(id('term-0-remove')).trigger('click');
         await flushPromises();
 
-        expect(wrapper.get(id('term-1-title')).text()).toBe('Guarantee');
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Guarantee');
 
-        await editRow(wrapper, 'term-1-edit');
+        await editRow(wrapper, 'term-0-edit');
 
         expect(value(wrapper, 'term-entry-title')).toBe('Guarantee');
         expect(wrapper.findAll(id('term-entry-suggestion')).map((chip) => chip.text())).toEqual(['One year']);
@@ -1949,6 +1950,40 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         expect(termRows(wrapper)).toHaveLength(14);
         expect(wrapper.get(id('term-13-title')).text()).toBe('Term 13');
         expect(wrapper.get(id('term-entry-add')).attributes('disabled')).toBeUndefined();
+    });
+
+    it('keeps a sent-back term’s own place when a row above it is removed, and when that removal is undone', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT);
+
+        await editRow(wrapper, 'term-1-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Warranty');
+        expect(wrapper.get(id('term-1-title')).text()).toBe('Delivery');
+
+        await editRow(wrapper, 'term-1-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text() === 'Undo')?.trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(termRows(wrapper).map((row) => row.find(`[data-testid$="-title"]`).text())).toEqual(['Warranty', 'Delivery']);
+
+        // A row BELOW the sent-back one, removed and restored, leaves its place alone.
+        await editRow(wrapper, 'term-0-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text() === 'Undo')?.trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(termRows(wrapper).map((row) => row.find(`[data-testid$="-title"]`).text())).toEqual(['Warranty', 'Delivery']);
     });
 
     it('saves a renamed, a removed and an added term in table order, and none of the old fields', async () => {

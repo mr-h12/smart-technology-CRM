@@ -38,14 +38,18 @@
  * back to the quotation's page. Leaving with unsaved changes asks first
  * (`Design System §5.2`).
  *
+ * ── Additional items and terms (QS.2c) ─────────────────────────────────────
+ * Both work like the lines: an entry row moves a row into its table, and a
+ * row's Edit sends it back to the entry row; added again, it returns to its
+ * own row (owner, 2026-10-24). Text left in an entry row is not saved.
+ *
  * ── Terms (D-103) ──────────────────────────────────────────────────────────
- * A list built like the additional items, up to 15, sent as `terms` in row
- * order. `D-169`: a new quotation opens on one empty term with no key. Keyed
- * terms (`payment_terms`, `warranty`, `delivery_terms`) come only from a stored
- * quotation; there the key, not the row, carries the default name, the chips
- * and the combobox, so they follow a renamed or moved term. An added term has
- * no key. An empty name or text is sent as null, and an empty term is kept
- * (the owner, 2026-10-08).
+ * Up to 15, sent as `terms` in row order. `D-169`: a new quotation opens on no
+ * terms. Keyed terms (`payment_terms`, `warranty`, `delivery_terms`) come only
+ * from a stored quotation; there the key, not the row, carries the default
+ * name, the chips and the combobox, so they follow a renamed or moved term
+ * back to the entry row. An added term has no key and needs a name and a text;
+ * a keyed one may stay empty, sent as nulls (the owner, 2026-10-08).
  *
  * ── Delivery terms (F-32) ──────────────────────────────────────────────────
  * The delivery-keyed term's text, with suggestions like the other ready terms
@@ -78,6 +82,7 @@ import {
     readQuotation,
     updateQuotation,
     type PricingMode,
+    type QuotationAdditionalItemDraft,
     type QuotationDetail,
     type QuotationDraft,
     type TermField,
@@ -144,12 +149,28 @@ const taxIncluded = ref(true);
 const TERM_FIELDS: TermField[] = ['payment_terms', 'warranty', 'delivery_terms'];
 /** `D-103`'s cap. */
 const MAX_TERMS = 15;
-/** `D-103`: the terms as typed, in their printed order; `D-169`: a new quotation opens on one empty keyless term. */
-function readyTerms(): Array<{ key: TermField | null; title: string; body: string }> {
-    return [{ key: null, title: '', body: '' }];
+interface Term {
+    key: TermField | null;
+    title: string;
+    body: string;
 }
 
-const terms = ref(readyTerms());
+function blankTerm(): Term {
+    return { key: null, title: '', body: '' };
+}
+
+function blankItem(): QuotationAdditionalItemDraft {
+    return { description: '', amount: '' };
+}
+
+/** `D-103`: the terms in their printed order; `D-169`: a new quotation opens on none. */
+const terms = ref<Term[]>([]);
+const termEntry = ref(blankTerm());
+const items = ref<QuotationAdditionalItemDraft[]>([]);
+const itemEntry = ref(blankItem());
+/** The row an Edit took out — Add puts it back there (owner, 2026-10-24); null means Add appends. */
+let termSlot: number | null = null;
+let itemSlot: number | null = null;
 const suggestions = ref<Record<TermField, string[]>>({ payment_terms: [], warranty: [], delivery_terms: [] });
 
 /** F-32 — the registered delivery terms (`DB-05`); empty when none exist or the list could not be read. */
@@ -200,7 +221,6 @@ const lines = ref<Line[]>([]);
 const entry = ref(blankEntry());
 /** The `units` managed list — an entry's unit is picked from it by code. */
 const units = ref<ListEntry[]>([]);
-const items = ref<Array<{ description: string; amount: string }>>([]);
 
 /** `OpenAPI §9.2`'s token, as the detail carried it; what the next `PATCH` sends. */
 const etag = ref('');
@@ -250,9 +270,9 @@ function lineError(index: number): string | null {
 }
 
 /** A row moved, so the indexes the server named no longer point at the same rows. */
-function dropLineErrors(): void {
+function dropErrors(list: 'lines' | 'additional_items' | 'terms'): void {
     for (const key of [...fieldErrors.value.keys()]) {
-        if (key === 'lines' || key.startsWith('lines.')) {
+        if (key === list || key.startsWith(`${list}.`)) {
             fieldErrors.value.delete(key);
         }
     }
@@ -301,6 +321,10 @@ function applyDetail(quotation: QuotationDetail): void {
         quantity: displayQuantity(line.quantity),
     }));
     entry.value = blankEntry();
+    termEntry.value = blankTerm();
+    itemEntry.value = blankItem();
+    termSlot = null;
+    itemSlot = null;
     items.value = quotation.additional_items.map((item) => ({ description: item.description, amount: displayQuantity(item.amount) }));
     etag.value = quotation.etag;
     quotationCode.value = quotation.code;
@@ -402,31 +426,22 @@ async function reload(): Promise<void> {
     opened.value = snapshot();
 }
 
-/** A-17: focus the first of these fields that exists, once the DOM has caught up. */
-async function focusField(...keys: string[]): Promise<void> {
+/** A-17: focus this field once the DOM has caught up. */
+async function focusField(key: string): Promise<void> {
     await nextTick();
-
-    for (const key of keys) {
-        const field = form.value?.querySelector<HTMLElement>(`#${fieldId(key)}`);
-
-        if (field) {
-            field.focus();
-
-            return;
-        }
-    }
+    form.value?.querySelector<HTMLElement>(`#${fieldId(key)}`)?.focus();
 }
 
 /** A-35: how long a removal can be undone. */
 const UNDO_MS = 6000;
 
-/** A-35: the last removal; a newer one makes the older final. `next` and `fallback` are A-17's focus rule. */
-const undo = ref<{ message: string; restore: () => void; next: string; fallback: string } | null>(null);
+/** A-35: the last removal; a newer one makes the older final. `next` is A-17's focus rule. */
+const undo = ref<{ message: string; restore: () => void; next: string } | null>(null);
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 
-function removed(message: string, restore: () => void, next: string, fallback: string): void {
+function removed(message: string, restore: () => void, next: string): void {
     clearTimeout(undoTimer);
-    undo.value = { message, restore, next, fallback };
+    undo.value = { message, restore, next };
     undoTimer = setTimeout(expireUndo, UNDO_MS);
     void focusField('undo');
 }
@@ -439,7 +454,7 @@ function expireUndo(): void {
     undo.value = null;
 
     if (pending !== null && onBar) {
-        void focusField(pending.next, pending.fallback);
+        void focusField(pending.next);
     }
 }
 
@@ -507,7 +522,7 @@ function addLine(): void {
         return;
     }
 
-    dropLineErrors();
+    dropErrors('lines');
     lines.value.push({ supplier: e.supplier, product: e.product, unit: e.unit, price: e.price.trim(), tax: e.tax.trim(), margin: e.margin.trim(), quantity: e.quantity.trim() });
     Object.assign(e, { product: null, unit: '', price: '', quantity: '' });
     void focusField('entry-product');
@@ -526,8 +541,8 @@ function entryEnter(event: KeyboardEvent): void {
 function removeLine(index: number): void {
     const [line] = lines.value.splice(index, 1);
 
-    dropLineErrors();
-    removed('quotations.builder.removed', () => { lines.value.splice(index, 0, line as Line); }, 'entry-product', 'entry-product');
+    dropErrors('lines');
+    removed('quotations.builder.removed', () => { lines.value.splice(index, 0, line as Line); }, 'entry-product');
 }
 
 /** The row goes back to the entry fields, its own values winning over the sticky ones. */
@@ -538,31 +553,118 @@ function sendBack(index: number): void {
         return;
     }
 
-    dropLineErrors();
+    dropErrors('lines');
     entry.value = { supplier: line.supplier, product: line.product, unit: line.unit, price: line.price, tax: line.tax, margin: line.margin, quantity: line.quantity };
     void focusField('entry-price');
 }
 
+/** QS.2c: the item entry row into its table — both fields or nothing, focus on the first missing. */
 function addItem(): void {
-    items.value.push({ description: '', amount: '' });
-    void focusField(`item-${items.value.length - 1}-description`);
+    const description = itemEntry.value.description.trim();
+    const amount = itemEntry.value.amount.trim();
+
+    if (description === '' || amount === '') {
+        void focusField(description === '' ? 'item-entry-description' : 'item-entry-amount');
+
+        return;
+    }
+
+    dropErrors('additional_items');
+    items.value.splice(itemSlot ?? items.value.length, 0, { description, amount });
+    itemSlot = null;
+    itemEntry.value = blankItem();
+    void focusField('item-entry-description');
+}
+
+function editItem(index: number): void {
+    const [item] = items.value.splice(index, 1);
+
+    if (item === undefined) {
+        return;
+    }
+
+    dropErrors('additional_items');
+    itemEntry.value = item;
+    itemSlot = index;
+    void focusField('item-entry-description');
 }
 
 function removeItem(index: number): void {
     const [item] = items.value.splice(index, 1);
 
-    removed('quotations.builder.removed', () => { items.value.splice(index, 0, item as { description: string; amount: string }); }, `item-${index}-description`, 'add-item');
+    dropErrors('additional_items');
+    // A sent-back row's own place moves with a row removed (or restored) above it (owner, 2026-10-24: an edit never reorders).
+    const above = itemSlot !== null && index < itemSlot;
+    if (above) {
+        itemSlot = (itemSlot as number) - 1;
+    }
+    removed('quotations.builder.removed', () => {
+        items.value.splice(index, 0, item as QuotationAdditionalItemDraft);
+        if (above && itemSlot !== null) {
+            itemSlot += 1;
+        }
+    }, 'item-entry-description');
 }
 
+/**
+ * QS.2c: the term entry row into its table, up to `D-103`'s 15. A keyless term
+ * needs a name and a text (the server's rule); a keyed one may stay empty and
+ * prints nothing (`D-103` ruling 3).
+ */
 function addTerm(): void {
-    terms.value.push({ key: null, title: '', body: '' });
-    void focusField(`term-${terms.value.length - 1}-title`);
+    const { key } = termEntry.value;
+    const title = termEntry.value.title.trim();
+    const body = termEntry.value.body.trim();
+
+    if (terms.value.length >= MAX_TERMS) {
+        return;
+    }
+
+    if (key === null && (title === '' || body === '')) {
+        void focusField(title === '' ? 'term-entry-title' : 'term-entry-body');
+
+        return;
+    }
+
+    dropErrors('terms');
+    terms.value.splice(termSlot ?? terms.value.length, 0, { key, title, body });
+    termSlot = null;
+    termEntry.value = blankTerm();
+    void focusField('term-entry-title');
+}
+
+function editTerm(index: number): void {
+    const [term] = terms.value.splice(index, 1);
+
+    if (term === undefined) {
+        return;
+    }
+
+    dropErrors('terms');
+    termEntry.value = term;
+    termSlot = index;
+    void focusField('term-entry-title');
 }
 
 function removeTerm(index: number): void {
     const [term] = terms.value.splice(index, 1);
 
-    removed('quotations.builder.removed', () => { terms.value.splice(index, 0, term as (typeof terms.value)[number]); }, `term-${index}-title`, 'add-term');
+    dropErrors('terms');
+    const above = termSlot !== null && index < termSlot;
+    if (above) {
+        termSlot = (termSlot as number) - 1;
+    }
+    removed('quotations.builder.removed', () => {
+        terms.value.splice(index, 0, term as Term);
+        if (above && termSlot !== null) {
+            termSlot += 1;
+        }
+    }, 'term-entry-title');
+}
+
+/** A table row's name: as typed, else a keyed term's default — the label the PDF prints. */
+function termTitle(term: Term): string {
+    return term.title !== '' || term.key === null ? term.title : t(`quotations.terms.labels.${term.key}`);
 }
 
 function termError(index: number): string | null {
@@ -574,21 +676,6 @@ function termError(index: number): string | null {
 
 function orNull(value: string): string | null {
     return value.trim() === '' ? null : value;
-}
-
-/** A-37: Enter in an additional item's field steps to the next field; only Save submits. The entry row has its own Enter. */
-function nextField(event: KeyboardEvent): void {
-    const target = event.target;
-
-    if (!(target instanceof HTMLInputElement) || target.closest(`[data-testid="${fieldId('items')}"]`) === null) {
-        return;
-    }
-
-    event.preventDefault();
-
-    const fields = [...(form.value?.querySelectorAll<HTMLElement>('input, select, textarea, button:not([disabled])') ?? [])];
-
-    fields[fields.indexOf(target) + 1]?.focus();
 }
 
 function draft(): QuotationDraft {
@@ -723,11 +810,15 @@ function reset(): void {
     deal.value = null;
     customer.value = null;
     header.value = blankHeader();
-    terms.value = readyTerms();
+    terms.value = [];
+    termEntry.value = blankTerm();
+    termSlot = null;
     taxIncluded.value = true;
     lines.value = [];
     entry.value = blankEntry();
     items.value = [];
+    itemEntry.value = blankItem();
+    itemSlot = null;
     etag.value = '';
     quotationCode.value = '';
     conflict.value = null;
@@ -776,7 +867,7 @@ onMounted(load);
             {{ t(editing ? 'quotations.builder.missingEdit' : 'quotations.builder.missing') }}
         </p>
 
-        <form v-else-if="deal !== null" ref="form" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save" @keydown.enter="nextField">
+        <form v-else-if="deal !== null" ref="form" class="flex flex-col gap-4" novalidate data-testid="quotation-builder-form" @submit.prevent="save">
             <header class="flex flex-wrap items-center justify-between gap-3">
                 <h1 class="text-page-title">{{ editing ? t('quotations.builder.editTitle', { code: quotationCode }) : t('quotations.builder.title') }}</h1>
                 <p class="flex flex-wrap items-center gap-2">
@@ -887,7 +978,7 @@ onMounted(load);
                 <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
                     <h2 class="text-card-title">{{ t('quotations.detail.lines') }}</h2>
 
-                    <div class="entry-grid line-row rounded-xl p-3" @keydown.enter="entryEnter">
+                    <div class="entry-grid entry-row rounded-xl p-3" @keydown.enter="entryEnter">
                         <div class="entry-what">
                             <div class="flex flex-col gap-1.5">
                                 <label :for="fieldId('entry-supplier')">{{ t('quotations.detail.supplier') }}</label>
@@ -1013,16 +1104,26 @@ onMounted(load);
                     </div>
                 </section>
 
-                <!-- Additional items (QS.2c: under the lines): never taxed (`D-62`) — the server knows, this form only lists them. -->
+                <!-- Additional items (QS.2c: under the lines): never taxed (`D-62`) — the server knows, this form only lists them.
+                     Built like the lines: the entry row, then the table it fills. -->
                 <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
-                        <button :id="fieldId('add-item')" type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" data-testid="quotation-builder-add-item" @click="addItem">
+                    <h2 class="text-card-title">{{ t('quotations.detail.additionalItems') }}</h2>
+                    <!-- D-159 -->
+                    <p class="text-[var(--color-text-muted)]" :data-testid="fieldId('items-note')">{{ t('quotations.builder.itemsNote') }}</p>
+
+                    <div class="entry-pair entry-row rounded-xl p-3">
+                        <label class="flex flex-col gap-1.5" :for="fieldId('item-entry-description')">
+                            <span>{{ t('quotations.detail.description') }}</span>
+                            <input :id="fieldId('item-entry-description')" v-model="itemEntry.description" type="text" maxlength="255" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2" :data-testid="fieldId('item-entry-description')" @keydown.enter.prevent="addItem" />
+                        </label>
+                        <label class="flex flex-col gap-1.5" :for="fieldId('item-entry-amount')">
+                            <span>{{ t('quotations.detail.amount') }}</span>
+                            <input :id="fieldId('item-entry-amount')" v-model="itemEntry.amount" type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="form-field min-h-11 rounded-lg px-3 py-2 tabular-nums" :data-testid="fieldId('item-entry-amount')" @keydown.enter.prevent="addItem" />
+                        </label>
+                        <button type="button" class="row-action min-h-11 rounded-lg px-4" :data-testid="fieldId('item-entry-add')" @click="addItem">
                             + {{ t('quotations.builder.addItem') }}
                         </button>
                     </div>
-                    <!-- D-159 -->
-                    <p class="text-[var(--color-text-muted)]" :data-testid="fieldId('items-note')">{{ t('quotations.builder.itemsNote') }}</p>
 
                     <div class="table-frame overflow-x-auto rounded-xl">
                         <table class="card-table w-full text-table" :data-testid="fieldId('items')">
@@ -1038,41 +1139,21 @@ onMounted(load);
                                     <td colspan="3" class="justify-center p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noItems') }}</td>
                                 </tr>
                                 <tr v-for="(item, i) in items" :key="i" class="table-row">
-                                    <td :data-label="t('quotations.detail.description')" class="p-3">
-                                        <input
-                                            :id="fieldId(`item-${i}-description`)"
-                                            v-model="item.description"
-                                            type="text"
-                                            maxlength="255"
-                                            autocomplete="off"
-                                            :aria-label="t('quotations.detail.description')"
-                                            :aria-invalid="fieldErrors.has(`additional_items.${i}.description`)"
-                                            :aria-describedby="fieldErrors.has(`additional_items.${i}.description`) ? fieldId(`item-${i}-error`) : undefined"
-                                            class="form-field min-h-11 w-full rounded-lg px-3 py-2"
-                                            :data-testid="fieldId(`item-${i}-description`)"
-                                        />
-                                        <p v-if="itemError(i) !== null" class="mt-1 text-[var(--color-danger)]" role="alert" :id="fieldId(`item-${i}-error`)" :data-testid="fieldId(`item-${i}-error`)">
-                                            {{ itemError(i) }}
-                                        </p>
+                                    <td :data-label="t('quotations.detail.description')" class="p-3 break-words" :data-testid="fieldId(`item-${i}-description`)">
+                                        {{ item.description }}
+                                        <!-- OpenAPI §5: `additional_items.N.<field>` names the table's row N. -->
+                                        <span v-if="itemError(i) !== null" class="mt-1 block text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`item-${i}-error`)">{{ itemError(i) }}</span>
                                     </td>
-                                    <td :data-label="t('quotations.detail.amount')" class="p-3 text-end">
-                                        <input
-                                            :id="fieldId(`item-${i}-amount`)"
-                                            v-model="item.amount"
-                                            type="text"
-                                            inputmode="decimal"
-                                            autocomplete="off"
-                                            :aria-label="t('quotations.detail.amount')"
-                                            :aria-invalid="fieldErrors.has(`additional_items.${i}.amount`)"
-                                            :aria-describedby="fieldErrors.has(`additional_items.${i}.amount`) ? fieldId(`item-${i}-error`) : undefined"
-                                            class="form-field min-h-11 w-full rounded-lg px-3 py-2 text-end tabular-nums"
-                                            :data-testid="fieldId(`item-${i}-amount`)"
-                                        />
-                                    </td>
+                                    <td :data-label="t('quotations.detail.amount')" class="p-3 text-end tabular-nums" :data-testid="fieldId(`item-${i}-amount`)"><bdi dir="ltr">{{ item.amount }}</bdi></td>
                                     <td :data-label="t('quotations.builder.lineActions')" class="p-3 text-end">
-                                        <button type="button" class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60" :aria-label="t('quotations.builder.removeItemNo', { no: i + 1 })" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
-                                            {{ t('quotations.builder.removeItem') }}
-                                        </button>
+                                        <span class="inline-flex flex-wrap justify-end gap-2">
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.sendBackItem', { no: i + 1 })" :data-testid="fieldId(`item-${i}-edit`)" @click="editItem(i)">
+                                                {{ t('quotations.detail.edit') }}
+                                            </button>
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeItemNo', { no: i + 1 })" :data-testid="fieldId(`item-${i}-remove`)" @click="removeItem(i)">
+                                                {{ t('quotations.builder.removeItem') }}
+                                            </button>
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -1080,99 +1161,122 @@ onMounted(load);
                     </div>
                 </section>
 
-                <!-- Terms (D-103): a list built like the additional items, up to 15, printed
-                     numbered. A ready term (keyed) keeps its default name as the placeholder and,
-                     under its text, the caller's recent terms as chips (6.8, Design System §6.3).
-                     QS.2c: each section is its own card, with space between them. -->
+                <!-- Terms (D-103, D-169): up to 15, printed numbered, built like the items. A keyed term sent back
+                     to the entry row keeps its default name as the placeholder and, under its text, the caller's
+                     recent terms as chips (6.8, Design System §6.3). -->
                 <section class="section-card mt-4 flex flex-col gap-3 rounded-xl p-3 sm:p-4">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <h2 class="text-card-title">{{ t('quotations.terms.heading') }}</h2>
-                        <button
-                            type="button"
-                            class="row-action min-h-11 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-60"
-                            :disabled="terms.length >= MAX_TERMS"
-                            :id="fieldId('add-term')"
-                            :data-testid="fieldId('add-term')"
-                            @click="addTerm"
-                        >
-                            + {{ t('quotations.terms.add') }}
-                        </button>
-                    </div>
+                    <h2 class="text-card-title">{{ t('quotations.terms.heading') }}</h2>
 
-                    <div v-for="(term, i) in terms" :key="i" class="line-row flex flex-col gap-3 rounded-lg p-3">
-                        <div class="flex flex-wrap items-end gap-3">
-                            <label class="flex min-w-40 flex-1 flex-col gap-1.5" :for="fieldId(`term-${i}-title`)">
+                    <div class="entry-row flex flex-col gap-3 rounded-xl p-3">
+                        <div class="entry-pair term-pair">
+                            <label class="flex flex-col gap-1.5" :for="fieldId('term-entry-title')">
                                 <span>{{ t('quotations.terms.name') }}</span>
                                 <input
-                                    :id="fieldId(`term-${i}-title`)"
-                                    v-model="term.title"
+                                    :id="fieldId('term-entry-title')"
+                                    v-model="termEntry.title"
                                     type="text"
                                     maxlength="255"
                                     autocomplete="off"
-                                    :placeholder="term.key === null ? '' : t(`quotations.terms.labels.${term.key}`)"
-                                    :aria-invalid="fieldErrors.has(`terms.${i}.title`)"
-                                    :aria-describedby="fieldErrors.has(`terms.${i}.title`) ? fieldId(`term-${i}-error`) : undefined"
+                                    :placeholder="termEntry.key === null ? '' : t(`quotations.terms.labels.${termEntry.key}`)"
                                     class="form-field min-h-11 rounded-lg px-3 py-2"
-                                    :data-testid="fieldId(`term-${i}-title`)"
+                                    :data-testid="fieldId('term-entry-title')"
+                                    @keydown.enter.prevent="addTerm"
                                 />
                             </label>
-                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTermNo', { no: i + 1 })" :data-testid="fieldId(`term-${i}-remove`)" @click="removeTerm(i)">
-                                {{ t('quotations.builder.removeItem') }}
+                            <label class="flex flex-col gap-1.5" :for="fieldId('term-entry-body')">
+                                <span>{{ t('quotations.terms.body') }}</span>
+                                <!-- F-32: the delivery term is a combobox over the managed list. -->
+                                <SearchCombobox
+                                    v-if="offersList(termEntry.key)"
+                                    :id="fieldId('term-entry-body')"
+                                    :test-id="fieldId('term-entry-body')"
+                                    :search="searchTerms"
+                                    :keys="TERM_KEYS"
+                                    :selected="(option: TermOption) => option.name === termEntry.body"
+                                    :display="oneLine(termEntry.body)"
+                                    :placeholder="t('quotations.builder.deliveryTermPlaceholder')"
+                                    floating
+                                    @typed="termEntry.body = $event"
+                                    @pick="termEntry.body = $event?.name ?? ''"
+                                    @keydown.enter.prevent
+                                >
+                                    <template #option="{ item }">{{ item.name }}</template>
+                                </SearchCombobox>
+                                <textarea
+                                    v-else
+                                    :id="fieldId('term-entry-body')"
+                                    v-model="termEntry.body"
+                                    rows="2"
+                                    class="form-field rounded-lg px-3 py-2"
+                                    :data-testid="fieldId('term-entry-body')"
+                                ></textarea>
+                            </label>
+                            <button
+                                type="button"
+                                class="row-action min-h-11 rounded-lg px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="terms.length >= MAX_TERMS"
+                                :data-testid="fieldId('term-entry-add')"
+                                @click="addTerm"
+                            >
+                                + {{ t('quotations.terms.add') }}
                             </button>
                         </div>
-                        <label class="flex flex-col gap-1.5" :for="fieldId(`term-${i}-body`)">
-                            <span>{{ t('quotations.terms.body') }}</span>
-                            <!-- F-32: the delivery term is a combobox over the managed list. -->
-                            <SearchCombobox
-                                v-if="offersList(term.key)"
-                                :id="fieldId(`term-${i}-body`)"
-                                :test-id="fieldId(`term-${i}-body`)"
-                                :search="searchTerms"
-                                :keys="TERM_KEYS"
-                                :selected="(option: TermOption) => option.name === term.body"
-                                :display="oneLine(term.body)"
-                                :placeholder="t('quotations.builder.deliveryTermPlaceholder')"
-                                floating
-                                @typed="term.body = $event"
-                                @pick="term.body = $event?.name ?? ''"
-                                @keydown.enter.prevent
-                            >
-                                <template #option="{ item }">{{ item.name }}</template>
-                            </SearchCombobox>
-                            <textarea
-                                v-else
-                                :id="fieldId(`term-${i}-body`)"
-                                v-model="term.body"
-                                rows="3"
-                                :aria-invalid="fieldErrors.has(`terms.${i}.body`)"
-                                :aria-describedby="fieldErrors.has(`terms.${i}.body`) ? fieldId(`term-${i}-error`) : undefined"
-                                class="form-field rounded-lg px-3 py-2"
-                                :data-testid="fieldId(`term-${i}-body`)"
-                            ></textarea>
-                        </label>
                         <!-- F-32: the combobox is one line, so a long term is cut there at
                              375 px; its whole wraps here (F-24 · 1.5's option C). The field
                              already gives it to a screen reader. -->
                         <span
-                            v-if="offersList(term.key) && term.body !== ''"
+                            v-if="offersList(termEntry.key) && termEntry.body !== ''"
                             aria-hidden="true"
                             class="text-sm break-words text-[var(--color-text-muted)]"
-                            :data-testid="fieldId(`term-${i}-full`)"
-                        >{{ term.body }}</span>
-                        <p v-if="termError(i) !== null" class="text-[var(--color-danger)]" role="alert" :id="fieldId(`term-${i}-error`)" :data-testid="fieldId(`term-${i}-error`)">
-                            {{ termError(i) }}
-                        </p>
-                        <span v-if="term.key !== null && suggestions[term.key].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId(`term-${i}-suggestions`)">
+                            :data-testid="fieldId('term-entry-full')"
+                        >{{ termEntry.body }}</span>
+                        <span v-if="termEntry.key !== null && suggestions[termEntry.key].length > 0" class="flex flex-wrap gap-1.5" :data-testid="fieldId('term-entry-suggestions')">
                             <span class="sr-only">{{ t('quotations.builder.recentTerms') }}</span>
                             <button
-                                v-for="recent in suggestions[term.key]"
+                                v-for="recent in suggestions[termEntry.key]"
                                 :key="recent"
                                 type="button"
                                 class="row-action min-h-11 rounded-full px-3 text-sm"
-                                :data-testid="fieldId(`term-${i}-suggestion`)"
-                                @click="term.body = recent"
+                                :data-testid="fieldId('term-entry-suggestion')"
+                                @click="termEntry.body = recent"
                             >{{ recent }}</button>
                         </span>
+                    </div>
+
+                    <div class="table-frame overflow-x-auto rounded-xl">
+                        <table class="card-table w-full text-table" :data-testid="fieldId('terms')">
+                            <thead>
+                                <tr class="table-head">
+                                    <th scope="col" class="min-w-40 p-3 text-start">{{ t('quotations.terms.name') }}</th>
+                                    <th scope="col" class="p-3 text-start">{{ t('quotations.terms.body') }}</th>
+                                    <th scope="col" class="p-3 text-end"><span class="sr-only">{{ t('quotations.builder.lineActions') }}</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-if="terms.length === 0" class="table-row" :data-testid="fieldId('terms-empty')">
+                                    <td colspan="3" class="justify-center p-3 text-center text-[var(--color-text-muted)]">{{ t('quotations.builder.noTerms') }}</td>
+                                </tr>
+                                <tr v-for="(term, i) in terms" :key="i" class="table-row">
+                                    <td :data-label="t('quotations.terms.name')" class="p-3 break-words" :data-testid="fieldId(`term-${i}-title`)">
+                                        {{ termTitle(term) }}
+                                        <!-- OpenAPI §5: `terms.N.<field>` names the table's row N. -->
+                                        <span v-if="termError(i) !== null" class="mt-1 block text-[var(--color-danger)]" role="alert" :data-testid="fieldId(`term-${i}-error`)">{{ termError(i) }}</span>
+                                    </td>
+                                    <!-- A stored term may hold line breaks; they stay readable. -->
+                                    <td :data-label="t('quotations.terms.body')" class="term-body p-3 break-words" :data-testid="fieldId(`term-${i}-body`)">{{ term.body }}</td>
+                                    <td :data-label="t('quotations.builder.lineActions')" class="p-3 text-end">
+                                        <span class="inline-flex flex-nowrap justify-end gap-2">
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.sendBackTerm', { no: i + 1 })" :data-testid="fieldId(`term-${i}-edit`)" @click="editTerm(i)">
+                                                {{ t('quotations.detail.edit') }}
+                                            </button>
+                                            <button type="button" class="row-action min-h-11 rounded-lg px-3" :aria-label="t('quotations.builder.removeTermNo', { no: i + 1 })" :data-testid="fieldId(`term-${i}-remove`)" @click="removeTerm(i)">
+                                                {{ t('quotations.builder.removeItem') }}
+                                            </button>
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -1300,14 +1404,39 @@ onMounted(load);
     }
 }
 
-.line-row {
-    background-color: var(--color-surface);
+/* An entry row reads as the input area, apart from the table it fills. */
+.entry-row {
+    background-color: var(--color-surface-muted);
     border: 1px solid var(--color-border);
 }
 
-/* The entry row reads as the input area, apart from the table it fills. */
-.entry-grid.line-row {
-    background-color: var(--color-surface-muted);
+/* QS.2c: an item's or a term's entry row — two fields, then Add at its own width; one column on a phone. */
+.entry-pair {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 2fr 1fr auto;
+    align-items: end;
+}
+
+/* A term's text is the long field, taller than the name: the labels share the top line, Add stays on the controls' foot. */
+.term-pair {
+    grid-template-columns: 1fr 2fr auto;
+    align-items: start;
+}
+
+.term-pair > button {
+    align-self: end;
+}
+
+@media (max-width: 639px) {
+    .entry-pair {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* A stored term typed on several lines keeps its breaks in the table. */
+.term-body {
+    white-space: pre-line;
 }
 
 .form-field {
@@ -1336,7 +1465,9 @@ onMounted(load);
     border-block-start: 1px solid var(--color-border);
 }
 
+/* …and its head clear of the sticky context bar (123 px when it wraps on a phone), label included. */
 :global(html:has([data-testid='quotation-builder-actions'])) {
+    scroll-padding-block-start: 10rem;
     scroll-padding-block-end: 10rem;
 }
 

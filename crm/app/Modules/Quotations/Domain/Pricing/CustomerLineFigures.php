@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Quotations\Domain\Pricing;
 
+use App\Modules\Quotations\Domain\Listing\QuotationDetail;
+use App\Modules\Quotations\Domain\Listing\QuotationLine;
+
 /**
  * F-40 · 1.4 — the per-line figures `D-107`'s Commercial Offer prints, beside
  * {@see QuotationTotals} and on its terms: BCMath at {@see PricedLine::SCALE},
@@ -26,6 +29,15 @@ final class CustomerLineFigures
      * `PricedLine`. `CustomerLineFiguresTest` asserts the two agree.
      */
     public const SCALE = 6;
+
+    /**
+     * `D-157`: the rate a line is taxed at — its own; a `legacy` line's is the quotation's (`D-165`).
+     * Null on an exempt quotation (`D-63`); a 0 % rate is returned as is.
+     */
+    public static function rate(QuotationDetail $quotation, QuotationLine $line): ?string
+    {
+        return $quotation->pricingMode === PricingMode::Legacy ? $quotation->taxPercent : $line->taxPercent;
+    }
 
     /**
      * `D-63`: an exempt quotation (`taxPercent` null) has no VAT — not a zero.

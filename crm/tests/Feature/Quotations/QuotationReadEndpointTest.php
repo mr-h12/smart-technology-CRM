@@ -662,7 +662,7 @@ final class QuotationReadEndpointTest extends TestCase
     /** `D-170`: a line carries `CustomerLineFigures::vat()` — no discount, 3 × 120.00 = 360 at 14 % → 50.40, at the money scale. */
     public function test_each_line_carries_its_tax_amount(): void
     {
-        $id = $this->lineOwnedWith(['discount_percent' => '0']);
+        $id = $this->lineOwned($this->deal(null), overrides: ['discount_percent' => '0']);
 
         $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
             ->assertStatus(200)
@@ -676,8 +676,8 @@ final class QuotationReadEndpointTest extends TestCase
      */
     public function test_a_line_without_a_rate_above_zero_has_a_null_tax_amount(): void
     {
-        $exempt = $this->lineOwnedWith($this->e3Body());
-        $zero = $this->lineOwnedWith(['lines' => [$this->lineBody(tax: '0')]]);
+        $exempt = $this->lineOwned($this->deal(null), overrides: $this->e3Body());
+        $zero = $this->lineOwned($this->deal(null), overrides: ['lines' => [$this->lineBody(tax: '0')]]);
 
         foreach ([$exempt, $zero] as $id) {
             $item = $this->getJson(self::ENDPOINT.'/'.$id, $this->bearerFor(RoleName::Manager))
@@ -708,7 +708,7 @@ final class QuotationReadEndpointTest extends TestCase
     /** `D-170` / `D-157`: under a discount each line is taxed on its discounted amount, so the column sums to the VAT row. */
     public function test_the_line_taxes_sum_to_the_vat_row_under_a_discount(): void
     {
-        $id = $this->lineOwnedWith(['discount_percent' => '7', 'lines' => [
+        $id = $this->lineOwned($this->deal(null), overrides: ['discount_percent' => '7', 'lines' => [
             $this->lineBody(entered: '100', tax: '14', margin: '20', quantity: '3'),
             $this->lineBody(entered: '33.33', tax: '5', margin: '10', quantity: '7'),
         ]]);
@@ -724,9 +724,11 @@ final class QuotationReadEndpointTest extends TestCase
             self::assertIsArray($item);
             self::assertArrayHasKey('tax_amount', $item);
             self::assertIsString($item['tax_amount']);
+            self::assertIsNumeric($item['tax_amount']);
             $sum = bcadd($sum, $item['tax_amount'], 6);
         }
         self::assertIsString($data['tax_amount']);
+        self::assertIsNumeric($data['tax_amount']);
         self::assertSame(0, bccomp($sum, $data['tax_amount'], 6), $sum.' ≠ '.$data['tax_amount']);
     }
 
@@ -824,35 +826,18 @@ final class QuotationReadEndpointTest extends TestCase
     }
 
     /**
-     * QS.2a: a quotation saved through the line-owned body — `D-156` example 1 — on `$line`, or a line of its own.
+     * QS.2a: a quotation saved through the line-owned body — `D-156` example 1 — on `$line`, or a line of its own,
+     * with `$overrides` laid over it (QS.2d).
      *
      * @param  array<string, string>|null  $line
+     * @param  array<string, mixed>  $overrides
      */
-    private function lineOwned(string $dealId, ?array $line = null): string
+    private function lineOwned(string $dealId, ?array $line = null, array $overrides = []): string
     {
         $id = $this->postJson(self::ENDPOINT, [
             'deal_id' => $dealId,
             'customer_id' => $this->dealCustomers[$dealId],
             ...$this->e1Body($line),
-        ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
-
-        self::assertIsString($id);
-
-        return $id;
-    }
-
-    /**
-     * QS.2d: `lineOwned()`'s example-1 body with `$overrides` laid over it.
-     *
-     * @param  array<string, mixed>  $overrides
-     */
-    private function lineOwnedWith(array $overrides): string
-    {
-        $dealId = $this->deal(null);
-        $id = $this->postJson(self::ENDPOINT, [
-            'deal_id' => $dealId,
-            'customer_id' => $this->dealCustomers[$dealId],
-            ...$this->e1Body(),
             ...$overrides,
         ], ['Idempotency-Key' => Uuid::uuid4()->toString()] + $this->bearerFor(RoleName::Manager))->assertStatus(201)->json('data.id');
 

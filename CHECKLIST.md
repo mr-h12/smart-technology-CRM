@@ -2051,6 +2051,22 @@ would hide them behind `OD-03` indefinitely.
       (`2026_10_21_500000_add_dashboard_breakdown_columns.php:28`), `DatabaseDashboardAggregates.php:184` filters
       `IS NOT NULL`, and `DashboardAggregatesInterface.php:79` types it `?string`. Tightening needs a migration on
       Module 14's derived table (mohanadmm's track), outside QS.1's approved list. No money figure depends on it.
+- [ ] **`RequestIdTest` fails when a random request id happens to contain `abc`** — *revealed by QS.2c's full suite, 2026-10-24.*
+      "a rejected correlation id never echoes" asserts the rejected value (`abc…`) appears nowhere in the response,
+      but the fresh UUID it gets back is random: `82490ddc-5d71-4abc-…` failed the run; alone it passed (43/43).
+      The needle should be something a UUID cannot contain (a non-hex letter), not fixed here — no PHP in this point.
+- [ ] **`removed()`'s `message` argument is the same at every caller** — *revealed by QS.2c's waste audit, 2026-10-24.*
+      All three callers pass `'quotations.builder.removed'`, as they did before the point; a constant would do.
+- [ ] **Text typed in an entry row but not added is dropped by Save, without a word** — *revealed by QS.2c, 2026-10-24.*
+      The lines' entry row has always worked this way (`draft()` reads only the table; `snapshot()` ignores the
+      entry), and QS.2c gives the additional items and the terms the same entry row, so all three now share it.
+      Kept on purpose (owner, 2026-10-24: «زي البنود دلوقتي»); a warning before Save is the fix if it bites.
+- [ ] **The builder spec names `/quotations/q1/edit` eight more times** — *revealed by QS.2c's waste audit, 2026-10-23.*
+      Two `describe`-scoped `EDIT` constants and six literals, beside the top-level `KEYED_EDIT` QS.2c added.
+      One top-level constant would serve them all; not folded here because the point's list did not name it.
+- [ ] **No test presses Enter in an additional item's field (A-37)** — *revealed by QS.2c's waste audit, 2026-10-23.*
+      `nextField()` steps through the items table (QS.2c moved its hook from `.line-grid` to the table's test id);
+      the A-37 tests cover only the entry row, as they did on main before the point.
 - [ ] **The offer-line-to-supplier join is written four times in the tests** — *revealed by QS.2a's waste audit, 2026-10-23.*
       `InsertsQuotationRows.php:152`, `QuotationLineFixtures.php:88`, `QuotationReadEndpointTest.php:712` and
       `EloquentQuotationDirectoryTest.php:466` each join `supplier_quotation_items` to `supplier_quotations.supplier_id` to give
@@ -4973,7 +4989,7 @@ resumes at 8.3 after the redesign unless the owner reorders.
 
 ### Point list — slice 2 approved 2026-10-23 as two points (owner, in chat: "2a+2c then 2b")
 
-- [ ] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
+- [x] **QS.2a** The line prices itself from what was typed, and the builder types it (`D-155`…`D-159`, `D-161`,
       `D-163`…`D-165`) — migration B gives each `quotation_items` row its `supplier_id` (NOT NULL, foreign key),
       `unit_code`, `entered_unit_price` and `tax_percent`, backfilled from the line's supplier-offer line even when
       that offer line is soft-deleted, and each quotation its `pricing_mode` (`legacy` on every existing row;
@@ -4996,6 +5012,17 @@ resumes at 8.3 after the redesign unless the owner reorders.
       (owner, 2026-10-23, second ruling that day, reversing the morning's «no VAT column»; recorded as `D-168`,
       proposed); `legacy` prints as before. Not in it: the figures on Enter (QS.2b), typing a new supplier,
       product or unit (slice 3).
+      *(2026-10-23, #433 — tax added on top of the entered cost (D-167), the PDF's VAT column follows the toggle (D-168); CI 8 passed, 1 skipped on the PR head)*
+- [ ] **QS.2c** The builder's layout (owner, 2026-10-23, in chat; approved the same day) — the lines table always
+      shows its column headers, with one empty row before the first line; the additional items move **under** the
+      table as a small table (description · amount · remove) with their note (`D-159`) and an empty row of their own;
+      each section is its own card, 32px apart, and the tables carry a frame, a header and row lines (owner,
+      2026-10-23). The additional items and the terms work like the lines (owner, 2026-10-24): an entry row
+      (description · amount · «+ إضافة بند»; name · text · «+ إضافة شرط») moves a row into its table, each row
+      with Edit (back to the entry row) and Remove (with undo); a new quotation opens on **an empty terms table
+      under one entry row** (`D-169`, proposed, amending `D-103` ruling 1). A stored keyed term sent back to the entry
+      row brings its chips (6.8) and the delivery combobox (F-32). An empty term prints nothing (`D-103` ruling 3).
+      The API, the pricing and the PDF do not change.
 - [ ] **QS.2b** The builder shows the figures before saving — `POST /quotations/preview` runs the save's pricing
       with no write (`D-67`: the SPA computes nothing); the table shows each line's unit price and amount on Enter,
       and the totals block shows before Save.

@@ -155,6 +155,20 @@ const APPROVER: AuthenticatedUser = {
     unconditional_access: false,
 };
 
+/**
+ * QS.2c (D-169): a new quotation opens on no terms, so the keyed behaviour (chips,
+ * the delivery combobox, a renamed ready term) is tested on a stored Draft whose
+ * terms are the three ready keys, empty — and no additional item, so a test that
+ * adds one starts at row 0.
+ */
+const KEYED_TERMS = [
+    { key: 'payment_terms', title: null, body: null },
+    { key: 'warranty', title: null, body: null },
+    { key: 'delivery_terms', title: null, body: null },
+];
+const KEYED = { ...PRICED, terms: KEYED_TERMS, additional_items: [] };
+const KEYED_EDIT = '/quotations/q1/edit';
+
 const NEWER = { ...QUOTATION, version: 1, etag: '"v2"', final_total: '2000.000000', updated_at: '2026-09-14T10:00:00+00:00' };
 
 const USER: AuthenticatedUser = {
@@ -397,9 +411,9 @@ async function enterLine(wrapper: View, typed: Typed = E1): Promise<void> {
     await flushPromises();
 }
 
-/** The table's rows, in order. */
+/** The table's line rows, in order — QS.2c's empty-state row is not a line. */
 function rows(wrapper: View) {
-    return wrapper.findAll('[data-testid="quotation-builder-lines"] tbody tr');
+    return wrapper.findAll('[data-testid="quotation-builder-lines"] tbody tr:not([data-testid="quotation-builder-lines-empty"])');
 }
 
 /** One cell of the table: `line-0-price`, `line-1-unit`… */
@@ -411,11 +425,47 @@ function value(wrapper: View, field: string): string {
     return (wrapper.get(id(field)).element as HTMLInputElement).value;
 }
 
+/** QS.2c (owner, 2026-10-24): an additional item is typed in its entry row and Enter in its amount moves it into the items table, as a line does. */
+async function enterItem(wrapper: View, description: string, amount: string): Promise<void> {
+    await wrapper.get(id('item-entry-description')).setValue(description);
+    await wrapper.get(id('item-entry-amount')).setValue(amount);
+    await wrapper.get(id('item-entry-amount')).trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+}
+
+/** The items table's rows, in order — its empty-state row is not an item. */
+function itemRows(wrapper: View) {
+    return wrapper.findAll('[data-testid="quotation-builder-items"] tbody tr:not([data-testid="quotation-builder-items-empty"])');
+}
+
+/** QS.2c (owner, 2026-10-24): a term is typed in its entry row — name, text — and «Add term» moves it into the terms table. */
+async function enterTerm(wrapper: View, title: string, body: string): Promise<void> {
+    await wrapper.get(id('term-entry-title')).setValue(title);
+    await wrapper.get(id('term-entry-body')).setValue(body);
+    await wrapper.get(id('term-entry-add')).trigger('click');
+    await flushPromises();
+}
+
+/** The terms table's rows, in order — its empty-state row is not a term. */
+function termRows(wrapper: View) {
+    return wrapper.findAll('[data-testid="quotation-builder-terms"] tbody tr:not([data-testid="quotation-builder-terms-empty"])');
+}
+
+/** A table row's Edit: the row leaves the table and its values go back to the entry row. */
+async function editRow(wrapper: View, testId: string): Promise<void> {
+    await wrapper.get(id(testId)).trigger('click');
+    await flushPromises();
+}
+
 describe('the quotation builder (create)', () => {
     beforeEach(() => {
         vi.unstubAllGlobals();
         useAuth().forgetSession();
         window.localStorage.clear();
+    });
+
+    afterEach(() => {
+        attached.splice(0).forEach((wrapper) => wrapper.unmount());
     });
 
     // ──────────────────────────────────────────────────────────── the opening
@@ -585,10 +635,8 @@ describe('the quotation builder (create)', () => {
         await wrapper.find(id('discount_percent')).setValue('10');
         await wrapper.find(id('quotation_date')).setValue('2026-09-14');
         await wrapper.find(id('valid_until')).setValue('2026-10-14');
-        await wrapper.find(id('term-0-body')).setValue('50% advance');
-        await wrapper.find(id('add-item')).trigger('click');
-        await wrapper.find(id('item-0-description')).setValue('Delivery');
-        await wrapper.find(id('item-0-amount')).setValue('50');
+        await enterTerm(wrapper, 'Payment', '50% advance');
+        await enterItem(wrapper, 'Delivery', '50');
         await enterLine(wrapper);
         await enterLine(wrapper, SECOND);
 
@@ -606,11 +654,8 @@ describe('the quotation builder (create)', () => {
             discount_percent: '10',
             quotation_date: '2026-09-14',
             valid_until: '2026-10-14',
-            terms: [
-                { key: 'payment_terms', title: null, body: '50% advance' },
-                { key: 'warranty', title: null, body: null },
-                { key: 'delivery_terms', title: null, body: null },
-            ],
+            // QS.2c: a term added from the entry row carries no key.
+            terms: [{ key: null, title: 'Payment', body: '50% advance' }],
             lines: SENT_LINES,
             additional_items: [{ description: 'Delivery', amount: '50' }],
         });
@@ -654,24 +699,210 @@ describe('the quotation builder (create)', () => {
         expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/supplier-quotations'))).toBe(false);
     });
 
-    // D-159: the note sits with the additional items, and they sit above the lines table.
-    it('puts the additional items above the lines table, with the note that they carry no margin and no tax', async () => {
+    // QS.2c (owner, 2026-10-23/24): the additional items go under the lines table; the D-159 note and the
+    // item entry row stay above the items table, and the old top «+ Add item» button is gone.
+    it('puts the additional items under the lines table, with the note that they carry no margin and no tax', async () => {
         const arabic = await render(respond(), '/quotations/new?deal=d1', 'ar');
 
         await enterLine(arabic.wrapper);
 
-        const table = arabic.wrapper.get(id('lines')).element;
+        const lines = arabic.wrapper.get(id('lines')).element;
+        const items = arabic.wrapper.get(id('items')).element;
 
         expect(arabic.wrapper.get(id('items-note')).text()).toBe('لا يُضاف على البند الإضافي ربح ولا ضريبة (مثل التوصيل والتركيب)');
+        expect(arabic.wrapper.find(id('add-item')).exists()).toBe(false);
 
-        for (const before of ['items-note', 'add-item']) {
-            expect(arabic.wrapper.get(id(before)).element.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING, before).toBeTruthy();
+        for (const after of ['items-note', 'item-entry-description', 'items']) {
+            expect(lines.compareDocumentPosition(arabic.wrapper.get(id(after)).element) & Node.DOCUMENT_POSITION_FOLLOWING, `lines before ${after}`).toBeTruthy();
+        }
+
+        for (const before of ['items-note', 'item-entry-description']) {
+            expect(arabic.wrapper.get(id(before)).element.compareDocumentPosition(items) & Node.DOCUMENT_POSITION_FOLLOWING, `${before} before items`).toBeTruthy();
         }
 
         const english = await render(respond());
 
         expect(english.wrapper.get(id('items-note')).text()).toMatch(/margin/i);
         expect(english.wrapper.get(id('items-note')).text()).toMatch(/tax/i);
+    });
+
+    // QS.2c: the lines table is there from the start — every heading, and one empty row across it.
+    it('shows the lines table with its headings and one empty row before any line, and drops the empty row once a line is added', async () => {
+        const { wrapper } = await render(respond());
+
+        const table = wrapper.get(id('lines'));
+
+        expect(table.element.tagName).toBe('TABLE');
+
+        const headings = table.findAll('thead th');
+
+        expect(headings.map((th) => th.text()).slice(0, 7)).toEqual([
+            en.quotations.detail.supplier,
+            en.quotations.detail.product,
+            en.quotations.detail.unit,
+            en.quotations.detail.enteredPrice,
+            en.quotations.builder.tax_percent,
+            en.quotations.builder.margin_percent,
+            en.quotations.detail.quantity,
+        ]);
+
+        const empty = wrapper.get(id('lines-empty'));
+
+        expect(empty.text()).toBe(en.quotations.builder.noLines);
+        expect(empty.findAll('td')).toHaveLength(1);
+        expect(empty.get('td').attributes('colspan')).toBe(String(headings.length));
+        expect(rows(wrapper)).toHaveLength(0);
+
+        await enterLine(wrapper);
+
+        expect(wrapper.find(id('lines-empty')).exists()).toBe(false);
+        expect(rows(wrapper)).toHaveLength(1);
+    });
+
+    // QS.2c: the additional items are a table too — description, amount, a hidden actions heading — with its own empty row;
+    // an added item is a row of text with Edit and Remove, as a line is (owner, 2026-10-24).
+    it('lists the additional items as a table with an empty row, each added item a row of text with Edit and Remove', async () => {
+        const { wrapper } = await render(respond());
+
+        const table = wrapper.get(id('items'));
+
+        expect(table.element.tagName).toBe('TABLE');
+
+        const headings = table.findAll('thead th');
+
+        expect(headings).toHaveLength(3);
+        expect(headings.map((th) => th.text()).slice(0, 2)).toEqual([en.quotations.detail.description, en.quotations.detail.amount]);
+        expect(headings[2]?.find('.sr-only').exists()).toBe(true);
+
+        const empty = wrapper.get(id('items-empty'));
+
+        // The key `quotations.builder.noItems` is QS.2c's own; a missing key would print itself.
+        expect(empty.text()).not.toBe('');
+        expect(empty.text()).not.toBe('quotations.builder.noItems');
+
+        await enterItem(wrapper, 'Delivery', '50');
+
+        expect(wrapper.find(id('items-empty')).exists()).toBe(false);
+        expect(itemRows(wrapper)).toHaveLength(1);
+
+        for (const field of ['description', 'amount', 'edit', 'remove']) {
+            expect(wrapper.get(id('items')).find(`tbody tr ${id(`item-0-${field}`)}`).exists(), field).toBe(true);
+        }
+
+        // Text, not inputs: the row shows what was typed.
+        expect(wrapper.get(id('item-0-description')).element.tagName).not.toBe('INPUT');
+        expect(wrapper.get(id('item-0-description')).text()).toBe('Delivery');
+        expect(wrapper.get(id('item-0-amount')).element.tagName).not.toBe('INPUT');
+        expect(wrapper.get(id('item-0-amount')).text()).toBe('50');
+        expect(wrapper.get(id('items')).find('tbody input').exists()).toBe(false);
+        expect(wrapper.get(id('item-0-edit')).text()).toBe(en.quotations.detail.edit);
+    });
+
+    // ──────────────────────────────────────────────────────────── the item entry row (QS.2c, owner 2026-10-24)
+
+    it('has an item entry row — description, a decimal amount and «Add item» — and no top Add item button', async () => {
+        const { wrapper } = await render(respond());
+
+        expect(wrapper.find(id('add-item')).exists()).toBe(false);
+        expect(wrapper.get(id('item-entry-description')).element.tagName).toBe('INPUT');
+        expect(wrapper.get(id('item-entry-amount')).element.tagName).toBe('INPUT');
+        expect(wrapper.get(id('item-entry-amount')).attributes('inputmode')).toBe('decimal');
+        expect(wrapper.get(id('item-entry-add')).text()).toContain(en.quotations.builder.addItem);
+    });
+
+    it.each(['item-entry-description', 'item-entry-amount'])('adds the typed item on Enter in %s, clears the entry row and returns focus to its description', async (field) => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await wrapper.get(id('item-entry-description')).setValue('Delivery');
+        await wrapper.get(id('item-entry-amount')).setValue('50');
+        await wrapper.get(id(field)).trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+
+        expect(itemRows(wrapper)).toHaveLength(1);
+        expect(wrapper.get(id('item-0-description')).text()).toBe('Delivery');
+        expect(value(wrapper, 'item-entry-description')).toBe('');
+        expect(value(wrapper, 'item-entry-amount')).toBe('');
+        expect(document.activeElement?.getAttribute('data-testid')).toBe('quotation-builder-item-entry-description');
+    });
+
+    it('adds the typed item with the «Add item» button too', async () => {
+        const { wrapper } = await render(respond());
+
+        await wrapper.get(id('item-entry-description')).setValue('Installation');
+        await wrapper.get(id('item-entry-amount')).setValue('75.5');
+        await wrapper.get(id('item-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(itemRows(wrapper)).toHaveLength(1);
+        expect(wrapper.get(id('item-0-amount')).text()).toBe('75.5');
+    });
+
+    it.each([
+        { missing: 'description', description: '   ', amount: '50' },
+        { missing: 'amount', description: 'Delivery', amount: '' },
+    ])('adds nothing without a $missing, and focuses it', async ({ missing, description, amount }) => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await wrapper.get(id('item-entry-description')).setValue(description);
+        await wrapper.get(id('item-entry-amount')).setValue(amount);
+        await wrapper.get(id('item-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(itemRows(wrapper)).toHaveLength(0);
+        expect(wrapper.find(id('items-empty')).exists()).toBe(true);
+        expect(document.activeElement?.getAttribute('data-testid')).toBe(`quotation-builder-item-entry-${missing}`);
+    });
+
+    it('sends an item back to the entry row with Edit and takes it out of the table', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterItem(wrapper, 'Delivery', '50');
+        await enterItem(wrapper, 'Installation', '75');
+        await editRow(wrapper, 'item-0-edit');
+
+        expect(itemRows(wrapper)).toHaveLength(1);
+        expect(wrapper.get(id('item-0-description')).text()).toBe('Installation');
+        expect(value(wrapper, 'item-entry-description')).toBe('Delivery');
+        expect(value(wrapper, 'item-entry-amount')).toBe('50');
+    });
+
+    // Owner, 2026-10-24: an edited row goes back to its own place, not to the end.
+    it('saves the additional items in table order — an edited item added back returns to its own row', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock);
+
+        await fillHeader(wrapper);
+        await enterLine(wrapper);
+        await enterItem(wrapper, 'Delivery', '50');
+        await enterItem(wrapper, 'Installation', '75');
+        await editRow(wrapper, 'item-0-edit');
+        await wrapper.get(id('item-entry-amount')).setValue('60');
+        await wrapper.get(id('item-entry-add')).trigger('click');
+        await flushPromises();
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect((saves(fetchMock)[0]?.body as { additional_items: unknown }).additional_items).toEqual([
+            { description: 'Delivery', amount: '60' },
+            { description: 'Installation', amount: '75' },
+        ]);
+    });
+
+    // OpenAPI §5: `additional_items.N.<field>` names the items table's row N.
+    it.each(['description', 'amount'])('lands a 422 on additional_items.1.%s under the items table’s second row', async (field) => {
+        const fetchMock = respond({ saves: [refusal(422, 'validation_failed', [{ field: `additional_items.1.${field}`, code: 'invalid', message: 'Item two is wrong.' }])] });
+        const { wrapper } = await render(fetchMock);
+
+        await fillHeader(wrapper);
+        await enterLine(wrapper);
+        await enterItem(wrapper, 'Delivery', '50');
+        await enterItem(wrapper, 'Installation', '75');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect(wrapper.get(id('item-1-error')).text()).toBe('Item two is wrong.');
+        expect(wrapper.get(id('item-1-error')).attributes('role')).toBe('alert');
+        expect(wrapper.find(id('item-0-error')).exists()).toBe(false);
     });
 
     // ──────────────────────────────────────────────────────────── a refused line
@@ -797,16 +1028,30 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
         window.localStorage.clear();
     });
 
-    it('offers the caller’s recent terms under each ready term, newest first, and a click copies one in', async () => {
-        const { wrapper } = await render(respond({ suggestions: { warranty: ['Two years', 'One year'], payment_terms: ['50% advance'] } }));
+    // QS.2c (D-169): the chips belong to a keyed term, so they show under the entry row once a keyed row is sent back to it.
+    it('offers the caller’s recent terms under the entry row for a keyed term sent back, newest first, and a click copies one in', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED], suggestions: { warranty: ['Two years', 'One year'], payment_terms: ['50% advance'] } }), KEYED_EDIT);
 
-        expect(wrapper.findAll(id('term-1-suggestion')).map((chip) => chip.text())).toEqual(['Two years', 'One year']);
-        expect(wrapper.findAll(id('term-0-suggestion')).map((chip) => chip.text())).toEqual(['50% advance']);
-        expect(wrapper.find(id('term-2-suggestions')).exists()).toBe(false);
+        // A fresh entry row has no key, so no chips.
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
 
-        await wrapper.findAll(id('term-1-suggestion'))[1]?.trigger('click');
+        await editRow(wrapper, 'term-1-edit');
 
-        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('One year');
+        expect(wrapper.findAll(id('term-entry-suggestion')).map((chip) => chip.text())).toEqual(['Two years', 'One year']);
+
+        await wrapper.findAll(id('term-entry-suggestion'))[1]?.trigger('click');
+
+        expect(value(wrapper, 'term-entry-body')).toBe('One year');
+
+        // Added back to its own row (it keeps its key), the entry row is fresh again; the delivery term has no recent terms.
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
+
+        await editRow(wrapper, 'term-2-edit');
+
+        expect(value(wrapper, 'term-entry-body')).toBe('');
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
     });
 
     it('asks for the three fields on an edit too, and a refused lookup leaves the form usable', async () => {
@@ -816,24 +1061,42 @@ describe('the quotation builder — term suggestions (Point 6.8)', () => {
         const asked = fetchMock.mock.calls.map((call) => String(call[0])).filter((url) => url.includes('/user-term-suggestions'));
 
         expect(asked.map((url) => url.split('field=')[1])).toEqual(['payment_terms', 'warranty', 'delivery_terms']);
-        expect(wrapper.findAll(id('term-1-suggestion')).map((chip) => chip.text())).toEqual(['Ex works']);
-        expect(wrapper.find(id('term-0-suggestions')).exists()).toBe(false);
+
+        await editRow(wrapper, 'term-1-edit');
+        expect(wrapper.findAll(id('term-entry-suggestion')).map((chip) => chip.text())).toEqual(['Ex works']);
+
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+        await editRow(wrapper, 'term-0-edit');
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
         expect(wrapper.find(id('save')).exists()).toBe(true);
     });
 
     it('keeps a ready term’s chips when it is renamed or moves up, and gives an added term none (D-103 ruling 2)', async () => {
-        const { wrapper } = await render(respond({ suggestions: { warranty: ['One year'], payment_terms: ['50% advance'] } }));
+        const { wrapper } = await render(respond({ quotations: [KEYED], suggestions: { warranty: ['One year'], payment_terms: ['50% advance'] } }), KEYED_EDIT);
 
-        await wrapper.find(id('term-1-title')).setValue('Guarantee');
-        await wrapper.find(id('term-0-remove')).trigger('click');
+        // Rename the warranty: it goes back to its own row (owner, 2026-10-24), its key with it; removing the
+        // payment term above moves it up.
+        await editRow(wrapper, 'term-1-edit');
+        await wrapper.get(id('term-entry-title')).setValue('Guarantee');
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
 
-        expect((wrapper.find(id('term-0-title')).element as HTMLInputElement).value).toBe('Guarantee');
-        expect(wrapper.findAll(id('term-0-suggestion')).map((chip) => chip.text())).toEqual(['One year']);
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Guarantee');
 
-        await wrapper.find(id('add-term')).trigger('click');
+        await editRow(wrapper, 'term-0-edit');
 
-        expect(wrapper.find(id('term-2-body')).exists()).toBe(true);
-        expect(wrapper.find(id('term-2-suggestions')).exists()).toBe(false);
+        expect(value(wrapper, 'term-entry-title')).toBe('Guarantee');
+        expect(wrapper.findAll(id('term-entry-suggestion')).map((chip) => chip.text())).toEqual(['One year']);
+
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
+
+        expect(termRows(wrapper)).toHaveLength(3);
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
     });
 });
 
@@ -856,9 +1119,10 @@ describe('the quotation builder (edit)', () => {
         expect((wrapper.find(id('discount_percent')).element as HTMLInputElement).value).toBe('10');
         expect((wrapper.find(id('quotation_date')).element as HTMLInputElement).value).toBe('2026-09-13');
         expect((wrapper.get(id('tax-included')).element as HTMLInputElement).checked).toBe(true);
-        // D-103: the quotation's own terms in their order — the deleted warranty stays deleted.
-        expect((wrapper.find(id('term-0-body')).element as HTMLTextAreaElement).value).toBe('50% advance');
-        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Ex works');
+        // D-103: the quotation's own terms in their order — the deleted warranty stays deleted. QS.2c: table rows of text.
+        expect(termRows(wrapper)).toHaveLength(2);
+        expect(wrapper.get(id('term-0-body')).text()).toBe('50% advance');
+        expect(wrapper.get(id('term-1-body')).text()).toBe('Ex works');
         expect(wrapper.find(id('term-2-body')).exists()).toBe(false);
         expect(rows(wrapper)).toHaveLength(2);
         expect(cell(wrapper, 0, 'supplier')).toBe('Nile Pumps Co');
@@ -872,8 +1136,10 @@ describe('the quotation builder (edit)', () => {
         expect(cell(wrapper, 1, 'supplier')).toBe('Delta Valves');
         expect(cell(wrapper, 1, 'unit')).toBe('Metre');
         expect(cell(wrapper, 1, 'tax')).toMatch(/^0\s*%?$/);
-        expect((wrapper.find(id('item-0-description')).element as HTMLInputElement).value).toBe('Delivery');
-        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('50');
+        // QS.2c: a stored item is a table row of text.
+        expect(itemRows(wrapper)).toHaveLength(1);
+        expect(wrapper.get(id('item-0-description')).text()).toBe('Delivery');
+        expect(wrapper.get(id('item-0-amount')).text()).toBe('50');
     });
 
     // D-165 with contract §3's E4: a legacy Draft opens converted and saves through the new payload.
@@ -946,7 +1212,7 @@ describe('the quotation builder (edit)', () => {
         const { wrapper } = await render(fetchMock, EDIT);
 
         expect(cell(wrapper, 0, 'quantity')).toBe('1.25');
-        expect((wrapper.find(id('item-0-amount')).element as HTMLInputElement).value).toBe('0.125');
+        expect(wrapper.get(id('item-0-amount')).text()).toBe('0.125');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -1201,11 +1467,26 @@ describe('the builder\'s delivery-terms control', () => {
 
     type Rendered = Awaited<ReturnType<typeof render>>['wrapper'];
 
-    // D-103: the combobox sits on the delivery-keyed term — the third ready row of a new quotation.
-    const field = (wrapper: Rendered, row = 2) => wrapper.find(id(`term-${row}-body`));
-    const optionTexts = (wrapper: Rendered): string[] => wrapper.findAll(id('term-2-body-option')).map((option) => option.text());
-    /** What a new quotation sends with only the delivery term filled. */
+    // QS.2c (D-169): the combobox belongs to the delivery-keyed term, and shows on the entry row once
+    // that term's table row is sent back to it — KEYED's third row (a new quotation has no keyed term).
+    const field = (wrapper: Rendered) => wrapper.find(id('term-entry-body'));
+    const optionTexts = (wrapper: Rendered): string[] => wrapper.findAll(id('term-entry-body-option')).map((option) => option.text());
+    /** KEYED's three ready terms on an edit, with the delivery term list `TERMS` unless `options` says otherwise. */
+    const keyed = (options: Parameters<typeof respond>[0] = {}) => respond({ terms: TERMS, quotations: [KEYED], ...options });
+    /** What KEYED sends with only the delivery term filled — added back, it is still the last row. */
     const deliverySaved = (body: string) => ({ terms: [{ key: 'payment_terms' }, { key: 'warranty' }, { key: 'delivery_terms', title: null, body }] });
+
+    /** Sends a table row back to the entry row: KEYED's delivery term is row 2. */
+    async function sendBackTerm(wrapper: Rendered, row = 2): Promise<void> {
+        await wrapper.get(id(`term-${row}-edit`)).trigger('click');
+        await flushPromises();
+    }
+
+    /** «Add term»: the entry row goes back into the table. */
+    async function addBack(wrapper: Rendered): Promise<void> {
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+    }
 
     async function open(wrapper: Rendered): Promise<void> {
         await field(wrapper).trigger('focus');
@@ -1226,40 +1507,57 @@ describe('the builder\'s delivery-terms control', () => {
     }
 
     // QS.2a: the entry row's unit comes from the `units` list, read beside the delivery terms.
-    it('reads the delivery terms and the units once each, page 1, when the builder opens', async () => {
-        const fetchMock = respond({ terms: TERMS });
+    it('reads the units once on a new quotation, and the delivery terms and recent terms only on an edit (D-169: nothing new can show them)', async () => {
+        const paths = (fetchMock: ReturnType<typeof respond>): string[] => fetchMock.mock.calls
+            .map((call) => String(call[0]).replace(/^.*\/api\/v1/, ''))
+            .filter((path) => path.startsWith('/managed-lists/') || path.startsWith('/user-term-suggestions'));
 
-        await render(fetchMock);
+        const created = respond({ terms: TERMS });
+        await render(created);
+        expect(paths(created)).toEqual(['/managed-lists/units?page=1']);
 
-        const asked = fetchMock.mock.calls.map((call) => String(call[0]).replace(/^.*\/api\/v1/, '')).filter((path) => path.startsWith('/managed-lists/'));
-
-        expect([...asked].sort()).toEqual(['/managed-lists/delivery_terms?page=1', '/managed-lists/units?page=1']);
+        const edited = keyed();
+        await render(edited, KEYED_EDIT);
+        expect(paths(edited).filter((path) => path.startsWith('/managed-lists/')).sort()).toEqual(['/managed-lists/delivery_terms?page=1', '/managed-lists/units?page=1']);
+        expect(paths(edited).filter((path) => path.startsWith('/user-term-suggestions'))).toHaveLength(3);
     });
 
-    it('makes the delivery field a combobox and leaves payment terms and warranty as text areas', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+    it('makes the entry row’s text a combobox for the delivery term sent back, and a text area for payment terms', async () => {
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
+
+        // A fresh entry row has no key.
+        expect(field(wrapper).element.tagName).toBe('TEXTAREA');
+
+        await sendBackTerm(wrapper);
 
         expect(field(wrapper).attributes('role')).toBe('combobox');
-        expect(wrapper.find(id('term-0-body')).element.tagName).toBe('TEXTAREA');
-        expect(wrapper.find(id('term-1-body')).element.tagName).toBe('TEXTAREA');
+
+        await addBack(wrapper);
+        await sendBackTerm(wrapper, 0);
+
+        expect(field(wrapper).element.tagName).toBe('TEXTAREA');
     });
 
-    it('keeps the combobox on the delivery term when it is renamed or moves up, and an added term is a text area', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+    it('keeps the combobox on the delivery term when it is renamed or moves up, and a fresh entry row is a text area', async () => {
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
-        await wrapper.find(id('term-0-remove')).trigger('click');
-        await wrapper.find(id('term-1-title')).setValue('Shipping');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await sendBackTerm(wrapper, 1);
+        await wrapper.get(id('term-entry-title')).setValue('Shipping');
+        await addBack(wrapper);
 
-        expect(field(wrapper, 1).attributes('role')).toBe('combobox');
+        expect(wrapper.get(id('term-1-title')).text()).toBe('Shipping');
+        expect(field(wrapper).element.tagName).toBe('TEXTAREA');
 
-        await wrapper.find(id('add-term')).trigger('click');
+        await sendBackTerm(wrapper, 1);
 
-        expect(field(wrapper, 2).element.tagName).toBe('TEXTAREA');
+        expect(field(wrapper).attributes('role')).toBe('combobox');
     });
 
     it('opens on focus with one option per term, in the session’s language and the server’s order', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await open(wrapper);
 
         expect(optionTexts(wrapper)).toEqual([
@@ -1270,8 +1568,9 @@ describe('the builder\'s delivery-terms control', () => {
     });
 
     it('shows the Arabic labels in an Arabic session', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', 'ar');
+        const { wrapper } = await render(keyed(), KEYED_EDIT, 'ar');
 
+        await sendBackTerm(wrapper);
         await open(wrapper);
 
         expect(optionTexts(wrapper)).toEqual([
@@ -1282,8 +1581,9 @@ describe('the builder\'s delivery-terms control', () => {
     });
 
     it('narrows the list as you type, ignoring case', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await typeInto(wrapper, 'WEEKS');
 
         expect(optionTexts(wrapper)).toEqual([
@@ -1293,8 +1593,9 @@ describe('the builder\'s delivery-terms control', () => {
     });
 
     it('narrows the Arabic labels by Arabic text', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', 'ar');
+        const { wrapper } = await render(keyed(), KEYED_EDIT, 'ar');
 
+        await sendBackTerm(wrapper);
         await typeInto(wrapper, 'أسابيع');
 
         expect(optionTexts(wrapper)).toEqual(['خلال 4 إلى 6 أسابيع من استلام أمر الشراء']);
@@ -1304,42 +1605,48 @@ describe('the builder\'s delivery-terms control', () => {
         { locale: 'en' as const, messages: en },
         { locale: 'ar' as const, messages: ar },
     ])('speaks the $locale session’s language in its placeholder and its no-match sentence', async ({ locale, messages }) => {
-        const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/new?deal=d1', locale);
+        const { wrapper } = await render(keyed(), KEYED_EDIT, locale);
+
+        await sendBackTerm(wrapper);
 
         expect(field(wrapper).attributes('placeholder')).toBe(messages.quotations.builder.deliveryTermPlaceholder);
 
         await typeInto(wrapper, 'zzz');
 
-        expect(wrapper.find(id('term-2-body-state')).text()).toBe(messages.quotations.builder.deliveryTermNoMatch.replace('{query}', 'zzz'));
+        expect(wrapper.find(id('term-entry-body-state')).text()).toBe(messages.quotations.builder.deliveryTermNoMatch.replace('{query}', 'zzz'));
     });
 
     it('fills the field with the picked term, and the save sends that text', async () => {
-        const fetchMock = respond({ terms: TERMS });
-        const { wrapper } = await render(fetchMock);
+        const fetchMock = keyed();
+        const { wrapper } = await render(fetchMock, KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await open(wrapper);
-        await wrapper.findAll(id('term-2-body-option'))[2]?.trigger('mousedown');
+        await wrapper.findAll(id('term-entry-body-option'))[2]?.trigger('mousedown');
 
         expect((field(wrapper).element as HTMLInputElement).value).toBe('Delivered to the customer’s site');
 
+        await addBack(wrapper);
         await save(wrapper);
 
         expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Delivered to the customer’s site'));
     });
 
     it('marks the term the field already holds as the selected option when the list opens again', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await open(wrapper);
-        await wrapper.findAll(id('term-2-body-option'))[2]?.trigger('mousedown');
+        await wrapper.findAll(id('term-entry-body-option'))[2]?.trigger('mousedown');
         await open(wrapper);
 
-        expect(wrapper.findAll(id('term-2-body-option')).map((option) => option.attributes('aria-selected'))).toEqual(['false', 'false', 'true']);
+        expect(wrapper.findAll(id('term-entry-body-option')).map((option) => option.attributes('aria-selected'))).toEqual(['false', 'false', 'true']);
     });
 
     it('picks from the keyboard: ArrowDown to the first term, Enter to take it', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await open(wrapper);
         await field(wrapper).trigger('keydown', { key: 'ArrowDown' });
         await field(wrapper).trigger('keydown', { key: 'Enter' });
@@ -1353,8 +1660,9 @@ describe('the builder\'s delivery-terms control', () => {
         { why: 'the typed text matches no term', text: 'Within ten days' },
         { why: 'terms are listed but none is highlighted', text: 'Within' },
     ])('blocks the form’s submit on Enter when $why', async ({ text }) => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await typeInto(wrapper, text);
 
         const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -1373,39 +1681,47 @@ describe('the builder\'s delivery-terms control', () => {
     });
 
     it('keeps text that matches no term, says so, and saves it as typed', async () => {
-        const fetchMock = respond({ terms: TERMS });
-        const { wrapper } = await render(fetchMock);
+        const fetchMock = keyed();
+        const { wrapper } = await render(fetchMock, KEYED_EDIT);
 
+        await sendBackTerm(wrapper);
         await typeInto(wrapper, 'Within ten days');
 
         expect(optionTexts(wrapper)).toEqual([]);
-        expect(wrapper.find(id('term-2-body-state')).exists()).toBe(true);
-        expect(wrapper.find(id('term-2-body-state')).text()).toContain('Within ten days');
+        expect(wrapper.find(id('term-entry-body-state')).exists()).toBe(true);
+        expect(wrapper.find(id('term-entry-body-state')).text()).toContain('Within ten days');
 
         await field(wrapper).trigger('focusout');
 
         expect((field(wrapper).element as HTMLInputElement).value).toBe('Within ten days');
 
+        await addBack(wrapper);
         await save(wrapper);
 
         expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Within ten days'));
     });
 
     it('still copies a recent term into the field when its chip is clicked', async () => {
-        const { wrapper } = await render(respond({ terms: TERMS, suggestions: { delivery_terms: ['Ex works'] } }));
+        const { wrapper } = await render(keyed({ suggestions: { delivery_terms: ['Ex works'] } }), KEYED_EDIT);
+
+        await sendBackTerm(wrapper);
 
         expect(field(wrapper).attributes('role')).toBe('combobox');
 
-        await wrapper.findAll(id('term-2-suggestion'))[0]?.trigger('click');
+        await wrapper.findAll(id('term-entry-suggestion'))[0]?.trigger('click');
 
         expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
     });
 
-    it('shows an opened quotation’s stored term in the field', async () => {
+    it('shows an opened quotation’s stored term in its row, and in the field when sent back', async () => {
         const { wrapper } = await render(respond({ terms: TERMS }), '/quotations/q1/edit');
 
-        expect(field(wrapper, 1).attributes('role')).toBe('combobox');
-        expect((field(wrapper, 1).element as HTMLInputElement).value).toBe('Ex works');
+        expect(wrapper.get(id('term-1-body')).text()).toBe('Ex works');
+
+        await sendBackTerm(wrapper, 1);
+
+        expect(field(wrapper).attributes('role')).toBe('combobox');
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works');
     });
 
     // A one-line box strips line breaks and glues the words (Chrome: "a\nb" → "ab"); the PDF
@@ -1413,7 +1729,9 @@ describe('the builder\'s delivery-terms control', () => {
     it('shows an old term typed on several lines on one line, each break as a space', async () => {
         const { wrapper } = await render(respond({ terms: TERMS, quotations: [{ ...QUOTATION, terms: [{ key: 'delivery_terms', title: null, body: 'Ex works\r\nbefore noon' }] }] }), '/quotations/q1/edit');
 
-        expect((field(wrapper, 0).element as HTMLInputElement).value).toBe('Ex works before noon');
+        await sendBackTerm(wrapper, 0);
+
+        expect((field(wrapper).element as HTMLInputElement).value).toBe('Ex works before noon');
     });
 
     // The owner, 2026-10-01 (F-24 · 1.5's option C): at 375 px the one-line field cut 6 of 8 dev
@@ -1423,19 +1741,21 @@ describe('the builder\'s delivery-terms control', () => {
             how: 'picked',
             act: async (wrapper: Rendered) => {
                 await open(wrapper);
-                await wrapper.findAll(id('term-2-body-option'))[0]?.trigger('mousedown');
+                await wrapper.findAll(id('term-entry-body-option'))[0]?.trigger('mousedown');
             },
             whole: 'Within 1–2 weeks from receipt of the purchase order',
         },
         { how: 'typed', act: (wrapper: Rendered) => typeInto(wrapper, 'Within ten days'), whole: 'Within ten days' },
     ])('wraps the whole $how term under the one-line field, hidden from screen readers', async ({ act, whole }) => {
-        const { wrapper } = await render(respond({ terms: TERMS }));
+        const { wrapper } = await render(keyed(), KEYED_EDIT);
 
-        expect(wrapper.find(id('term-2-full')).exists()).toBe(false);
+        await sendBackTerm(wrapper);
+
+        expect(wrapper.find(id('term-entry-full')).exists()).toBe(false);
 
         await act(wrapper);
 
-        const full = wrapper.find(id('term-2-full'));
+        const full = wrapper.find(id('term-entry-full'));
 
         expect(full.exists()).toBe(true);
         expect(full.text()).toBe(whole);
@@ -1456,17 +1776,21 @@ describe('the builder\'s delivery-terms control', () => {
         { why: 'has no entries', options: { terms: [] } },
         { why: 'is refused', options: { termsStatus: 403 } },
     ])('keeps the plain text area, still saving what is typed, when the list $why', async ({ options }) => {
-        const fetchMock = respond(options);
-        const { wrapper } = await render(fetchMock);
+        const fetchMock = respond({ quotations: [KEYED], ...options });
+        const { wrapper } = await render(fetchMock, KEYED_EDIT);
 
         expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/managed-lists/delivery_terms'))).toBe(true);
+
+        await sendBackTerm(wrapper);
+
         expect(field(wrapper).element.tagName).toBe('TEXTAREA');
 
         await field(wrapper).setValue('Ex works');
 
         // A text area wraps by itself: nothing is repeated under it.
-        expect(wrapper.find(id('term-2-full')).exists()).toBe(false);
+        expect(wrapper.find(id('term-entry-full')).exists()).toBe(false);
 
+        await addBack(wrapper);
         await save(wrapper);
 
         expect(saves(fetchMock)[0]?.body).toMatchObject(deliverySaved('Ex works'));
@@ -1474,10 +1798,12 @@ describe('the builder\'s delivery-terms control', () => {
 });
 
 /**
- * F-37 · 1.4 — `D-103`: the terms are a list built like the additional items.
- * A new quotation opens with three ready terms whose name starts empty, the
- * default name shown as the placeholder — the label the PDF prints for an
- * empty name; up to 15; every row renamable and removable; no checkbox.
+ * F-37 · 1.4 — `D-103`: the terms list. QS.2c (`D-169`, owner 2026-10-24): the
+ * terms work like the lines — one entry row (name, text, «Add term») moves a term
+ * into the terms table, where each row has Edit (back to the entry row) and
+ * Remove (with undo). A new quotation opens on an empty table; up to 15; a stored
+ * keyed term with an empty name shows its default name — the label the PDF prints;
+ * no checkbox.
  */
 describe('the builder\'s terms list (F-37, D-103)', () => {
     beforeEach(() => {
@@ -1486,57 +1812,195 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         window.localStorage.clear();
     });
 
-    const titles = '[data-testid^="quotation-builder-term-"][data-testid$="-title"]';
+    afterEach(() => {
+        attached.splice(0).forEach((wrapper) => wrapper.unmount());
+    });
 
-    it.each([
-        { locale: 'en' as const, labels: ['Payment', 'Warranty', 'Delivery'] },
-        { locale: 'ar' as const, labels: ['الدفع', 'الضمان', 'التسليم'] },
-    ])('opens a new quotation on three ready, unnamed terms, the $locale default name as each placeholder', async ({ locale, labels }) => {
-        const { wrapper } = await render(respond(), '/quotations/new?deal=d1', locale);
+    const active = (): string | null => document.activeElement?.getAttribute('data-testid') ?? null;
 
-        const ready = [0, 1, 2].map((row) => wrapper.find(id(`term-${row}-title`)));
+    // QS.2c (owner, 2026-10-24): no term row, the entry row above an empty table — no default name, no chips, no delivery list.
+    it('opens a new quotation on an empty terms table under one keyless entry row — no placeholder, no chips, no delivery combobox', async () => {
+        const { wrapper } = await render(respond({ terms: TERMS, suggestions: { payment_terms: ['50% advance'], warranty: ['One year'], delivery_terms: ['Ex works'] } }));
 
-        expect(wrapper.findAll(titles)).toHaveLength(3);
-        expect(ready.map((title) => (title.element as HTMLInputElement).value)).toEqual(['', '', '']);
-        expect(ready.map((title) => title.attributes('placeholder'))).toEqual(labels);
+        expect(wrapper.find(id('add-term')).exists()).toBe(false);
+        expect(wrapper.find(id('terms')).exists()).toBe(true);
+        expect(termRows(wrapper)).toHaveLength(0);
+        expect(wrapper.get(id('terms-empty')).text()).not.toBe('');
+        expect(wrapper.find(id('term-0-title')).exists()).toBe(false);
+        expect(wrapper.get(id('term-entry-title')).element.tagName).toBe('INPUT');
+        expect(value(wrapper, 'term-entry-title')).toBe('');
+        expect(wrapper.get(id('term-entry-title')).attributes('placeholder') ?? '').toBe('');
+        expect(wrapper.get(id('term-entry-body')).element.tagName).toBe('TEXTAREA');
+        expect(wrapper.get(id('term-entry-add')).text()).toContain(en.quotations.terms.add);
+        expect(wrapper.find(id('term-entry-suggestions')).exists()).toBe(false);
+        expect(wrapper.findAll('[data-testid^="quotation-builder-term-"][role="combobox"]')).toHaveLength(0);
         // Ruling 3: no checkbox — an empty body or a deleted row keeps a term off the PDF.
         expect(wrapper.find(id('show_delivery_terms')).exists()).toBe(false);
     });
 
-    it('adds terms up to fifteen, then disables the button until one is removed', async () => {
-        const { wrapper } = await render(respond());
+    it.each([
+        { locale: 'en' as const, labels: ['Payment', 'Warranty', 'Delivery'] },
+        { locale: 'ar' as const, labels: ['الدفع', 'الضمان', 'التسليم'] },
+    ])('shows a stored keyed term’s $locale default name in its row while its name is empty', async ({ locale, labels }) => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT, locale);
 
-        for (let index = 0; index < 12; index += 1) {
-            await wrapper.find(id('add-term')).trigger('click');
-        }
-
-        expect(wrapper.findAll(titles)).toHaveLength(15);
-        expect(wrapper.find(id('add-term')).attributes('disabled')).toBeDefined();
-
-        await wrapper.find(id('add-term')).trigger('click');
-
-        expect(wrapper.findAll(titles)).toHaveLength(15);
-
-        await wrapper.find(id('term-13-title')).setValue('Kept');
-        await wrapper.find(id('term-14-remove')).trigger('click');
-
-        // The clicked row goes, not another one.
-        expect((wrapper.find(id('term-13-title')).element as HTMLInputElement).value).toBe('Kept');
-        expect(wrapper.find(id('add-term')).attributes('disabled')).toBeUndefined();
+        expect(termRows(wrapper)).toHaveLength(3);
+        expect([0, 1, 2].map((row) => wrapper.get(id(`term-${row}-title`)).text())).toEqual(labels);
     });
 
-    it('saves a renamed, a removed and an added term in row order, and none of the old fields', async () => {
+    it('saves an untouched new quotation with no terms', async () => {
         const fetchMock = respond();
         const { wrapper } = await render(fetchMock);
 
         await fillHeader(wrapper);
         await enterLine(wrapper);
-        await wrapper.find(id('term-0-remove')).trigger('click');
-        await wrapper.find(id('term-0-title')).setValue('Guarantee');
-        await wrapper.find(id('term-0-body')).setValue('Two years');
-        await wrapper.find(id('add-term')).trigger('click');
-        await wrapper.find(id('term-2-title')).setValue('Spare parts');
-        await wrapper.find(id('term-2-body')).setValue('Six months');
+        await wrapper.find(id('form')).trigger('submit');
+        await flushPromises();
+
+        expect((saves(fetchMock)[0]?.body as { terms: unknown }).terms).toEqual([]);
+    });
+
+    it('adds a named term into the table as text with Edit and Remove, clears the entry row and returns focus to its name', async () => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
+
+        expect(termRows(wrapper)).toHaveLength(1);
+        expect(wrapper.find(id('terms-empty')).exists()).toBe(false);
+        expect(wrapper.get(id('term-0-title')).element.tagName).not.toBe('INPUT');
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Spare parts');
+        expect(wrapper.get(id('term-0-body')).element.tagName).not.toBe('TEXTAREA');
+        expect(wrapper.get(id('term-0-body')).text()).toBe('Six months');
+        expect(wrapper.get(id('term-0-edit')).text()).toBe(en.quotations.detail.edit);
+        expect(wrapper.find(id('term-0-remove')).exists()).toBe(true);
+        expect(value(wrapper, 'term-entry-title')).toBe('');
+        expect(value(wrapper, 'term-entry-body')).toBe('');
+        expect(active()).toBe('quotation-builder-term-entry-title');
+    });
+
+    // The server's `needsName`: a keyless term with a text needs a name; every term needs a text to be added.
+    it.each([
+        { missing: 'body', title: 'Spare parts', body: '  ' },
+        { missing: 'title', title: '', body: 'Six months' },
+    ])('adds nothing without its $missing, and focuses it', async ({ missing, title, body }) => {
+        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+
+        await enterTerm(wrapper, title, body);
+
+        expect(termRows(wrapper)).toHaveLength(0);
+        expect(active()).toBe(`quotation-builder-term-entry-${missing}`);
+    });
+
+    it('adds on Enter in the name, and Enter in the text is a new line, not an add', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock, undefined, 'en', USER, true);
+
+        await wrapper.get(id('term-entry-title')).setValue('Spare parts');
+        await wrapper.get(id('term-entry-body')).setValue('Six months');
+
+        const newline = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+        wrapper.get(id('term-entry-body')).element.dispatchEvent(newline);
+        await flushPromises();
+
+        expect(newline.defaultPrevented).toBe(false);
+        expect(termRows(wrapper)).toHaveLength(0);
+
+        await wrapper.get(id('term-entry-title')).trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+
+        expect(termRows(wrapper)).toHaveLength(1);
+        expect(saves(fetchMock)).toEqual([]);
+    });
+
+    it('sends a term back to the entry row with Edit and takes it out of the table', async () => {
+        const { wrapper } = await render(respond());
+
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
+        await enterTerm(wrapper, 'Training', 'Two days');
+        await editRow(wrapper, 'term-0-edit');
+
+        expect(termRows(wrapper)).toHaveLength(1);
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Training');
+        expect(value(wrapper, 'term-entry-title')).toBe('Spare parts');
+        expect(value(wrapper, 'term-entry-body')).toBe('Six months');
+    });
+
+    it('adds terms up to fifteen, then disables «Add term» until one is removed', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT);
+
+        for (let index = 3; index < 15; index += 1) {
+            await enterTerm(wrapper, `Term ${index}`, `Text ${index}`);
+        }
+
+        expect(termRows(wrapper)).toHaveLength(15);
+        expect(wrapper.get(id('term-entry-add')).attributes('disabled')).toBeDefined();
+
+        await wrapper.get(id('term-entry-title')).setValue('Sixteenth');
+        await wrapper.get(id('term-entry-body')).setValue('One too many');
+        await wrapper.get(id('term-entry-title')).trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+
+        expect(termRows(wrapper)).toHaveLength(15);
+
+        await wrapper.get(id('term-14-remove')).trigger('click');
+        await flushPromises();
+
+        // The clicked row goes, not another one.
+        expect(termRows(wrapper)).toHaveLength(14);
+        expect(wrapper.get(id('term-13-title')).text()).toBe('Term 13');
+        expect(wrapper.get(id('term-entry-add')).attributes('disabled')).toBeUndefined();
+    });
+
+    it('keeps a sent-back term’s own place when a row above it is removed, and when that removal is undone', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT);
+
+        await editRow(wrapper, 'term-1-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Warranty');
+        expect(wrapper.get(id('term-1-title')).text()).toBe('Delivery');
+
+        await editRow(wrapper, 'term-1-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text() === 'Undo')?.trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(termRows(wrapper).map((row) => row.find(`[data-testid$="-title"]`).text())).toEqual(['Warranty', 'Delivery']);
+
+        // A row BELOW the sent-back one, removed and restored, leaves its place alone.
+        await editRow(wrapper, 'term-0-edit');
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        await flushPromises();
+        await wrapper.findAll('button').find((button) => button.text() === 'Undo')?.trigger('click');
+        await flushPromises();
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+
+        expect(termRows(wrapper).map((row) => row.find(`[data-testid$="-title"]`).text())).toEqual(['Warranty', 'Delivery']);
+    });
+
+    it('saves a renamed, a removed and an added term in table order, and none of the old fields', async () => {
+        const fetchMock = respond({ quotations: [KEYED] });
+        const { wrapper } = await render(fetchMock, KEYED_EDIT);
+
+        await fillHeader(wrapper);
+        await enterLine(wrapper);
+        await wrapper.get(id('term-0-remove')).trigger('click');
+        // The warranty, renamed and given a text, goes back to its own row, before the delivery term — its key kept
+        // (owner, 2026-10-24: the terms print numbered, so an edit never reorders them).
+        await editRow(wrapper, 'term-0-edit');
+        await wrapper.get(id('term-entry-title')).setValue('Guarantee');
+        await wrapper.get(id('term-entry-body')).setValue('Two years');
+        await wrapper.get(id('term-entry-add')).trigger('click');
+        await flushPromises();
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
@@ -1561,9 +2025,9 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         const fetchMock = respond({ quotations: [{ ...QUOTATION, terms: stored }] });
         const { wrapper } = await render(fetchMock, '/quotations/q1/edit');
 
-        expect((wrapper.find(id('term-0-title')).element as HTMLInputElement).value).toBe('Guarantee');
-        expect((wrapper.find(id('term-1-title')).element as HTMLInputElement).value).toBe('Spare parts');
-        expect((wrapper.find(id('term-1-body')).element as HTMLTextAreaElement).value).toBe('Six months');
+        expect(wrapper.get(id('term-0-title')).text()).toBe('Guarantee');
+        expect(wrapper.get(id('term-1-title')).text()).toBe('Spare parts');
+        expect(wrapper.get(id('term-1-body')).text()).toBe('Six months');
 
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
@@ -1571,37 +2035,39 @@ describe('the builder\'s terms list (F-37, D-103)', () => {
         expect((saves(fetchMock)[0]?.body as { terms: unknown }).terms).toEqual(stored);
     });
 
-    it('opens a quotation with no terms on no rows, and the button still adds one', async () => {
+    it('opens a quotation with no terms on the empty table, and the entry row still adds one', async () => {
         const { wrapper } = await render(respond({ quotations: [{ ...QUOTATION, terms: [] }] }), '/quotations/q1/edit');
 
-        expect(wrapper.findAll(titles)).toHaveLength(0);
+        expect(termRows(wrapper)).toHaveLength(0);
+        expect(wrapper.find(id('terms-empty')).exists()).toBe(true);
 
-        await wrapper.find(id('add-term')).trigger('click');
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
 
-        expect(wrapper.findAll(titles)).toHaveLength(1);
+        expect(termRows(wrapper)).toHaveLength(1);
     });
 
     it('lands a 422 on terms.N.title under that row', async () => {
         const fetchMock = respond({
-            saves: [refusal(422, 'validation_failed', [{ field: 'terms.3.title', code: 'invalid', message: 'An added term needs a name.' }])],
+            quotations: [KEYED],
+            updates: [refusal(422, 'validation_failed', [{ field: 'terms.3.title', code: 'invalid', message: 'An added term needs a name.' }])],
         });
-        const { wrapper } = await render(fetchMock);
+        const { wrapper } = await render(fetchMock, KEYED_EDIT);
 
         await fillHeader(wrapper);
         await enterLine(wrapper);
-        await wrapper.find(id('add-term')).trigger('click');
-        await wrapper.find(id('term-3-body')).setValue('Six months');
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
         await wrapper.find(id('form')).trigger('submit');
         await flushPromises();
 
-        expect(wrapper.find(id('term-3-error')).text()).toBe('An added term needs a name.');
+        expect(wrapper.get(id('term-3-error')).text()).toBe('An added term needs a name.');
+        expect(wrapper.get(id('term-3-error')).attributes('role')).toBe('alert');
         expect(wrapper.find(id('term-0-error')).exists()).toBe(false);
     });
 
-    it('counts a changed term as an unsaved change', async () => {
+    it('counts an added term as an unsaved change', async () => {
         const { wrapper, router } = await render(respond(), '/quotations/q1/edit');
 
-        await wrapper.find(id('term-1-title')).setValue('Shipping');
+        await enterTerm(wrapper, 'Shipping', 'By sea');
         await router.push('/quotations/q1');
         await flushPromises();
 
@@ -1669,16 +2135,16 @@ describe('the quotation builder (F-42 · P5)', () => {
         expect(value(wrapper, 'entry-price')).toBe('');
     });
 
-    it('A-17: Add item focuses the new row’s first field; a removed last row hands focus to Add once Undo expires', async () => {
-        const { wrapper } = await render(respond(), undefined, 'en', USER, true);
+    // QS.2c (owner, 2026-10-24): as a line does, an added item or term hands focus back to its entry row's first field,
+    // and a removed item hands it there once Undo expires.
+    it('A-17: Add item and Add term return focus to their entry row; a removed item hands focus to the item entry row once Undo expires', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT, 'en', USER, true);
 
-        await wrapper.find(id('add-item')).trigger('click');
-        await flushPromises();
-        expect(active()).toBe('quotation-builder-item-0-description');
+        await enterItem(wrapper, 'Delivery', '50');
+        expect(active()).toBe('quotation-builder-item-entry-description');
 
-        await wrapper.find(id('add-term')).trigger('click');
-        await flushPromises();
-        expect(active()).toBe('quotation-builder-term-3-title');
+        await enterTerm(wrapper, 'Spare parts', 'Six months');
+        expect(active()).toBe('quotation-builder-term-entry-title');
 
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
         await wrapper.find(id('item-0-remove')).trigger('click');
@@ -1688,7 +2154,33 @@ describe('the quotation builder (F-42 · P5)', () => {
         vi.runAllTimers();
         await nextTick();
         await nextTick();
-        expect(active()).toBe('quotation-builder-add-item');
+        expect(active()).toBe('quotation-builder-item-entry-description');
+    });
+
+    it('A-35: an item’s and a term’s trash take the row at once, and Undo brings it back where it was', async () => {
+        const { wrapper } = await render(respond({ quotations: [KEYED] }), KEYED_EDIT, 'en', USER, true);
+
+        await enterItem(wrapper, 'Delivery', '50');
+        await enterItem(wrapper, 'Installation', '75');
+
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        await wrapper.get(id('item-0-remove')).trigger('click');
+        await nextTick();
+
+        expect(itemRows(wrapper)).toHaveLength(1);
+        await wrapper.get(id('undo')).trigger('click');
+        await nextTick();
+        expect(itemRows(wrapper)).toHaveLength(2);
+        expect(wrapper.get(id('item-0-description')).text()).toBe('Delivery');
+
+        await wrapper.get(id('term-1-remove')).trigger('click');
+        await nextTick();
+
+        expect(termRows(wrapper)).toHaveLength(2);
+        await wrapper.get(id('undo')).trigger('click');
+        await nextTick();
+        expect(termRows(wrapper)).toHaveLength(3);
+        expect(wrapper.get(id('term-1-title')).text()).toBe('Warranty');
     });
 
     it('A-35: a row’s trash takes it at once, and Undo brings it back where it was', async () => {
@@ -1735,6 +2227,23 @@ describe('the quotation builder (F-42 · P5)', () => {
 
         expect(saves(fetchMock)).toEqual([]);
         expect(rows(wrapper)).toHaveLength(1);
+    });
+
+    // QS.2c (owner, 2026-10-24): the item entry row works the same — Enter adds the item, only Save submits.
+    it('A-37: Enter in the item entry row moves it into the items table and sends nothing', async () => {
+        const fetchMock = respond();
+        const { wrapper } = await render(fetchMock, undefined, 'en', USER, true);
+
+        await wrapper.find(id('currency')).setValue('EGP');
+        await enterLine(wrapper);
+        await wrapper.get(id('item-entry-description')).setValue('Delivery');
+        await wrapper.get(id('item-entry-amount')).setValue('50');
+        (wrapper.get(id('item-entry-description')).element as HTMLInputElement).focus();
+        await wrapper.get(id('item-entry-description')).trigger('keydown', { key: 'Enter' });
+        await flushPromises();
+
+        expect(saves(fetchMock)).toEqual([]);
+        expect(itemRows(wrapper)).toHaveLength(1);
     });
 
     it('A-62: the entry row’s margin keeps the full keyboard and reads left to right, so a minus can be typed (D-106)', async () => {
